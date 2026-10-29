@@ -25,6 +25,7 @@ class CalibrationPage implements PageLike {
   async waitForNavigation(_options?: WaitForOptions): Promise<HTTPResponse | null> { return null; }
   async click(_selector: string): Promise<void> {}
   async focus(_selector: string): Promise<void> {}
+  async close(): Promise<void> {}
   async $eval<T>(_selector: string, _pageFunction: (element: Element, ...args: unknown[]) => T, ..._args: unknown[]): Promise<T> { throw new Error('not used'); }
   async $$eval<T>(_selector: string, _pageFunction: (elements: Element[], ...args: unknown[]) => T, ..._args: unknown[]): Promise<T> { throw new Error('not used'); }
   async evaluate<T>(pageFunction: (...args: unknown[]) => T, ...args: unknown[]): Promise<T> {

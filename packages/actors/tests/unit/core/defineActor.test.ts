@@ -5,6 +5,12 @@ import { defineFormFillerTask, defineFormTask } from '../../../src/core/Actor.js
 import { ConfigError } from '../../../src/errors/ConfigError.js';
 import { makeContext } from '../../fixtures/makeContext.js';
 
+// Defaults applied by defineFormTask (see src/core/Actor.ts) to every filled field.
+const defaultFillOptions = {
+  clickBeforeTyping: true,
+  typing: { enabled: true, targetWordsPerMinute: 88, intervalJitterMs: 37 }
+};
+
 describe('defineActor and ActorRegistry', () => {
   it('preserves actor definitions and registers them by id', () => {
     const actor = defineActor({
@@ -62,8 +68,8 @@ describe('defineFormTask', () => {
     expect(result).toEqual({ submittedEmail: 'jane@example.com' });
     expect(fakePage.gotos[0]?.url).toBe('https://example.com/contact');
     expect(fakeInteractor.typed).toEqual([
-      { selector: '#name', value: 'Jane Doe', options: { required: true } },
-      { selector: '#email', value: 'jane@example.com', options: { required: true } }
+      { selector: '#name', value: 'Jane Doe', options: { required: true, ...defaultFillOptions } },
+      { selector: '#email', value: 'jane@example.com', options: { required: true, ...defaultFillOptions } }
     ]);
     expect(fakeInteractor.clicks).toEqual([{ selector: '#submit' }]);
     expect(fakePage.waitedNavigations).toHaveLength(1);
@@ -90,8 +96,8 @@ describe('defineFormTask', () => {
     });
 
     expect(fakeInteractor.typed).toEqual([
-      { selector: '#first', value: 'Jane', options: { required: true } },
-      { selector: '#last', value: 'DOE', options: { required: true } }
+      { selector: '#first', value: 'Jane', options: { required: true, ...defaultFillOptions } },
+      { selector: '#last', value: 'DOE', options: { required: true, ...defaultFillOptions } }
     ]);
     expect(fakeInteractor.clicks).toEqual([{ selector: '#submit' }]);
   });

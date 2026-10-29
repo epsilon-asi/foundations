@@ -15,6 +15,12 @@ import { MemoryLogger } from '../../../src/logging/MemoryLogger.js';
 import { FakeHumanInteractor } from '../../fixtures/FakeCursor.js';
 import { FakeBrowser, FakePage } from '../../fixtures/FakePage.js';
 
+// Defaults applied by defineFormTask (see src/core/Actor.ts) to every filled field.
+const defaultFillOptions = {
+  clickBeforeTyping: true,
+  typing: { enabled: true, targetWordsPerMinute: 88, intervalJitterMs: 37 }
+};
+
 class StaticBrowserFactory extends BrowserFactory {
   launchCalls = 0;
 
@@ -188,8 +194,8 @@ describe('ActorRunner', () => {
     expect(result).toEqual({ submitted: 'jane@example.com' });
     expect(page.gotos[0]?.url).toBe('https://example.com/contact');
     expect(interactor.typed).toEqual([
-      { selector: '#name', value: 'Jane Doe', options: { required: true } },
-      { selector: '#email', value: 'jane@example.com', options: { required: true } }
+      { selector: '#name', value: 'Jane Doe', options: { required: true, ...defaultFillOptions } },
+      { selector: '#email', value: 'jane@example.com', options: { required: true, ...defaultFillOptions } }
     ]);
     expect(interactor.clicks).toEqual([{ selector: '#submit' }]);
     expect(page.waitedNavigations).toHaveLength(1);

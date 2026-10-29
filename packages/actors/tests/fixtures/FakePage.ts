@@ -130,6 +130,7 @@ export class FakePage implements PageLike {
   currentUrl = 'about:blank';
   pageTitle = 'Fake Page';
   pageContent = '<html></html>';
+  closeCalls = 0;
   screenshots: Record<string, unknown>[] = [];
 
   setSelector(selector: string, state: FakeElementState = {}): this {
@@ -194,6 +195,10 @@ export class FakePage implements PageLike {
 
   async evaluate<T>(pageFunction: (...args: unknown[]) => T, ...args: unknown[]): Promise<T> {
     return pageFunction(...args);
+  }
+
+  async close(): Promise<void> {
+    this.closeCalls += 1;
   }
 
   url(): string {
