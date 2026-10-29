@@ -1,0 +1,93 @@
+{
+  "name": "@epsilon-asi/ui",
+  "version": "0.0.1",
+  "description": "A modern React 19 + MUI 7 component library starter with TypeScript, Storybook, tests, and publish-ready packaging.",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "import": "./dist/theme.js",
+      "require": "./dist/theme.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.60.2",
+    "@rollup/rollup-darwin-x64": "^4.60.2",
+    "@rolldown/binding-darwin-x64": "1.0.0-rc.17",
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "storybook": "storybook dev -p 6006",
+    "dev": "storybook dev -p 6006",
+    "pub": "",
+    "build-storybook": "storybook build",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm run typecheck && npm run test:run && npm run build"
+  },
+  "peerDependencies": {
+    "@emotion/react": "^11.0.0",
+    "@emotion/styled": "^11.0.0",
+    "@mui/material": "^7.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@emotion/react": "^11.0.0",
+    "@emotion/styled": "^11.0.0",
+    "@mui/icons-material": "^7.0.0",
+    "@mui/material": "^7.0.0",
+    "@storybook/addon-a11y": "^10.0.0",
+    "@storybook/addon-docs": "^10.0.0",
+    "@storybook/react-vite": "^10.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^25.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "jsdom": "^29.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "storybook": "^10.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^4.0.0"
+  },
+  "keywords": [
+    "react",
+    "react19",
+    "mui",
+    "mui7",
+    "storybook",
+    "typescript",
+    "component-library",
+    "design-system"
+  ]
+}

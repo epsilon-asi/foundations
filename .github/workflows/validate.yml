@@ -1,0 +1,195 @@
+# GitHub Actions equivalent of the `validate` stage in .gitlab-ci.yml.
+#
+# GitLab job                     -> GitHub job
+#   validate:packages            -> validate-packages            (node:22.17 container)
+#   validate:automation:packages -> validate-automation-packages (puppeteer container)
+#
+# Required repository secrets:
+#   NPM_TOKEN         - npm registry auth token (all packages)
+#   NUT_JS_NPM_TOKEN  - pkg.nutjs.dev auth token (automation packages only)
+#
+# The GitLab `validate` stage has no rules, so it runs on every push (branches
+# and tags) and on merge requests. This mirrors that.
+
+name: Validate
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Mirrors the top-level `variables:` block in .gitlab-ci.yml
+  NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+  NPM_PUBLISH_PROVENANCE: "true"
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # validate:packages
+  # ---------------------------------------------------------------------------
+  validate-packages:
+    name: "validate:packages (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    container:
+      image: node:22.17
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the `.packages` anchor
+        name:
+          - foundation
+          - langgraph
+          - slack
+          - system
+          - ui
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      PACKAGE_DIR: packages/${{ matrix.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Mirrors `.package_template` cache: key "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG",
+      # path ".npm/", policy pull-push.
+      - name: Restore npm cache
+        uses: actions/cache@v4
+        with:
+          path: .npm
+          key: validate-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', matrix.name)) }}
+          restore-keys: |
+            validate-packages-${{ matrix.name }}-${{ github.ref_name }}-
+            validate-packages-${{ matrix.name }}-
+
+      # Mirrors `.package_template` before_script. The GitLab job sets a
+      # relative path from the project root; the absolute workspace path keeps
+      # the same location regardless of the working directory of later steps.
+      - name: Configure npm cache directory
+        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
+
+      - name: Require NPM_TOKEN
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install package dependencies
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm ci
+
+      - name: Test
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run test
+
+      - name: Build
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run build
+
+      # Mirrors `artifacts: when: always, expire_in: 7 days`
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-${{ matrix.name }}
+          path: |
+            packages/*/coverage/
+            packages/*/build/
+            packages/*/dist/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # validate:automation:packages
+  # ---------------------------------------------------------------------------
+  validate-automation-packages:
+    name: "validate:automation:packages (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/puppeteer/puppeteer:24.43.1
+      # The puppeteer image defaults to the non-root `pptruser`, which cannot
+      # write to the runner-mounted workspace on GitHub Actions. Running as root
+      # is the standard workaround for container jobs. If tests launch Chrome
+      # directly, they may need `--no-sandbox` when running as root.
+      options: --user root
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the `.automation_packages` anchor
+        name:
+          - actors
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NUT_JS_NPM_TOKEN: ${{ secrets.NUT_JS_NPM_TOKEN }}
+      PACKAGE_DIR: packages/${{ matrix.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore npm cache
+        uses: actions/cache@v4
+        with:
+          path: .npm
+          key: validate-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package.json', matrix.name)) }}
+          restore-keys: |
+            validate-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-
+            validate-automation-packages-${{ matrix.name }}-
+
+      - name: Configure npm cache directory
+        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
+
+      - name: Require NPM_TOKEN
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # Mirrors the GitLab script verbatim: drop the lock file, write a
+      # package-local .npmrc with the registry overrides, then `npm install`.
+      - name: Configure package registries
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          rm package-lock.json
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+          echo "@epsilon-asi:registry=https://npmjs.org"  >> .npmrc
+          echo "@nut-tree:registry=https://nutjs.dev"  >> .npmrc
+          echo "//pkg.nutjs.dev/:_authToken=${NUT_JS_NPM_TOKEN}"  >> .npmrc
+
+      - name: Install package dependencies
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm install
+
+      - name: Test
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run test
+
+      - name: Build
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run build
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-${{ matrix.name }}
+          path: |
+            packages/*/coverage/
+            packages/*/build/
+            packages/*/dist/
+          retention-days: 7
+          if-no-files-found: ignore

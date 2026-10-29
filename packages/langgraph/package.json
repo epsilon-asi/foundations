@@ -1,0 +1,46 @@
+{
+  "name": "@epsilon-asi/langgraph",
+  "version": "0.2.2",
+  "description": "Zod v4-first LangGraph StateGraph wrapper with standardized node schemas, hooks, logging, checkpointing, test helpers, and resume support.",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "require": "./build/index.js",
+      "default": "./build/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --coverage",
+    "test:all": "npm run typecheck && npm run test && npm run build",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "dependencies": {
+    "@langchain/core": "latest",
+    "@langchain/langgraph": "^1.4.8",
+    "@langchain/langgraph-checkpoint": "^1.1.3",
+    "@langchain/openai": "^1.5.5",
+    "langchain": "^1.5.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitest/coverage-v8": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

@@ -1,0 +1,63 @@
+{
+  "name": "@epsilon-asi/foundation",
+  "version": "0.0.6",
+  "description": "",
+  "mainDir": "./",
+  "scripts": {
+    "build": "tsc",
+    "build:clean": "rm -rf ./build && npm run build",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.type-tests.json --noEmit",
+    "examples": "npm run build && node build/decorators/factory/examples/runExamples.js",
+    "start:dev": "npx nodemon --exec \"npx tsc\" --watch src -e ts",
+    "test": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles",
+    "test:watch": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles --watchAll",
+    "verify": "npm run typecheck && npm run typecheck:tests && npm run examples && npm run test && npm run build",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "jest": {
+    "clearMocks": true,
+    "maxWorkers": 1,
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
+    "testMatch": [
+      "**/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.test.ts",
+      "!.ai/**/*",
+      "!src/**/*.type-test.ts",
+      "!src/**/__tests__/**",
+      "!src/type-tests/**",
+      "!src/examples/**",
+      "!src/decorators/factory/examples/**",
+      "!src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js",
+      "require": "./build/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
+  "author": "",
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {}
+}

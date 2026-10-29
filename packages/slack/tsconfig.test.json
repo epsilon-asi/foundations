@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@epsilon-asi/slack": ["./src/index.ts"],
+      "@epsilon-asi/slack/prebuilt": ["./src/prebuilt/index.ts"],
+      "@epsilon-asi/slack/blocks": ["./src/blocks/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"]
+}

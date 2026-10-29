@@ -1,0 +1,199 @@
+# GitHub Actions equivalent of the `publish` stage in .gitlab-ci.yml.
+#
+# GitLab job                    -> GitHub job
+#   publish:packages            -> publish-packages            (node:22.17 container)
+#   publish:automation:packages -> publish-automation-packages (puppeteer container)
+#
+# GitLab rule: `if: '$CI_COMMIT_TAG'` -> runs on any pushed tag.
+# GitLab's `VERSION="${CI_COMMIT_TAG#v}"` becomes `VERSION="${GITHUB_REF_NAME#v}"`.
+#
+# Required repository secrets:
+#   NPM_TOKEN         - npm registry auth token (all packages)
+#   NUT_JS_NPM_TOKEN  - pkg.nutjs.dev auth token (automation packages only)
+#
+# Note: in GitLab the `publish` stage is listed before `validate`, so the two
+# are independent. The Validate workflow still runs on tag pushes on its own.
+
+name: Publish
+
+on:
+  push:
+    tags: ["**"]
+
+permissions:
+  contents: read
+  # NPM_PUBLISH_PROVENANCE=true needs an OIDC token on GitHub Actions.
+  id-token: write
+
+env:
+  # Mirrors the top-level `variables:` block in .gitlab-ci.yml
+  NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+  NPM_PUBLISH_PROVENANCE: "true"
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # publish:packages
+  # ---------------------------------------------------------------------------
+  publish-packages:
+    name: "publish:packages (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    container:
+      image: node:22.17
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the `.packages` anchor
+        name:
+          - foundation
+          - langgraph
+          - slack
+          - system
+          - ui
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      PACKAGE_DIR: packages/${{ matrix.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore npm cache
+        uses: actions/cache@v4
+        with:
+          path: .npm
+          key: publish-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', matrix.name)) }}
+          restore-keys: |
+            publish-packages-${{ matrix.name }}-${{ github.ref_name }}-
+            publish-packages-${{ matrix.name }}-
+
+      - name: Configure npm cache directory
+        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
+
+      - name: Require NPM_TOKEN
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+
+      # `npm run pub` calls scripts/bump_version.sh, which needs zsh and jq.
+      # Neither ships in the node:22.17 image, so install them here (no-op if
+      # they are already present).
+      - name: Install bump prerequisites (zsh, jq)
+        run: |
+          if ! command -v zsh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends zsh jq
+          fi
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install package dependencies
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm ci
+
+      - name: Test
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run test
+
+      - name: Build
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run build
+
+      - name: Publish
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VERSION
+          npm run pub
+
+  # ---------------------------------------------------------------------------
+  # publish:automation:packages
+  # ---------------------------------------------------------------------------
+  publish-automation-packages:
+    name: "publish:automation:packages (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/puppeteer/puppeteer:24.43.1
+      # See validate.yml: the image's default non-root user cannot write to the
+      # runner-mounted workspace, so run as root.
+      options: --user root
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors the `.automation_packages` anchor
+        name:
+          - actors
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NUT_JS_NPM_TOKEN: ${{ secrets.NUT_JS_NPM_TOKEN }}
+      PACKAGE_DIR: packages/${{ matrix.name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore npm cache
+        uses: actions/cache@v4
+        with:
+          path: .npm
+          key: publish-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package.json', matrix.name)) }}
+          restore-keys: |
+            publish-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-
+            publish-automation-packages-${{ matrix.name }}-
+
+      - name: Configure npm cache directory
+        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
+
+      - name: Require NPM_TOKEN
+        run: |
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+
+      - name: Install bump prerequisites (zsh, jq)
+        run: |
+          if ! command -v zsh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends zsh jq
+          fi
+
+      - name: Install root dependencies
+        run: npm ci
+
+      # Mirrors the GitLab script verbatim: drop the lock file, write a
+      # package-local .npmrc with the registry overrides, then `npm install`.
+      - name: Configure package registries
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          rm package-lock.json
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+          echo "@epsilon-asi:registry=https://npmjs.org"  >> .npmrc
+          echo "@nut-tree:registry=https://nutjs.dev"  >> .npmrc
+          echo "//pkg.nutjs.dev/:_authToken=${NUT_JS_NPM_TOKEN}"  >> .npmrc
+
+      - name: Install package dependencies
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm install
+
+      - name: Test
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run test
+
+      - name: Build
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run build
+
+      - name: Publish
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VERSION
+          npm run pub

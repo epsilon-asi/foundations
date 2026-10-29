@@ -1,0 +1,56 @@
+{
+  "name": "@epsilon-asi/slack",
+  "version": "0.1.6",
+  "description": "A generalized TypeScript Slack message framework with prebuilt Block Kit components and composable builders.",
+  "type": "module",
+  "private": false,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./prebuilt": {
+      "types": "./dist/prebuilt/index.d.ts",
+      "import": "./dist/prebuilt/index.js",
+      "require": "./dist/prebuilt/index.cjs"
+    },
+    "./blocks": {
+      "types": "./dist/blocks/index.d.ts",
+      "import": "./dist/blocks/index.js",
+      "require": "./dist/blocks/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public",
+    "build": "tsup src/index.ts src/prebuilt/index.ts src/blocks/index.ts --format esm,cjs --dts --clean --sourcemap",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "verify": "npm run typecheck && npm run build && npm run coverage"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@slack/web-api": "^7.16.0",
+    "@types/node": "^25.9.1",
+    "@vitest/coverage-v8": "^4.1.7",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

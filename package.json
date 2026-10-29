@@ -1,0 +1,25 @@
+{
+  "name": "@epsilon-asi/*",
+  "version": "1.0.0",
+  "description": "",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "",
+    "test": ""
+  },
+  "dependencies": {
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.6.0",
+    "jest": "^30.3.0",
+    "nodemon": "^3.1.14",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
