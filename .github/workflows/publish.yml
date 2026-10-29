@@ -166,18 +166,9 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      # Mirrors the GitLab script verbatim: drop the lock file, write a
-      # package-local .npmrc with the registry overrides, then `npm install`.
-      - name: Configure package registries
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: |
-          rm package-lock.json
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
-          echo "@epsilon-asi:registry=https://npmjs.org"  >> .npmrc
-
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm install
+        run: npm ci
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
