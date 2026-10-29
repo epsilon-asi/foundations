@@ -12,13 +12,10 @@ export class UnsupportedPlatformError extends NativeAutomationError {
   }
 }
 
-export class NativeDependencyError extends NativeAutomationError {
-  constructor(packageName: string, cause?: unknown) {
-    super(
-      `Native automation dependency ${packageName} is not available. Install the optional native automation peer dependencies before using this feature.`,
-      cause === undefined ? { packageName } : { packageName, cause }
-    );
-    this.name = 'NativeDependencyError';
+export class NativeCapabilityUnavailableError extends NativeAutomationError {
+  constructor(capability: string) {
+    super(`Native ${capability} automation is not available on this platform.`, { capability });
+    this.name = 'NativeCapabilityUnavailableError';
   }
 }
 

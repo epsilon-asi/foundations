@@ -6,35 +6,25 @@ import { DefaultNativeWindowService, type NativeWindowServiceDependencies } from
 import { DefaultNativeImageFinder } from '../NativeImageFinder.js';
 import { ImageBasedCoordinateMapper, type ImageBasedCoordinateMapperOptions } from '../NativeCoordinateMapper.js';
 import { DefaultNativeFileDialogService, type NativeFileDialogServiceDependencies } from '../NativeFileDialogService.js';
-import { NutNativeMouseDriver } from '../nut/NutNativeMouseDriver.js';
-import { NutNativeKeyboardDriver } from '../nut/NutNativeKeyboardDriver.js';
-import { NutNativeScreenDriver } from '../nut/NutNativeScreenDriver.js';
-import { NutNativeWindowDriver } from '../nut/NutNativeWindowDriver.js';
-import { FallbackNativeWindowDriver } from '../CompositeNativeWindowDriver.js';
+import { UnavailableNativeImageFinderDriver, UnavailableNativeMouseDriver } from '../UnavailableNativeDrivers.js';
 import { MacOSAccessibilityWindowDriver } from './MacOSAccessibilityWindowDriver.js';
-import { NutNativeImageFinderDriver, type NutNativeImageFinderOptions } from '../nut/NutNativeImageFinder.js';
 import { MacOSAppleScriptClient, type MacOSAppleScriptClientOptions } from './MacOSAppleScriptClient.js';
+import { MacOSAppleScriptKeyboardDriver } from './MacOSAppleScriptKeyboardDriver.js';
+import { MacOSAppleScriptScreenDriver } from './MacOSAppleScriptScreenDriver.js';
 import { MacOSFileDialogAccessibilityStrategy } from './MacOSFileDialogAccessibilityStrategy.js';
 
 export function createMacOSNativeAutomation(args: NativeAutomationFactoryArgs): NativeAutomation {
   const nativeConfig = args.config.native;
-  const mouseDriver = new NutNativeMouseDriver();
-  const keyboardDriver = new NutNativeKeyboardDriver();
-  const screenDriver = new NutNativeScreenDriver();
   const appleScriptOptions: MacOSAppleScriptClientOptions = {};
   const osascriptTimeoutMs = nativeConfig?.macos?.osascriptTimeoutMs ?? args.config.defaultTimeoutMs;
   if (osascriptTimeoutMs !== undefined) appleScriptOptions.timeoutMs = osascriptTimeoutMs;
   const appleScriptClient = new MacOSAppleScriptClient(appleScriptOptions);
-  const windowDriver = new FallbackNativeWindowDriver(
-    new MacOSAccessibilityWindowDriver(appleScriptClient, args.logger),
-    new NutNativeWindowDriver(),
-    args.logger
-  );
+  const mouseDriver = new UnavailableNativeMouseDriver();
+  const keyboardDriver = new MacOSAppleScriptKeyboardDriver(appleScriptClient);
+  const screenDriver = new MacOSAppleScriptScreenDriver(appleScriptClient);
+  const windowDriver = new MacOSAccessibilityWindowDriver(appleScriptClient, args.logger);
   const keyboard = new DefaultNativeKeyboard(keyboardDriver);
-  const imageDriverOptions: NutNativeImageFinderOptions = { enableNlMatcher: true };
-  if (nativeConfig?.templatesDir !== undefined) imageDriverOptions.templatesDir = nativeConfig.templatesDir;
-  if (nativeConfig?.imageConfidence !== undefined) imageDriverOptions.confidence = nativeConfig.imageConfidence;
-  const imageDriver = new NutNativeImageFinderDriver(imageDriverOptions);
+  const imageDriver = new UnavailableNativeImageFinderDriver();
   const images = new DefaultNativeImageFinder(imageDriver, args.config.defaultTimeoutMs);
   const coordinateOptions: ImageBasedCoordinateMapperOptions = {
     images,

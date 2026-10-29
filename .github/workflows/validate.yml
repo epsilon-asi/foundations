@@ -6,7 +6,6 @@
 #
 # Required repository secrets:
 #   NPM_TOKEN         - npm registry auth token (all packages)
-#   NUT_JS_NPM_TOKEN  - pkg.nutjs.dev auth token (automation packages only)
 #
 # The GitLab `validate` stage has no rules, so it runs on every push (branches
 # and tags) and on merge requests. This mirrors that.
@@ -128,7 +127,6 @@ jobs:
           - actors
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      NUT_JS_NPM_TOKEN: ${{ secrets.NUT_JS_NPM_TOKEN }}
       PACKAGE_DIR: packages/${{ matrix.name }}
     steps:
       - name: Checkout
@@ -167,8 +165,6 @@ jobs:
           rm package-lock.json
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
           echo "@epsilon-asi:registry=https://npmjs.org"  >> .npmrc
-          echo "@nut-tree:registry=https://nutjs.dev"  >> .npmrc
-          echo "//pkg.nutjs.dev/:_authToken=${NUT_JS_NPM_TOKEN}"  >> .npmrc
 
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}

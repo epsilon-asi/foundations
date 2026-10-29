@@ -32,10 +32,6 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
-    "@nut-tree-fork/nut-js": "^4.2.6",
-    "@nut-tree/bolt": "^3.1.1",
-    "@nut-tree/nl-matcher": "^5.0.1",
-    "@nut-tree/nut-js": "^5.1.2",
     "cheerio": "^1.2.0",
     "ghost-cursor": "^1.4.2",
     "puppeteer-core": "24.43.1"
