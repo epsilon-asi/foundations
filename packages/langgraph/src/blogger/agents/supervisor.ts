@@ -3,10 +3,11 @@ import {createAgent, ReactAgent} from "langchain"
 import {addNumbersTool} from "../tools/addNumbers";
 import {model} from "../model";
 import type {BaseMessage} from "@langchain/core/messages";
+import type {RunnableConfig} from "@langchain/core/runnables";
 
 const today = new Date().toISOString().slice(0, 10);
 
-export const supervisor = createAgent({
+export const supervisor: ReactAgent = createAgent({
     model,
     // responseFormat: z.object({
     //         response: z.string()
@@ -29,10 +30,10 @@ type MessagesState = {
 
 export const AgentToNode = (
     agent: ReactAgent
-) => {
+): ((state: MessagesState, config?: RunnableConfig) => Promise<MessagesState>) => {
     return async (
         state: MessagesState,
-        config?: Parameters<typeof agent.invoke>[1],
+        config?: RunnableConfig,
     ) => {
         const result = await agent.invoke(
             {
