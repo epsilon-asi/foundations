@@ -18,6 +18,8 @@ A publish-ready component library starter for React 19 and Material UI 7 with:
 - `StatCard` for dashboard metrics
 - `EmptyState` for empty/error/no-data experiences
 - `PageSection` for consistent page-level layout blocks
+- `createSettingsContext()` for a typed, localStorage-backed settings provider
+- `createVariableThemeContext()` for a persisted, user-adjustable MUI theme driven by a config object
 
 ## Quick start
 
@@ -115,6 +117,9 @@ src/
     EmptyState/
     PageSection/
     StatCard/
+  providers/
+    SettingsProvider/
+    VariableThemeProvider/
   theme/
   test/
   index.ts
