@@ -83,11 +83,11 @@ export const uiThemeOptions: ThemeOptions = {
     MuiButton: {
       defaultProps: {
         disableElevation: true,
-        variant: 'contained'
+        // variant: 'contained'
       },
       styleOverrides: {
         root: {
-          borderRadius: 999,
+          // borderRadius: 999,
           paddingInline: 18
         }
       }
