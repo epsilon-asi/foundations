@@ -263,6 +263,60 @@ await slack.send('C0123456789', prebuilt.alertCard({
 | `incidentUpdate` | Incident status update with impact, owner, and next update fields. |
 | `approvalRequest` | Request card with approve/reject buttons. |
 
+### Organization scenarios
+
+| Component | Builder method | Purpose |
+| --- | --- | --- |
+| **People & communication** | | |
+| `announcement` | `.announcement()` | Company or team announcement with optional image, author, and audience. |
+| `eventInvite` | `.event()` | Event or meeting invite with When/Where/Host and RSVP, join, and calendar buttons. |
+| `welcomeMessage` | `.welcome()` | New hire introduction with role, manager, buddy, and helpful links. |
+| `kudos` | `.kudos()` | Peer recognition shout-out with an optional company value. |
+| `celebration` | `.celebration()` | Birthday, work anniversary, promotion, or milestone post. |
+| `poll` | `.poll()` | Quick poll with vote buttons and optional result bars. |
+| `surveyRequest` | `.survey()` | Link-out survey request with length, due date, and anonymity. |
+| `ratingRequest` | `.rating()` | Inline 1–5 star, 0–10 NPS, or thumbs feedback buttons. |
+| `reminder` | `.reminder()` | Due or overdue reminder with done, snooze, and open buttons. |
+| `policyAcknowledgement` | `.policy()` | Policy read-and-acknowledge request with a confirmation dialog. |
+| `userProfile` | `.profile()` | Directory profile card with title, team, location, and contact details. |
+| `trainingAssignment` | `.training()` | Assigned course with due date, progress bar, and start/continue button. |
+| **Work & projects** | | |
+| `taskAssignment` | `.task()` | Task assigned to someone, with priority, due date, and accept/view buttons. |
+| `checklist` | `.checklist()` | Progress checklist (onboarding, launch, audit) with done/open items. |
+| `standupSummary` | `.standup()` | Team standup roll-up with yesterday/today/blockers per person. |
+| `meetingSummary` | `.meeting()` | Meeting recap with summary, decisions, action items, and notes/recording links. |
+| `projectStatus` | `.project()` | Project health report with progress, highlights, risks, and next steps. |
+| `goalProgress` | `.goals()` | OKR/goal progress with per-key-result progress bars. |
+| `agenda` | `.agenda()` | Daily schedule or event agenda. |
+| `documentShare` | `.document()` | Shared document or file link with metadata. |
+| `leaderboard` | `.leaderboard()` | Ranked list with medals and rank changes. |
+| **Engineering & IT** | | |
+| `pullRequest` | `.pullRequest()` | Code review request or PR status with diff stats, branches, and labels. |
+| `pipelineStatus` | `.pipeline()` | CI/CD pipeline run with stage results and retry/cancel buttons. |
+| `errorReport` | `.error()` | Application error with message, stack trace, impact, and triage buttons. |
+| `releaseNotes` | `.releaseNotes()` | Release announcement grouped into breaking, new, improvements, and fixes. |
+| `onCallHandoff` | `.handoff()` | On-call shift handoff with open incidents and notes. |
+| `maintenanceNotice` | `.maintenance()` | Scheduled, in-progress, or completed maintenance window. |
+| `securityAlert` | `.security()` | Suspicious activity alert with "this was me" / "secure my account" buttons. |
+| `accessRequest` | `.access()` | Access request approval for a system or resource. |
+| **Sales, support & recruiting** | | |
+| `dealUpdate` | `.deal()` | CRM deal update, win, or loss. |
+| `supportTicket` | `.ticket()` | New or updated support ticket with SLA and assign-to-me button. |
+| `customerFeedback` | `.feedback()` | Customer feedback with star rating and reply button. |
+| `leadAlert` | `.lead()` | New or hot inbound lead with claim button. |
+| `candidateUpdate` | `.candidate()` | Recruiting pipeline update with interview recommendation. |
+| **Finance & operations** | | |
+| `invoiceNotice` | `.invoice()` | Invoice sent, paid, or overdue with pay and reminder buttons. |
+| `expenseApproval` | `.expense()` | Expense report approval. |
+| `timeOffRequest` | `.timeOff()` | Time-off/PTO approval. |
+| `budgetAlert` | `.budget()` | Spend vs. budget with automatic on-track/warning/over severity. |
+| `orderUpdate` | `.order()` | Order status with items, total, and package tracking. |
+| `inventoryAlert` | `.inventory()` | Low-stock or out-of-stock alert with reorder button. |
+
+Shared helpers used by these components are also exported: `progressBar`, `clampPercent`, `formatMoney`, `bulletList`, `priorityLabel`, and the `Priority` type.
+
+Run `npm run storybook` to preview every component, plus a catalog of every Slack Block Kit block and element, rendered the way Slack shows them.
+
 ## Validation behavior
 
 `MessageBuilder.build()` validates by default. It throws `SlackKitValidationError` for errors such as:

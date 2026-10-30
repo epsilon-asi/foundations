@@ -1,6 +1,16 @@
 import { button, type ButtonInput, type FieldInput } from '../blocks';
-import type { ButtonElement, Primitive } from '../types/slack';
+import type { ButtonElement, Primitive, Severity } from '../types/slack';
 import { formatPrimitive, slackLink, truncate } from '../utils/text';
+import { tone } from './status';
+
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+export const PRIORITY_SEVERITY: Record<Priority, Severity> = {
+  low: 'neutral',
+  medium: 'info',
+  high: 'warning',
+  urgent: 'danger'
+};
 
 export interface FieldDefinition {
   label: string;
@@ -43,4 +53,29 @@ export function linkedLabel(label: string, url?: string): string {
 
 export function formatFieldValue(value: Primitive): string {
   return truncate(formatPrimitive(value), 2000);
+}
+
+export function priorityLabel(priority: Priority): string {
+  const label = priority.charAt(0).toUpperCase() + priority.slice(1);
+  return `${tone(PRIORITY_SEVERITY[priority]).emoji} ${label}`;
+}
+
+export function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+export function progressBar(percent: number, width = 10): string {
+  const filled = Math.round((clampPercent(percent) / 100) * width);
+  return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
+}
+
+export function formatMoney(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+}
+
+export function bulletList(items: string[], bullet = '•'): string {
+  return items.map((item) => `${bullet} ${item}`).join('\n');
 }

@@ -7,7 +7,8 @@
   "main": "index.js",
   "scripts": {
     "build": "",
-    "test": ""
+    "test": "",
+    "install": "./scripts/run_for_packages.sh"
   },
   "dependencies": {
     "zod": "^4.4.2"

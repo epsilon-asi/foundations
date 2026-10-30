@@ -59,5 +59,8 @@
   ],
   "author": "",
   "license": "SEE LICENSE IN LICENSE",
-  "dependencies": {}
+  "dependencies": {},
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  }
 }

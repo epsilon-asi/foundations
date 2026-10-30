@@ -1,5 +1,56 @@
 import { context as contextBlock, divider as dividerBlock, header as headerBlock, section as sectionBlock } from '../blocks';
-import { alertCard, approvalRequest, card, chartImage, compactTable, deploymentNotice, digest, imageAlert, incidentUpdate, metricGrid } from '../prebuilt';
+import {
+  accessRequest,
+  agenda,
+  alertCard,
+  announcement,
+  approvalRequest,
+  budgetAlert,
+  candidateUpdate,
+  card,
+  celebration,
+  chartImage,
+  checklist,
+  compactTable,
+  customerFeedback,
+  dealUpdate,
+  deploymentNotice,
+  digest,
+  documentShare,
+  errorReport,
+  eventInvite,
+  expenseApproval,
+  goalProgress,
+  imageAlert,
+  incidentUpdate,
+  inventoryAlert,
+  invoiceNotice,
+  kudos,
+  leadAlert,
+  leaderboard,
+  maintenanceNotice,
+  meetingSummary,
+  metricGrid,
+  onCallHandoff,
+  orderUpdate,
+  pipelineStatus,
+  policyAcknowledgement,
+  poll,
+  projectStatus,
+  pullRequest,
+  ratingRequest,
+  releaseNotes,
+  reminder,
+  securityAlert,
+  standupSummary,
+  supportTicket,
+  surveyRequest,
+  taskAssignment,
+  timeOffRequest,
+  trainingAssignment,
+  userProfile,
+  welcomeMessage
+} from '../prebuilt';
 import type { SlackMessageMetadata, SlackMessagePayload } from '../types/slack';
 import type { ComponentLike } from './component';
 import { resolveComponents } from './component';
@@ -95,6 +146,166 @@ export class MessageBuilder {
 
   approval(options: Parameters<typeof approvalRequest>[0]): this {
     return this.add(approvalRequest(options));
+  }
+
+  announcement(options: Parameters<typeof announcement>[0]): this {
+    return this.add(announcement(options));
+  }
+
+  event(options: Parameters<typeof eventInvite>[0]): this {
+    return this.add(eventInvite(options));
+  }
+
+  welcome(options: Parameters<typeof welcomeMessage>[0]): this {
+    return this.add(welcomeMessage(options));
+  }
+
+  kudos(options: Parameters<typeof kudos>[0]): this {
+    return this.add(kudos(options));
+  }
+
+  celebration(options: Parameters<typeof celebration>[0]): this {
+    return this.add(celebration(options));
+  }
+
+  poll(options: Parameters<typeof poll>[0]): this {
+    return this.add(poll(options));
+  }
+
+  survey(options: Parameters<typeof surveyRequest>[0]): this {
+    return this.add(surveyRequest(options));
+  }
+
+  rating(options: Parameters<typeof ratingRequest>[0]): this {
+    return this.add(ratingRequest(options));
+  }
+
+  reminder(options: Parameters<typeof reminder>[0]): this {
+    return this.add(reminder(options));
+  }
+
+  policy(options: Parameters<typeof policyAcknowledgement>[0]): this {
+    return this.add(policyAcknowledgement(options));
+  }
+
+  profile(options: Parameters<typeof userProfile>[0]): this {
+    return this.add(userProfile(options));
+  }
+
+  training(options: Parameters<typeof trainingAssignment>[0]): this {
+    return this.add(trainingAssignment(options));
+  }
+
+  task(options: Parameters<typeof taskAssignment>[0]): this {
+    return this.add(taskAssignment(options));
+  }
+
+  checklist(options: Parameters<typeof checklist>[0]): this {
+    return this.add(checklist(options));
+  }
+
+  standup(options: Parameters<typeof standupSummary>[0]): this {
+    return this.add(standupSummary(options));
+  }
+
+  meeting(options: Parameters<typeof meetingSummary>[0]): this {
+    return this.add(meetingSummary(options));
+  }
+
+  project(options: Parameters<typeof projectStatus>[0]): this {
+    return this.add(projectStatus(options));
+  }
+
+  goals(options: Parameters<typeof goalProgress>[0]): this {
+    return this.add(goalProgress(options));
+  }
+
+  agenda(options: Parameters<typeof agenda>[0]): this {
+    return this.add(agenda(options));
+  }
+
+  document(options: Parameters<typeof documentShare>[0]): this {
+    return this.add(documentShare(options));
+  }
+
+  leaderboard(options: Parameters<typeof leaderboard>[0]): this {
+    return this.add(leaderboard(options));
+  }
+
+  pullRequest(options: Parameters<typeof pullRequest>[0]): this {
+    return this.add(pullRequest(options));
+  }
+
+  pipeline(options: Parameters<typeof pipelineStatus>[0]): this {
+    return this.add(pipelineStatus(options));
+  }
+
+  error(options: Parameters<typeof errorReport>[0]): this {
+    return this.add(errorReport(options));
+  }
+
+  releaseNotes(options: Parameters<typeof releaseNotes>[0]): this {
+    return this.add(releaseNotes(options));
+  }
+
+  handoff(options: Parameters<typeof onCallHandoff>[0]): this {
+    return this.add(onCallHandoff(options));
+  }
+
+  maintenance(options: Parameters<typeof maintenanceNotice>[0]): this {
+    return this.add(maintenanceNotice(options));
+  }
+
+  security(options: Parameters<typeof securityAlert>[0]): this {
+    return this.add(securityAlert(options));
+  }
+
+  deal(options: Parameters<typeof dealUpdate>[0]): this {
+    return this.add(dealUpdate(options));
+  }
+
+  ticket(options: Parameters<typeof supportTicket>[0]): this {
+    return this.add(supportTicket(options));
+  }
+
+  feedback(options: Parameters<typeof customerFeedback>[0]): this {
+    return this.add(customerFeedback(options));
+  }
+
+  lead(options: Parameters<typeof leadAlert>[0]): this {
+    return this.add(leadAlert(options));
+  }
+
+  candidate(options: Parameters<typeof candidateUpdate>[0]): this {
+    return this.add(candidateUpdate(options));
+  }
+
+  invoice(options: Parameters<typeof invoiceNotice>[0]): this {
+    return this.add(invoiceNotice(options));
+  }
+
+  expense(options: Parameters<typeof expenseApproval>[0]): this {
+    return this.add(expenseApproval(options));
+  }
+
+  timeOff(options: Parameters<typeof timeOffRequest>[0]): this {
+    return this.add(timeOffRequest(options));
+  }
+
+  budget(options: Parameters<typeof budgetAlert>[0]): this {
+    return this.add(budgetAlert(options));
+  }
+
+  order(options: Parameters<typeof orderUpdate>[0]): this {
+    return this.add(orderUpdate(options));
+  }
+
+  inventory(options: Parameters<typeof inventoryAlert>[0]): this {
+    return this.add(inventoryAlert(options));
+  }
+
+  access(options: Parameters<typeof accessRequest>[0]): this {
+    return this.add(accessRequest(options));
   }
 
   build(options: BuildOptions = {}): SlackMessagePayload {

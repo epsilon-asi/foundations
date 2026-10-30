@@ -223,6 +223,60 @@ describe('message builder', () => {
     expect(validateMessage(payload).filter((issue) => issue.severity === 'error')).toHaveLength(0);
   });
 
+  it('exposes a fluent method for every organization scenario component', () => {
+    const groups = [
+      message()
+        .announcement({ title: 'News', body: 'Body' })
+        .event({ title: 'Party', startsAt: 'Fri' })
+        .welcome({ name: 'Sam' })
+        .kudos({ recipient: 'A', from: 'B', message: 'Thanks' })
+        .celebration({ name: 'Kim', occasion: 'birthday' })
+        .poll({ question: 'Lunch?', options: [{ label: 'Pizza' }] })
+        .survey({ title: 'Pulse', surveyUrl: 'https://example.com/s' })
+        .rating({ question: 'Helpful?', scale: 'thumbs' })
+        .reminder({ title: 'Timesheet' })
+        .policy({ policyName: 'CoC', summary: 'Read', documentUrl: 'https://example.com/p' })
+        .profile({ name: 'Morgan' })
+        .training({ course: 'Security', courseUrl: 'https://example.com/c' }),
+      message()
+        .task({ title: 'Deck', assignee: 'Riley' })
+        .checklist({ title: 'Onboarding', items: [{ text: 'Laptop' }] })
+        .standup({ team: 'Web', entries: [{ person: 'Ana', today: 'Docs' }] })
+        .meeting({ title: 'Sync' })
+        .project({ project: 'Search', health: 'on_track' })
+        .goals({ objective: 'Grow', keyResults: [{ title: 'MAU', progress: 50 }] })
+        .agenda({ title: 'Today', items: [] })
+        .document({ title: 'Plan', url: 'https://example.com/d' })
+        .leaderboard({ title: 'Top', entries: [] }),
+      message()
+        .pullRequest({ repository: 'r', number: 1, title: 't', author: 'a', url: 'https://example.com/pr' })
+        .pipeline({ pipeline: 'ci', status: 'passed' })
+        .error({ title: 'Boom', service: 'api', message: 'boom' })
+        .releaseNotes({ version: '1.0.0' })
+        .handoff({ rotation: 'Ops', from: 'A', to: 'B' })
+        .maintenance({ title: 'Upgrade', status: 'scheduled', startsAt: 'Sat' })
+        .security({ title: 'Sign-in', description: 'New device' }),
+      message()
+        .deal({ dealName: 'D', account: 'A', amount: 1, stage: 'S' })
+        .ticket({ ticketId: 'T-1', subject: 'S', requester: 'R' })
+        .feedback({ customer: 'C', comment: 'Nice', rating: 5 })
+        .lead({ name: 'L' })
+        .candidate({ candidate: 'C', role: 'R', stage: 'S' })
+        .invoice({ invoiceNumber: 'I-1', customer: 'C', amount: 1, status: 'sent' })
+        .expense({ employee: 'E', amount: 1, category: 'Meals', description: 'Lunch' })
+        .timeOff({ employee: 'E', type: 'Vacation', startDate: 'a', endDate: 'b' })
+        .budget({ budgetName: 'B', spent: 1, budget: 2 })
+        .order({ orderId: '1', status: 'placed' })
+        .inventory({ product: 'P', onHand: 1, reorderPoint: 2 })
+        .access({ requester: 'R', resource: 'db', accessLevel: 'read', justification: 'debug' })
+    ].map((builder) => builder.build());
+
+    for (const payload of groups) {
+      expect(payload.blocks.length).toBeLessThanOrEqual(50);
+      expect(validateMessage(payload).filter((issue) => issue.severity === 'error')).toHaveLength(0);
+    }
+  });
+
   it('supports static construction and createMessage helper', () => {
     const fromStatic = MessageBuilder.create({ text: 'default' }).card({ title: 'Card only' }).build();
     expect(fromStatic.text).toBe('default');

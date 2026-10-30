@@ -46,6 +46,7 @@ The prebuilt layer is where reusable, high-level message patterns live:
 - Deployment notice
 - Incident update
 - Approval request
+- Organization scenarios: people and communication (announcements, events, welcomes, kudos, celebrations, polls, surveys, ratings, reminders, policies, profiles, training), work and projects (tasks, checklists, standups, meetings, project status, goals, agendas, documents, leaderboards), engineering and IT (pull requests, pipelines, errors, release notes, on-call handoffs, maintenance, security, access requests), sales, support and recruiting (deals, tickets, feedback, leads, candidates), and finance and operations (invoices, expenses, time off, budgets, orders, inventory)
 
 Prebuilt components should accept a small number of domain-friendly parameters and return a polished Slack layout.
 
