@@ -1,0 +1,66 @@
+{
+  "name": "@epsilon-asi/applications",
+  "version": "0.0.4",
+  "description": "",
+  "mainDir": "./",
+  "scripts": {
+    "build": "tsc && cp package.json ./build",
+    "build:clean": "rm -rf ./build && npm run build",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.type-tests.json --noEmit",
+    "examples": "npm run build && node build/decorators/factory/examples/runExamples.js",
+    "start:dev": "npx nodemon --exec \"npx tsc\" --watch src -e ts",
+    "test": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles",
+    "test:watch": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles --watchAll",
+    "verify": "npm run typecheck && npm run typecheck:tests && npm run examples && npm run test && npm run build",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js",
+      "require": "./build/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
+  "jest": {
+    "clearMocks": true,
+    "maxWorkers": 1,
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.test.ts",
+      "!src/**/*.type-test.ts",
+      "!src/**/__tests__/**",
+      "!src/type-tests/**",
+      "!src/examples/**",
+      "!src/decorators/factory/examples/**",
+      "!src/index.ts",
+      "!build"
+    ]
+  },
+  "dependencies": {
+    "@epsilon-asi/foundation": "^0.0.5",
+    "@google-cloud/pubsub": "^5.3.0",
+    "@mikro-orm/core": "^7.1.4",
+    "@mikro-orm/decorators": "^7.1.4",
+    "@mikro-orm/postgresql": "^7.1.4",
+    "dotenv": "^17.4.2",
+    "openai": "^6.42.0",
+    "redis": "^6.0.0",
+    "ts-deepmerge": "^8.0.0",
+    "uuid": "^14.0.0",
+    "zod": "^4.4.3"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}
