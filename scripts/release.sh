@@ -33,7 +33,7 @@
 #      are not already taken
 #   2. write each new version into packages/<package>/package.json (+ lockfile)
 #   3. commit all of those together and push the branch
-#   4. create an annotated tag per package and push the tags atomically
+#   4. create an annotated tag per package and push them one at a time
 #
 # Requirements: git, node, npm. Run from anywhere inside the repository.
 
@@ -253,11 +253,14 @@ on_error() {
       echo "or undo it with:" >&2
       echo "  git reset --hard HEAD~1" >&2 ;;
     tag|push-tags)
-      echo "The branch is pushed. Create any missing tags and push them all with:" >&2
+      echo "The branch is pushed. Create any missing tags:" >&2
       for ((i = 0; i < N; i++)); do
         echo "  git tag -a ${TAGS[$i]} -m '${NAMES[$i]}@${NEWS[$i]}'" >&2
       done
-      echo "  git push --atomic origin ${TAGS[*]/#/refs/tags/}" >&2 ;;
+      echo "then push them ONE AT A TIME (GitHub ignores pushes of more than three tags):" >&2
+      for ((i = 0; i < N; i++)); do
+        echo "  git push origin refs/tags/${TAGS[$i]}" >&2
+      done ;;
   esac
   exit "$rc"
 }
@@ -292,8 +295,12 @@ done
 say "Tagged: ${TAGS[*]}"
 
 STAGE="push-tags"
-say "Pushing ${N} tag(s) to origin"
-git push --quiet --atomic origin "${TAGS[@]/#/refs/tags/}"
+# One push per tag. GitHub does not create push events, and so never starts the
+# Publish workflow, when more than three tags arrive in a single push.
+for ((i = 0; i < N; i++)); do
+  say "Pushing ${TAGS[$i]} to origin"
+  git push --quiet origin "refs/tags/${TAGS[$i]}"
+done
 trap - ERR
 
 # ---------------------------------------------------------------------------
