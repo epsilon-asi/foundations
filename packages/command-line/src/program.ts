@@ -5,6 +5,7 @@ import {
   Option as CommanderOption,
 } from 'commander';
 import { processIO } from './io.js';
+import { DEFAULT_LOG_LEVEL, LOG_LEVELS, defaultLoggerFactory, isLogLevel } from './logging.js';
 import { argumentSyntax } from './naming.js';
 import { numberParser } from './parsers.js';
 import type {
@@ -12,8 +13,12 @@ import type {
   BuildCliOptions,
   Cli,
   CliIO,
+  CliInfo,
   CommandClass,
   CommandDefinition,
+  LoggerFactory,
+  LoggingDefinition,
+  LogLevel,
   OptionDefinition,
   RunMethod,
 } from './types.js';
@@ -50,7 +55,22 @@ export function createBuildCli(
       .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
       .exitOverride();
 
-    configure(program, definition, [], { io, state });
+    const env: BuildEnvironment = {
+      io,
+      state,
+      cli: Object.freeze({
+        name: definition.name,
+        version: definition.version,
+        description: definition.description,
+        package: definition.package,
+      }),
+      loggerFactory: options.logger ?? defaultLoggerFactory,
+      logLevel: () => DEFAULT_LOG_LEVEL,
+    };
+
+    configure(program, definition, [], env);
+    // Added last so the built-in option follows the root's own options in help.
+    env.logLevel = attachLogging(program, definition.logging);
 
     return Object.freeze({
       definition,
@@ -80,6 +100,26 @@ export function createBuildCli(
 interface BuildEnvironment {
   readonly io: CliIO;
   readonly state: RunState;
+  readonly cli: CliInfo;
+  readonly loggerFactory: LoggerFactory;
+  /** Reads the log level once the root command has been parsed. */
+  logLevel: () => LogLevel;
+}
+
+/** Adds the root's log level option to the program and returns a reader for the parsed level. */
+function attachLogging(program: CommanderCommand, logging: LoggingDefinition | undefined): () => LogLevel {
+  if (logging === undefined) return () => DEFAULT_LOG_LEVEL;
+  if (logging.flags === undefined) return () => logging.level;
+
+  const option = new CommanderOption(logging.flags, logging.description).choices([...LOG_LEVELS]).default(logging.level);
+  if (logging.env !== undefined) option.env(logging.env);
+  if (logging.hidden) option.hideHelp();
+  program.addOption(option);
+
+  return () => {
+    const value: unknown = program.opts()[option.attributeName()];
+    return isLogLevel(value) ? value : logging.level;
+  };
 }
 
 function configure(
@@ -115,9 +155,20 @@ function configure(
     const ancestors = lineage.map(populate);
     const instance = populate(binding) as { run?: RunMethod };
     const root = ancestors[0] ?? instance;
+    const logLevel = env.logLevel();
+    const logger = env.loggerFactory({ level: logLevel, io: env.io, name: env.cli.name });
 
     // `runnable` guarantees run() exists; the cast types it as optional.
-    const result = await instance.run?.({ io: env.io, argv: env.state.argv, root, ancestors, command });
+    const result = await instance.run?.({
+      io: env.io,
+      argv: env.state.argv,
+      root,
+      ancestors,
+      command,
+      cli: env.cli,
+      logLevel,
+      logger,
+    });
     if (typeof result === 'number') env.state.exitCode = result;
   });
 }

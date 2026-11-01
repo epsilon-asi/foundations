@@ -1,31 +1,12 @@
-import { transform } from 'esbuild';
 import { defineConfig } from 'vitest/config';
+import { standardDecorators } from './src/vitest.js';
 
 export default defineConfig({
-  plugins: [
-    {
-      // Vite 8 transforms TypeScript with oxc, which only implements legacy
-      // (experimentalDecorators) decorators. This package uses standard
-      // decorators, so TypeScript is transformed with esbuild instead, which
-      // emits them together with Symbol.metadata.
-      name: 'standard-decorators',
-      enforce: 'pre',
-      async transform(code, id) {
-        if (!id.endsWith('.ts') || id.includes('/node_modules/')) return null;
-
-        const result = await transform(code, {
-          loader: 'ts',
-          format: 'esm',
-          target: 'es2024',
-          sourcemap: true,
-          sourcefile: id,
-          tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true, useDefineForClassFields: true } },
-        });
-
-        return { code: result.code, map: result.map };
-      },
-    },
-  ],
+  // Vite 8 transforms TypeScript with oxc, which only implements legacy
+  // decorators. The plugin this package publishes at
+  // `@epsilon-asi/command-line/vitest` swaps in esbuild; it is used from
+  // source here.
+  plugins: [standardDecorators()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],

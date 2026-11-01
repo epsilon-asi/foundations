@@ -1,0 +1,6 @@
+{
+  "name": "@example/tool",
+  "version": "3.2.1",
+  "description": "A tool.",
+  "bin": { "tool": "./dist/main.js" }
+}

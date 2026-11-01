@@ -12,6 +12,7 @@ import type {
   CommandClass,
   CommandDecorator,
   CommandMetadata,
+  CommandRecordMetadata,
   CreateCliSystemOptions,
   FieldDecorator,
   ListArgumentMetadata,
@@ -44,7 +45,10 @@ export function createCliSystem(options: CreateCliSystemOptions = {}): CliSystem
   const RawCommand = registry.for<object>().class('command');
 
   const Command: CommandDecorator = (metadata: CommandMetadata = {}) => {
-    const { commands, ...record } = metadata;
+    const { commands, package: packageFrom, ...rest } = metadata;
+    // The registry deep-clones metadata, which would hollow out a URL; keep its string form.
+    const record: CommandRecordMetadata =
+      packageFrom === undefined ? rest : { ...rest, package: packageFrom instanceof URL ? packageFrom.href : packageFrom };
     const decorate = RawCommand(record);
 
     return <TClass extends new (...args: any[]) => object>(
@@ -95,6 +99,11 @@ export function createCliSystem(options: CreateCliSystemOptions = {}): CliSystem
     describeCommand,
     buildCli,
     runCli: (target, argv, buildOptions) => buildCli(target, buildOptions).run(argv),
+    runMain: async (target, buildOptions) => {
+      const exitCode = await buildCli(target, buildOptions).run(process.argv.slice(2));
+      process.exitCode = exitCode;
+      return exitCode;
+    },
   };
 
   return Object.freeze(system);
@@ -109,3 +118,4 @@ export const Argument = defaultCliSystem.Argument;
 export const describeCommand = defaultCliSystem.describeCommand;
 export const buildCli = defaultCliSystem.buildCli;
 export const runCli = defaultCliSystem.runCli;
+export const runMain = defaultCliSystem.runMain;

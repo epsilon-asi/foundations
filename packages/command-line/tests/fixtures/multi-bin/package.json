@@ -1,0 +1,5 @@
+{
+  "name": "multi",
+  "version": "1.0.0",
+  "bin": { "first": "a.js", "second": "b.js" }
+}

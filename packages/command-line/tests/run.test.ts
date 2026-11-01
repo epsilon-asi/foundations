@@ -1,30 +1,37 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AgentEngineer, CLI_VERSION, type RuntimeInfo } from '../examples/agent-engineer/cli.js';
+import { AgentEngineer, type RuntimeInfo } from '../examples/agent-engineer/cli.js';
 import {
   Argument,
   Command,
   Option,
   buildCli,
+  readPackageJson,
   runCli,
   type CliCommand,
   type CommandContext,
 } from '../src/index.js';
 import { captureIO } from './helpers/captureIO.js';
 
+// The example reads its version from the nearest package.json, which is this package's.
+const PACKAGE_VERSION = readPackageJson(import.meta.url).version;
+
 describe('runCli with the agent-engineer example', () => {
-  it('prints the version for --version', async () => {
+  it('prints the version read from package.json for --version', async () => {
     const { io, stdout } = captureIO();
 
+    expect(PACKAGE_VERSION).toMatch(/^\d+\.\d+\.\d+/);
     await expect(runCli(AgentEngineer, ['--version'], { io })).resolves.toBe(0);
-    expect(stdout()).toBe(`${CLI_VERSION}\n`);
+    expect(stdout()).toBe(`${PACKAGE_VERSION}\n`);
   });
 
-  it('prints help listing the commands for --help', async () => {
+  it('prints help listing the commands and the built-in log level option', async () => {
     const { io, stdout } = captureIO();
 
     await expect(runCli(AgentEngineer, ['--help'], { io })).resolves.toBe(0);
     expect(stdout()).toContain('Usage: agent-engineer');
-    expect(stdout()).toContain('-l, --log-level <log-level>');
+    expect(stdout()).toContain('-l, --log-level <level>');
+    expect(stdout()).toMatch(/choices:\s+"debug",\s+"info",\s+"warn",\s+"error",\s+"silent"/);
+    expect(stdout()).toMatch(/default:\s+"info"/);
     expect(stdout()).toMatch(/env:\s+AGENT_ENGINEER_LOG_LEVEL/);
     expect(stdout()).toMatch(/info \[options\]\s+Print CLI and runtime information\./);
     expect(stdout()).toMatch(/greet \[options\] <name>/);
@@ -50,7 +57,7 @@ describe('runCli with the agent-engineer example', () => {
 
     await expect(runCli(AgentEngineer, ['info'], { io })).resolves.toBe(0);
     expect(stdout()).toMatch(/^name\s+agent-engineer$/m);
-    expect(stdout()).toMatch(new RegExp(`^version\\s+${CLI_VERSION}$`, 'm'));
+    expect(stdout()).toMatch(new RegExp(`^version\\s+${PACKAGE_VERSION?.replaceAll('.', '\\.')}$`, 'm'));
     expect(stderr()).toBe('');
   });
 
@@ -62,7 +69,7 @@ describe('runCli with the agent-engineer example', () => {
     const info: RuntimeInfo = JSON.parse(stdout());
     expect(info).toEqual({
       name: 'agent-engineer',
-      version: CLI_VERSION,
+      version: PACKAGE_VERSION,
       node: process.version,
       platform: `${process.platform}-${process.arch}`,
     });
@@ -76,14 +83,14 @@ describe('runCli with the agent-engineer example', () => {
     expect(stderr()).toContain('Allowed choices are text, json');
   });
 
-  it('exposes root options to subcommands', async () => {
+  it('gives subcommands a logger at the level set on the root', async () => {
     const { io, stderr } = captureIO();
 
     await expect(runCli(AgentEngineer, ['--log-level', 'debug', 'info', '-f', 'json'], { io })).resolves.toBe(0);
     expect(stderr()).toBe('[debug] rendering info as json\n');
   });
 
-  it('reads root options from the environment', async () => {
+  it('reads the log level from the environment variable derived from the name', async () => {
     vi.stubEnv('AGENT_ENGINEER_LOG_LEVEL', 'debug');
     const { io, stderr } = captureIO();
 
@@ -180,6 +187,23 @@ describe('runCli behaviours', () => {
 
     await expect(runCli(Single, [], { io: captureIO().io })).resolves.toBe(0);
     expect(sameInstance).toBe(true);
+  });
+
+  it('describes the root on context.cli for every command', async () => {
+    let seen: CommandContext['cli'] | undefined;
+
+    @Command({ description: 'Child.' })
+    class Child implements CliCommand {
+      run({ cli }: CommandContext): void {
+        seen = cli;
+      }
+    }
+    @Command({ name: 'tool', version: '2.0.0', description: 'The tool.', commands: [Child] })
+    class Root {}
+
+    await runCli(Root, ['child'], { io: captureIO().io });
+    expect(seen).toEqual({ name: 'tool', version: '2.0.0', description: 'The tool.', package: undefined });
+    expect(Object.isFrozen(seen)).toBe(true);
   });
 
   it('runs a root that has both run() and subcommands', async () => {

@@ -3,13 +3,15 @@ import { Argument, Command, Option, type CliCommand, type CommandContext } from 
 /**
  * The agent-engineer CLI (packages/agent-engineer) rebuilt on the CLI system.
  * Every declaration lives on the classes; nothing here touches commander.
+ *
+ * The root reads its version from the nearest package.json. Because this
+ * example lives inside the command-line package, that is the library's own
+ * package.json, so the name and description are given explicitly; a real CLI
+ * package leaves them to its package.json and `bin` too.
+ *
+ * Nothing declares a log level: every root gets `-l, --log-level <level>` and
+ * an `AGENT_ENGINEER_LOG_LEVEL` variable, and every command gets a logger.
  */
-
-export const CLI_NAME = 'agent-engineer';
-export const CLI_VERSION = '1.0.0';
-
-export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
-export type LogLevel = (typeof LOG_LEVELS)[number];
 
 export const OUTPUT_FORMATS = ['text', 'json'] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
@@ -26,12 +28,12 @@ export class InfoCommand implements CliCommand<AgentEngineer> {
   @Option.choice({ short: 'f', choices: OUTPUT_FORMATS, default: 'text', description: 'output format' })
   format!: OutputFormat;
 
-  run({ io, root }: CommandContext<AgentEngineer>): void {
-    if (root.logLevel === 'debug') io.stderr(`[debug] rendering info as ${this.format}\n`);
+  run({ io, cli, logger }: CommandContext<AgentEngineer>): void {
+    logger.debug(`rendering info as ${this.format}`);
 
     const info: RuntimeInfo = {
-      name: CLI_NAME,
-      version: CLI_VERSION,
+      name: cli.name,
+      version: cli.version ?? 'unknown',
       node: process.version,
       platform: `${process.platform}-${process.arch}`,
     };
@@ -58,21 +60,12 @@ export class GreetCommand implements CliCommand<AgentEngineer> {
 }
 
 @Command({
-  name: CLI_NAME,
+  name: 'agent-engineer',
   description: 'Agent Engineer command-line interface.',
-  version: CLI_VERSION,
+  package: import.meta.url,
   commands: [InfoCommand, GreetCommand],
 })
-export class AgentEngineer {
-  @Option.choice({
-    short: 'l',
-    choices: LOG_LEVELS,
-    default: 'info',
-    env: 'AGENT_ENGINEER_LOG_LEVEL',
-    description: 'minimum severity of log output',
-  })
-  logLevel!: LogLevel;
-}
+export class AgentEngineer {}
 
 function renderText(info: RuntimeInfo): string {
   return `${Object.entries(info)

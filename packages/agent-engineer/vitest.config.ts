@@ -1,6 +1,11 @@
+import { standardDecorators } from '@epsilon-asi/command-line/vitest';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Vite 8 only implements legacy decorators; this plugin transforms
+  // TypeScript with esbuild so the standard decorators on the command
+  // classes work under vitest.
+  plugins: [standardDecorators()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
@@ -14,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      // The entrypoint is exercised by spawning it in tests/main.test.ts.
+      // The bin entrypoint only hands the root command to runMain.
       exclude: ['src/main.ts'],
       reporter: ['text', 'lcov'],
       thresholds: {

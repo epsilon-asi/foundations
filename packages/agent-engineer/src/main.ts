@@ -1,4 +1,5 @@
 #!/usr/bin/env node
-import { run } from './program.js';
+import { runMain } from '@epsilon-asi/command-line';
+import { AgentEngineer } from './cli.js';
 
-process.exitCode = await run(process.argv.slice(2));
+await runMain(AgentEngineer);

@@ -1,5 +1,8 @@
-import { CLI, type InfoOptions, type OutputFormat } from '../config.js';
-import type { CommandContext } from '../context.js';
+import { Command, Option, type CliCommand, type CommandContext } from '@epsilon-asi/command-line';
+import type { AgentEngineer } from '../cli.js';
+
+export const OUTPUT_FORMATS = ['text', 'json'] as const;
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 
 export interface RuntimeInfo {
   readonly name: string;
@@ -8,17 +11,24 @@ export interface RuntimeInfo {
   readonly platform: string;
 }
 
-export function runInfo(options: InfoOptions, { io, logger }: CommandContext): void {
-  logger.debug(`rendering info as ${options.format}`);
+/** `agent-engineer info`: the command name is derived from the class name. */
+@Command({ description: 'Print CLI and runtime information.' })
+export class InfoCommand implements CliCommand<AgentEngineer> {
+  @Option.choice({ short: 'f', choices: OUTPUT_FORMATS, default: 'text', description: 'output format' })
+  format!: OutputFormat;
 
-  const info: RuntimeInfo = {
-    name: CLI.name,
-    version: CLI.version,
-    node: process.version,
-    platform: `${process.platform}-${process.arch}`,
-  };
+  run({ io, cli, logger }: CommandContext<AgentEngineer>): void {
+    logger.debug(`rendering info as ${this.format}`);
 
-  io.stdout(render(info, options.format));
+    const info: RuntimeInfo = {
+      name: cli.name,
+      version: cli.version ?? 'unknown',
+      node: process.version,
+      platform: `${process.platform}-${process.arch}`,
+    };
+
+    io.stdout(render(info, this.format));
+  }
 }
 
 function render(info: RuntimeInfo, format: OutputFormat): string {

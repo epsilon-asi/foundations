@@ -1,13 +1,17 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { AgentEngineer, type LogLevel } from '../examples/agent-engineer/cli.js';
+import { AgentEngineer } from '../examples/agent-engineer/cli.js';
 import {
   Argument,
   Command,
   Option,
   describeCommand,
   runCli,
+  runMain,
   type CliCommand,
+  type CliInfo,
   type CommandContext,
+  type Logger,
+  type LogLevel,
 } from '../src/index.js';
 
 // The decorators check the type of the field they are applied to. These tests
@@ -142,6 +146,7 @@ describe('@Command contract', () => {
 
     expectTypeOf(describeCommand(Root).name).toEqualTypeOf<string>();
     expectTypeOf(runCli(Root, [])).toEqualTypeOf<Promise<number>>();
+    expectTypeOf(runMain(Root)).toEqualTypeOf<Promise<number>>();
 
     // @ts-expect-error the root must be constructible without arguments
     void runCli(NeedsArguments, []);
@@ -150,11 +155,37 @@ describe('@Command contract', () => {
     void BadChildren;
   });
 
-  it('types the root on the command context', () => {
+  it('types package and logging metadata', () => {
+    @Command({ package: import.meta.url, logging: { level: 'warn', flags: false } })
+    class Configured implements CliCommand {
+      run(): void {}
+    }
+
+    @Command({ package: new URL(import.meta.url), logging: false })
+    class Disabled implements CliCommand {
+      run(): void {}
+    }
+
+    // @ts-expect-error the level must be a LogLevel
+    @Command({ logging: { level: 'loud' } })
+    class BadLevel implements CliCommand {
+      run(): void {}
+    }
+
+    void Configured;
+    void Disabled;
+    void BadLevel;
+  });
+
+  it('types the root, logger and cli on the command context', () => {
     class Child implements CliCommand<AgentEngineer> {
-      run({ root, ancestors }: CommandContext<AgentEngineer>): void {
-        expectTypeOf(root.logLevel).toEqualTypeOf<LogLevel>();
+      run({ root, ancestors, logLevel, logger, cli }: CommandContext<AgentEngineer>): void {
+        expectTypeOf(root).toEqualTypeOf<AgentEngineer>();
         expectTypeOf(ancestors).toEqualTypeOf<readonly object[]>();
+        expectTypeOf(logLevel).toEqualTypeOf<LogLevel>();
+        expectTypeOf(logger).toEqualTypeOf<Logger>();
+        expectTypeOf(cli).toEqualTypeOf<CliInfo>();
+        expectTypeOf(cli.version).toEqualTypeOf<string | undefined>();
 
         // @ts-expect-error unknown property on the root
         void root.nope;

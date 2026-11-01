@@ -9,6 +9,14 @@ export function toKebabCase(name: string): string {
     .toLowerCase();
 }
 
+/** `agent-engineer` → `AGENT_ENGINEER`, `myCli` → `MY_CLI`. Used for environment variable names. */
+export function toScreamingSnakeCase(name: string): string {
+  return toKebabCase(name)
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+}
+
 /** `InfoCommand` → `info`, `AgentEngineerCli` → `agent-engineer`. */
 export function commandNameFromClass(className: string): string {
   const stripped = className.replace(/(Command|Cli|CLI)$/, '');
@@ -25,6 +33,26 @@ export function optionFlags(propertyName: string, metadata: OptionMetadata): str
 
   if (metadata.type === 'boolean') return flags;
   return `${flags} <${metadata.valueName ?? kebab}>`;
+}
+
+export interface ParsedFlags {
+  /** The short flag without its dash, e.g. `l`. */
+  readonly short: string | undefined;
+  /** The long flag without its dashes, e.g. `log-level`. */
+  readonly long: string | undefined;
+}
+
+/** The flag names in a commander flags string: `-l, --log-level <level>` → `l` and `log-level`. */
+export function parseFlags(flags: string): ParsedFlags {
+  let short: string | undefined;
+  let long: string | undefined;
+
+  for (const token of flags.split(/[\s,|]+/)) {
+    if (token.startsWith('--')) long ??= token.slice(2);
+    else if (/^-[^-]$/.test(token)) short ??= token.slice(1);
+  }
+
+  return { short, long };
 }
 
 /** Commander syntax for a positional argument: `<name>`, `[name]`, `<name...>` or `[name...]`. */

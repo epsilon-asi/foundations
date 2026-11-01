@@ -17,6 +17,48 @@ export interface CliIO {
   readonly stderr: Writer;
 }
 
+/** Log levels, least to most severe. `silent` turns logging off. */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
+
+/** What every command receives as `context.logger`. */
+export interface Logger {
+  /** The minimum level this logger writes. */
+  readonly level: LogLevel;
+  debug(message: string): void;
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
+
+export interface LoggerOptions {
+  /** The level resolved from the flag, the environment or the root's `logging.level`. */
+  readonly level: LogLevel;
+  readonly io: CliIO;
+  /** The root command's name. */
+  readonly name: string;
+}
+
+/** Builds the logger for one run. The default writes `[level] message` lines to stderr. */
+export type LoggerFactory = (options: LoggerOptions) => Logger;
+
+/** The fields of package.json a CLI cares about. Everything else is kept as `unknown`. */
+export interface PackageJson {
+  readonly name?: string;
+  readonly version?: string;
+  readonly description?: string;
+  readonly bin?: string | Readonly<Record<string, string>>;
+  readonly [key: string]: unknown;
+}
+
+/** Identity of the root command, available to every command as `context.cli`. */
+export interface CliInfo {
+  readonly name: string;
+  readonly version: string | undefined;
+  readonly description: string | undefined;
+  /** The package.json read for `@Command({ package })`, when one was given. */
+  readonly package: PackageJson | undefined;
+}
+
 /** A command's `run()` may return an exit code. Returning nothing means 0. */
 export type CommandResult = number | undefined | void;
 
@@ -30,6 +72,12 @@ export interface CommandContext<TRoot extends object = object> {
   readonly ancestors: readonly object[];
   /** The underlying commander command, for anything this system does not expose. */
   readonly command: CommanderCommand;
+  /** Name, version and description of the root command. */
+  readonly cli: CliInfo;
+  /** The log level in effect for this run. */
+  readonly logLevel: LogLevel;
+  /** A logger at `logLevel`, writing to `io.stderr` unless `buildCli` was given another factory. */
+  readonly logger: Logger;
 }
 
 /** Implemented by command classes that do something when invoked. */
@@ -55,6 +103,27 @@ export type CommandClass = new () => object;
 // Decorator metadata
 // ---------------------------------------------------------------------------
 
+/**
+ * How the root command's log level is chosen. Everything has a default, so
+ * most CLIs never set this: they get `-l, --log-level <level>` with an
+ * `<NAME>_LOG_LEVEL` environment variable and a default of `info`.
+ */
+export interface LoggingMetadata {
+  /** The level when neither the flag nor the environment variable is set. Defaults to `info`. */
+  level?: LogLevel;
+  /**
+   * Flags of the log level option. Defaults to `-l, --log-level <level>`.
+   * `false` removes the option (and the environment variable); the level is then fixed at `level`.
+   */
+  flags?: string | false;
+  /** Environment variable consulted when the flag is absent. Defaults to `<NAME>_LOG_LEVEL`; `false` disables it. */
+  env?: string | false;
+  /** Help text of the option. */
+  description?: string;
+  /** Hide the option from help output. */
+  hidden?: boolean;
+}
+
 export interface CommandMetadata {
   /** Defaults to the class name in kebab-case, minus a trailing "Command" or "Cli". */
   name?: string;
@@ -66,6 +135,15 @@ export interface CommandMetadata {
   hidden?: boolean;
   /** Subcommands, in the order they appear in help. */
   commands?: readonly CommandClass[];
+  /**
+   * Where to find the package.json that describes this CLI: usually
+   * `import.meta.url`, or a path to a file or directory. Its `version` fills
+   * `version`, its `description` fills `description` and its single `bin`
+   * (or unscoped name) fills `name`, each unless given here. Root only.
+   */
+  package?: string | URL;
+  /** Overrides for the built-in log level option, or `false` to remove it. Root only. */
+  logging?: LoggingMetadata | false;
 }
 
 /** What is stored in the decorator registry: everything except the subcommand classes. */
@@ -279,6 +357,17 @@ export interface ArgumentDefinition {
   readonly metadata: ArgumentMetadata;
 }
 
+/** The resolved log level option of a root command. */
+export interface LoggingDefinition {
+  /** The level when nothing else sets one. */
+  readonly level: LogLevel;
+  /** Flags of the option, or undefined when the option was removed. */
+  readonly flags: string | undefined;
+  readonly env: string | undefined;
+  readonly description: string;
+  readonly hidden: boolean;
+}
+
 export interface CommandDefinition {
   readonly target: CommandClass;
   readonly name: string;
@@ -291,6 +380,10 @@ export interface CommandDefinition {
   readonly options: readonly OptionDefinition[];
   readonly arguments: readonly ArgumentDefinition[];
   readonly commands: readonly CommandDefinition[];
+  /** The package.json read for `@Command({ package })`. Root only. */
+  readonly package: PackageJson | undefined;
+  /** The log level option. Always set on the root, never on subcommands. */
+  readonly logging: LoggingDefinition | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +393,8 @@ export interface CommandDefinition {
 export interface BuildCliOptions {
   /** Defaults to process.stdout / process.stderr. */
   io?: CliIO;
+  /** Replaces the default logger. Receives the resolved level and `io` on every run. */
+  logger?: LoggerFactory;
 }
 
 export interface Cli {
@@ -332,4 +427,11 @@ export interface CliSystem {
 
   /** Builds and runs in one step. Resolves to the exit code. */
   runCli(target: CommandClass, argv: readonly string[], options?: BuildCliOptions): Promise<number>;
+
+  /**
+   * For `bin` entrypoints: runs the CLI on `process.argv`, stores the exit
+   * code in `process.exitCode` and resolves to it. The process then exits on
+   * its own once nothing is pending.
+   */
+  runMain(target: CommandClass, options?: BuildCliOptions): Promise<number>;
 }
