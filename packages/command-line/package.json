@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/command-line",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Declare command-line applications as decorated classes on the @epsilon-asi/foundation decorator registry; commander parses them.",
   "type": "module",
   "exports": {
