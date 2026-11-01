@@ -8,12 +8,8 @@ export class ApplicationBuilder {
     static CreateApplication<Type extends ApplicationType>(opts: ApplicationBuilderOptions<Type>,): ApplicationBase<Type> {
         return {} as ApplicationBase<Type>;
     }
-
 }
 
-export class APIApplication<Type extends ApplicationType> extends ApplicationBase<Type> {
-
-}
 
 const buildApplication = () => {
 

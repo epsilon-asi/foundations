@@ -1,0 +1,11 @@
+[project]
+name = "python-non-uv-fixture"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.32.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0"]
+build-backend = "setuptools.build_meta"

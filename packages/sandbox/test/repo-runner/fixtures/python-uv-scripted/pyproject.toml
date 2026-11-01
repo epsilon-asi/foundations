@@ -1,0 +1,18 @@
+[project]
+name = "python-uv-scripted-fixture"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[project.scripts]
+hello = "example:main"
+test = "example:test"
+lint = "example:lint"
+typecheck = "example:typecheck"
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.390",
+]
+
+[tool.uv]
+package = true

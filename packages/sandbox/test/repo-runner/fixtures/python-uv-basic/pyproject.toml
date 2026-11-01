@@ -1,0 +1,27 @@
+[project]
+name = "python-uv-basic-fixture"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+cli = ["rich>=13.7.0"]
+
+[project.scripts]
+hello = "example:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.6.0",
+  "mypy>=1.11.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true

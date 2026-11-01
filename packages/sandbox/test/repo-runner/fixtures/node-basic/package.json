@@ -1,0 +1,27 @@
+{
+  "name": "node-basic-fixture",
+  "version": "1.0.0",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node scripts/test.js",
+    "build": "node scripts/build.js",
+    "lint": "node scripts/lint.js",
+    "typecheck": "node scripts/typecheck.js",
+    "hello": "node scripts/hello.js"
+  },
+  "dependencies": {
+    "left-pad": "1.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.3.3"
+  }
+}

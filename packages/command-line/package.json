@@ -1,0 +1,46 @@
+{
+  "name": "@epsilon-asi/command-line",
+  "version": "0.0.1",
+  "description": "Declare command-line applications as decorated classes on the @epsilon-asi/foundation decorator registry; commander parses them.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "typecheck": "tsc -p tsconfig.json",
+    "example": "tsx examples/agent-engineer/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "@epsilon-asi/foundation": "^0.0.6",
+    "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

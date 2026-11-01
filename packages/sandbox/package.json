@@ -1,0 +1,103 @@
+{
+  "name": "@epsilon-asi/sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-stop sandbox toolkit for local coding agents: isolated git worktrees, sandbox containers, repository task runners, and local code search behind one typed API.",
+  "keywords": [
+    "sandbox",
+    "coding-agent",
+    "docker",
+    "container",
+    "git",
+    "worktree",
+    "runner",
+    "search"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./container-runtime": {
+      "types": "./dist/container-runtime/index.d.ts",
+      "default": "./dist/container-runtime/index.js"
+    },
+    "./git-manager": {
+      "types": "./dist/git-manager/index.d.ts",
+      "default": "./dist/git-manager/index.js"
+    },
+    "./repo-runner": {
+      "types": "./dist/repo-runner/index.d.ts",
+      "default": "./dist/repo-runner/index.js"
+    },
+    "./repo-search": {
+      "types": "./dist/repo-search/index.d.ts",
+      "default": "./dist/repo-search/index.js"
+    },
+    "./repo-search/lsp": {
+      "types": "./dist/repo-search/lsp/index.d.ts",
+      "default": "./dist/repo-search/lsp/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "repo-search": "./dist/repo-search/cli.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:package": "npm run build && publint --strict && attw --pack . --profile esm-only",
+    "smoke": "tsx scripts/repo-runner-smoke.ts",
+    "prepack": "npm run clean && npm run build",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run coverage && npm run check:package"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1",
+    "smol-toml": "^1.6.1"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^10.14.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "publint": "^0.3.25",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5",
+    "zod": "^4.3.6"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.3"
+  }
+}

@@ -1,0 +1,154 @@
+import type { DecorationRecord, DecoratorRegistry } from '@epsilon-asi/foundation';
+import { CliDefinitionError } from './errors.js';
+import { commandNameFromClass, optionFlags, toKebabCase } from './naming.js';
+import type {
+  ArgumentDefinition,
+  ArgumentMetadata,
+  CliDecoratorSchema,
+  CommandClass,
+  CommandDefinition,
+  CommandRecordMetadata,
+  OptionDefinition,
+  OptionMetadata,
+} from './types.js';
+
+export type SubcommandLookup = Pick<WeakMap<Function, readonly CommandClass[]>, 'get'>;
+
+/**
+ * Creates the `describeCommand` function for one registry. It turns a decorated
+ * class into a validated CommandDefinition tree, which the program builder
+ * consumes. All declaration mistakes surface here, with the class named.
+ */
+export function createDescribeCommand(
+  registry: DecoratorRegistry<CliDecoratorSchema>,
+  subcommands: SubcommandLookup,
+): (target: CommandClass) => CommandDefinition {
+  function describe(target: CommandClass): CommandDefinition {
+    // @Command itself is not inherited: a subclass is a different command and must say so.
+    const ownRecords = registry.read(target, { includeInherited: false }).classRecords('command');
+    const ownRecord = ownRecords[ownRecords.length - 1];
+    if (ownRecord === undefined) {
+      throw new CliDefinitionError(target, 'is not decorated with @Command.');
+    }
+    const metadata = ownRecord.metadata as CommandRecordMetadata;
+
+    const name = metadata.name ?? (target.name === '' ? undefined : commandNameFromClass(target.name));
+    if (name === undefined || name.trim() === '') {
+      throw new CliDefinitionError(target, 'needs a name: pass one to @Command or give the class a name.');
+    }
+
+    // Options and arguments are inherited, so shared options can live on a base class.
+    const members = collectMembers(target, registry.read(target).propertyRecords());
+    const commands = (subcommands.get(target) ?? []).map(describe);
+    assertUniqueNames(target, commands);
+
+    const runnable = typeof (target.prototype as { run?: unknown }).run === 'function';
+    if (!runnable && commands.length === 0) {
+      throw new CliDefinitionError(target, 'has neither a run() method nor subcommands.');
+    }
+
+    return Object.freeze({
+      target,
+      name,
+      description: metadata.description,
+      version: metadata.version,
+      aliases: Object.freeze([...(metadata.aliases ?? [])]),
+      hidden: metadata.hidden ?? false,
+      runnable,
+      options: Object.freeze(members.options),
+      arguments: Object.freeze(members.arguments),
+      commands: Object.freeze(commands),
+    });
+  }
+
+  return describe;
+}
+
+interface Members {
+  options: OptionDefinition[];
+  arguments: ArgumentDefinition[];
+}
+
+function collectMembers(target: CommandClass, records: readonly DecorationRecord[]): Members {
+  const members: Members = { options: [], arguments: [] };
+  const seen = new Set<string>();
+
+  for (const record of records) {
+    const propertyName = memberName(target, record);
+
+    if (seen.has(propertyName)) {
+      throw new CliDefinitionError(target, `property "${propertyName}" is decorated more than once.`);
+    }
+    seen.add(propertyName);
+
+    if (record.decorator === 'option') {
+      members.options.push(describeOption(target, propertyName, record.metadata as OptionMetadata));
+    } else {
+      members.arguments.push(describeArgument(propertyName, record.metadata as ArgumentMetadata));
+    }
+  }
+
+  const variadicIndex = members.arguments.findIndex((argument) => argument.variadic);
+  if (variadicIndex !== -1 && variadicIndex !== members.arguments.length - 1) {
+    const argument = members.arguments[variadicIndex];
+    throw new CliDefinitionError(target, `list argument "${argument?.propertyName}" must be the last argument.`);
+  }
+
+  return members;
+}
+
+function memberName(target: CommandClass, record: DecorationRecord): string {
+  const decorator = record.decorator === 'option' ? '@Option' : '@Argument';
+
+  if (typeof record.memberName !== 'string') {
+    throw new CliDefinitionError(target, `${decorator} does not support symbol-named properties.`);
+  }
+  if (record.static) {
+    throw new CliDefinitionError(target, `${decorator} property "${record.memberName}" must not be static.`);
+  }
+  if (record.private) {
+    throw new CliDefinitionError(target, `${decorator} property "${record.memberName}" must not be private.`);
+  }
+
+  return record.memberName;
+}
+
+function describeOption(target: CommandClass, propertyName: string, metadata: OptionMetadata): OptionDefinition {
+  if (metadata.short !== undefined && !/^[A-Za-z0-9]$/.test(metadata.short)) {
+    throw new CliDefinitionError(
+      target,
+      `option "${propertyName}" has short flag "${metadata.short}"; it must be a single letter or digit.`,
+    );
+  }
+
+  return Object.freeze({ propertyName, flags: optionFlags(propertyName, metadata), metadata });
+}
+
+function describeArgument(propertyName: string, metadata: ArgumentMetadata): ArgumentDefinition {
+  const hasDefault = 'default' in metadata && metadata.default !== undefined;
+
+  return Object.freeze({
+    propertyName,
+    name: metadata.name ?? toKebabCase(propertyName),
+    required: metadata.required ?? !hasDefault,
+    variadic: metadata.type === 'list',
+    metadata,
+  });
+}
+
+function assertUniqueNames(target: CommandClass, commands: readonly CommandDefinition[]): void {
+  const seen = new Map<string, string>();
+
+  for (const command of commands) {
+    for (const alias of [command.name, ...command.aliases]) {
+      const existing = seen.get(alias);
+      if (existing !== undefined) {
+        throw new CliDefinitionError(
+          target,
+          `subcommands ${existing} and ${command.target.name} both answer to "${alias}".`,
+        );
+      }
+      seen.set(alias, command.target.name);
+    }
+  }
+}

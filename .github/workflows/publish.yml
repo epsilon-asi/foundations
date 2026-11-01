@@ -12,6 +12,9 @@
 #
 # Note: in GitLab the `publish` stage is listed before `validate`, so the two
 # are independent. The Validate workflow still runs on tag pushes on its own.
+#
+# Only publishable packages belong here. `sandbox` is `private: true` and is
+# validated but never published.
 
 name: Publish
 
@@ -42,8 +45,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Mirrors the `.packages` anchor
+        # Mirrors the `.packages` anchor, plus the publishable packages added
+        # since the GitLab migration (applications, command-line).
         name:
+          - applications
+          - command-line
           - foundation
           - langgraph
           - slack
@@ -88,8 +94,11 @@ jobs:
             apt-get install -y -qq --no-install-recommends zsh jq
           fi
 
+      # The root package.json has an `install` lifecycle script that runs
+      # scripts/run_for_packages.sh with no arguments, which exits 1 and would
+      # fail `npm ci`. Only the root devDependencies are needed here.
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}
@@ -163,8 +172,9 @@ jobs:
             apt-get install -y -qq --no-install-recommends zsh jq
           fi
 
+      # See publish-packages for why scripts are skipped at the root.
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}

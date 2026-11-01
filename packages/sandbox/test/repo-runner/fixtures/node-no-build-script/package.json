@@ -1,0 +1,7 @@
+{
+  "name": "node-no-build-script-fixture",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node scripts/test.js"
+  }
+}

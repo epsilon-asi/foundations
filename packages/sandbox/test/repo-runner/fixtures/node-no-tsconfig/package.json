@@ -1,0 +1,8 @@
+{
+  "name": "node-no-tsconfig-fixture",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node scripts/test.js",
+    "build": "node scripts/build.js"
+  }
+}

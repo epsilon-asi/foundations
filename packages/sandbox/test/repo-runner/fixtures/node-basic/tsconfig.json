@@ -1,0 +1,7 @@
+{
+  // JSONC is intentional for reader coverage.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext"
+  }
+}

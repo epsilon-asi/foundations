@@ -1,7 +1,7 @@
 # GitHub Actions equivalent of the `validate` stage in .gitlab-ci.yml.
 #
 # GitLab job                     -> GitHub job
-#   validate:packages            -> validate-packages            (node:22.17 container)
+#   validate:packages            -> validate-packages            (node container)
 #   validate:automation:packages -> validate-automation-packages (puppeteer container)
 #
 # Required repository secrets:
@@ -33,17 +33,30 @@ jobs:
     name: "validate:packages (${{ matrix.name }})"
     runs-on: ubuntu-latest
     container:
-      image: node:22.17
+      image: node:${{ matrix.node }}
     strategy:
       fail-fast: false
       matrix:
-        # Mirrors the `.packages` anchor
+        # Mirrors the `.packages` anchor, plus the packages added since the
+        # GitLab migration (applications, command-line, sandbox).
         name:
+          - applications
+          - command-line
           - foundation
           - langgraph
+          - sandbox
           - slack
           - system
           - ui
+        # Every package runs on Node 22.17 unless an include below says
+        # otherwise. Includes apply in order, and a later include may overwrite
+        # a value that an earlier include added (but never an original value).
+        include:
+          - node: "22.17"
+          # sandbox declares engines.node >=24 with engine-strict, so npm ci
+          # refuses to run on 22. Matches its .nvmrc.
+          - name: sandbox
+            node: "24.15"
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       PACKAGE_DIR: packages/${{ matrix.name }}
@@ -78,8 +91,11 @@ jobs:
       - name: Configure npm auth
         run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
 
+      # The root package.json has an `install` lifecycle script that runs
+      # scripts/run_for_packages.sh (zsh) with no arguments, which exits 1 and
+      # would fail `npm ci`. Only the root devDependencies are needed here.
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}
@@ -154,8 +170,9 @@ jobs:
       - name: Configure npm auth
         run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
 
+      # See validate-packages for why scripts are skipped at the root.
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       # Mirrors the GitLab script verbatim: drop the lock file, write a
       # package-local .npmrc with the registry overrides, then `npm install`.
