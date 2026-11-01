@@ -50,6 +50,24 @@ describe('immutableClone and values shared by reference', () => {
     expect(() => Entity.instances.push('created')).not.toThrow();
   });
 
+  it('does not freeze or read an object behind a getter', () => {
+    const registry = { entries: [] as string[] };
+    let reads = 0;
+    const source = {};
+    Object.defineProperty(source, 'registry', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return registry;
+      },
+    });
+
+    immutableClone({ source });
+
+    expect(Object.isFrozen(registry)).toBe(false);
+    expect(reads).toBe(0);
+  });
+
   it('still freezes the data it cloned around a shared function', () => {
     const handler = () => 'ok';
     const cloned = immutableClone({ handler, options: { retries: 1 }, tags: ['a'] });

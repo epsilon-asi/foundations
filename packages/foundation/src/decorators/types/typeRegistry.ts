@@ -24,8 +24,9 @@ import type {
 
 /**
  * Live values (zod schemas, class references, user callbacks) never pass through the factory's
- * immutableClone: deep-freezing a zod schema corrupts zod's shared internals process-wide.
- * Records carry a closure instead, which cloneDeep keeps by reference and deepFreeze cannot see into.
+ * immutableClone: it copies class instances property by property, which drops anything keyed by
+ * identity (zod stores .describe() and .meta() that way) and breaks classes with #private state.
+ * Records carry a closure instead, which immutableClone shares by reference.
  */
 type Handle<T> = () => T;
 type Options = Readonly<Record<string, unknown>>;
