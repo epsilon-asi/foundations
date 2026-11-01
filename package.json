@@ -8,7 +8,7 @@
   "scripts": {
     "build": "",
     "test": "",
-    "install": "./scripts/run_for_packages.sh"
+    "install": "./scripts/run_for_packages.sh npm install"
   },
   "dependencies": {
     "zod": "^4.4.2"
