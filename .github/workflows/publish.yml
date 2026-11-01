@@ -46,9 +46,9 @@ jobs:
       fail-fast: false
       matrix:
         # Mirrors the `.packages` anchor, plus the publishable packages added
-        # since the GitLab migration (applications, command-line).
+        # since the GitLab migration (apps, command-line).
         name:
-          - applications
+          - apps
           - command-line
           - foundation
           - langgraph

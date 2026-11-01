@@ -6,8 +6,8 @@
   "author": "",
   "main": "index.js",
   "scripts": {
-    "build": "",
-    "test": "",
+    "build": "./scripts/run_for_packages.sh npm run build",
+    "test": "./scripts/run_for_packages.sh npm run test",
     "install": "./scripts/run_for_packages.sh npm install"
   },
   "dependencies": {
