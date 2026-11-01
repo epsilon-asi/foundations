@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/agent-engineer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Agent Engineer command-line interface.",
   "type": "module",
   "bin": {

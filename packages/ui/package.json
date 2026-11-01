@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/ui",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A modern React 19 + MUI 7 component library starter with TypeScript, Storybook, tests, and publish-ready packaging.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",

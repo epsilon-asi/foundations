@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/actors",
-  "version": "0.0.76",
+  "version": "0.0.77",
   "description": "A TypeScript Puppeteer actor framework using existing Chrome profiles and ghost-cursor.",
   "files": [
     "dist",

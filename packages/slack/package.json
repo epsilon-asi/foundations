@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/slack",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "A generalized TypeScript Slack message framework with prebuilt Block Kit components and composable builders.",
   "type": "module",
   "private": false,
