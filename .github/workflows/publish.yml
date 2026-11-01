@@ -40,7 +40,7 @@ env:
   # Publishable packages, as directory names under packages/, space separated.
   # Standard packages build in the node image. Automation packages need the
   # puppeteer image.
-  PACKAGES: "apps command-line foundation langgraph slack system ui"
+  PACKAGES: "apps agent-engineer command-line foundation langgraph sandbox slack system ui"
   AUTOMATION_PACKAGES: "actors"
   NODE_IMAGE: "node:22.17"
   PUPPETEER_IMAGE: "ghcr.io/puppeteer/puppeteer:24.43.1"

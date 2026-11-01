@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/sandbox",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "One-stop sandbox toolkit for local coding agents: isolated git worktrees, sandbox containers, repository task runners, and local code search behind one typed API.",
   "keywords": [
