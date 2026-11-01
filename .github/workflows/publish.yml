@@ -1,26 +1,32 @@
-# GitHub Actions equivalent of the `publish` stage in .gitlab-ci.yml.
+# Publishes ONE package to npm, chosen from the pushed tag, then creates the
+# matching GitHub Release.
 #
-# GitLab job                    -> GitHub job
-#   publish:packages            -> publish-packages            (node:22.17 container)
-#   publish:automation:packages -> publish-automation-packages (puppeteer container)
+# Tag format: <package>-v<semver>
+#   <package>  a directory under packages/ listed in PACKAGES or
+#              AUTOMATION_PACKAGES below
+#   <semver>   the exact version to publish (https://semver.org)
 #
-# GitLab rule: `if: '$CI_COMMIT_TAG'` -> runs on any pushed tag.
-# GitLab's `VERSION="${CI_COMMIT_TAG#v}"` becomes `VERSION="${GITHUB_REF_NAME#v}"`.
+# Examples:
+#   slack-v0.1.6          -> publishes packages/slack        as @epsilon-asi/slack@0.1.6
+#   command-line-v0.2.0   -> publishes packages/command-line as @epsilon-asi/command-line@0.2.0
+#   actors-v1.0.0-rc.1    -> publishes packages/actors       as @epsilon-asi/actors@1.0.0-rc.1
+#                            and marks the GitHub Release as a prerelease
+#
+# The version from the tag is written into the package's package.json before
+# `npm publish`. The committed version and scripts/bump_version.sh are not used
+# here, so the tag is the single source of truth for what gets published.
 #
 # Required repository secrets:
 #   NPM_TOKEN         - npm registry auth token (all packages)
 #
-# Note: in GitLab the `publish` stage is listed before `validate`, so the two
-# are independent. The Validate workflow still runs on tag pushes on its own.
-#
-# Only publishable packages belong here. `sandbox` is `private: true` and is
-# validated but never published.
+# Only publishable packages belong in PACKAGES / AUTOMATION_PACKAGES.
+# `sandbox` is `private: true` and is validated but never published.
 
 name: Publish
 
 on:
   push:
-    tags: ["**"]
+    tags: ["*-v[0-9]*"]
 
 permissions:
   contents: read
@@ -28,36 +34,105 @@ permissions:
   id-token: write
 
 env:
-  # Mirrors the top-level `variables:` block in .gitlab-ci.yml
   NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
   NPM_PUBLISH_PROVENANCE: "true"
   PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+  # Publishable packages, as directory names under packages/, space separated.
+  # Standard packages build in the node image. Automation packages need the
+  # puppeteer image.
+  PACKAGES: "apps command-line foundation langgraph slack system ui"
+  AUTOMATION_PACKAGES: "actors"
+  NODE_IMAGE: "node:22.17"
+  PUPPETEER_IMAGE: "ghcr.io/puppeteer/puppeteer:24.43.1"
 
 jobs:
   # ---------------------------------------------------------------------------
-  # publish:packages
+  # resolve: turn the tag into a package, a version, and a container image
   # ---------------------------------------------------------------------------
-  publish-packages:
-    name: "publish:packages (${{ matrix.name }})"
+  resolve:
+    name: "resolve (${{ github.ref_name }})"
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.parse.outputs.package }}
+      version: ${{ steps.parse.outputs.version }}
+      npm_name: ${{ steps.parse.outputs.npm_name }}
+      image: ${{ steps.parse.outputs.image }}
+      prerelease: ${{ steps.parse.outputs.prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: parse
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # <package>-v<semver>. Groups: 1 package, 2 full version, 6 prerelease part.
+          SEMVER='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?'
+          if [[ ! "$TAG" =~ ^([a-z0-9][a-z0-9-]*)-v(${SEMVER})$ ]]; then
+            echo "::error::Tag '$TAG' does not match <package>-v<semver> (for example slack-v0.1.6)."
+            exit 1
+          fi
+          PACKAGE="${BASH_REMATCH[1]}"
+          VERSION="${BASH_REMATCH[2]}"
+          PRERELEASE_PART="${BASH_REMATCH[6]}"
+
+          IMAGE=""
+          case " ${PACKAGES} " in
+            *" ${PACKAGE} "*) IMAGE="${NODE_IMAGE}" ;;
+          esac
+          case " ${AUTOMATION_PACKAGES} " in
+            *" ${PACKAGE} "*) IMAGE="${PUPPETEER_IMAGE}" ;;
+          esac
+          if [[ -z "$IMAGE" ]]; then
+            echo "::error::'${PACKAGE}' is not a publishable package. Add it to PACKAGES or AUTOMATION_PACKAGES in publish.yml."
+            exit 1
+          fi
+
+          DIR="packages/${PACKAGE}"
+          if [[ ! -f "${DIR}/package.json" ]]; then
+            echo "::error::${DIR}/package.json not found."
+            exit 1
+          fi
+          if [[ "$(jq -r '.private // false' "${DIR}/package.json")" == "true" ]]; then
+            echo "::error::${DIR} is marked private and cannot be published."
+            exit 1
+          fi
+          NPM_NAME="$(jq -r '.name' "${DIR}/package.json")"
+
+          PRERELEASE=false
+          if [[ -n "$PRERELEASE_PART" ]]; then
+            PRERELEASE=true
+          fi
+
+          {
+            echo "package=${PACKAGE}"
+            echo "version=${VERSION}"
+            echo "npm_name=${NPM_NAME}"
+            echo "image=${IMAGE}"
+            echo "prerelease=${PRERELEASE}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tag ${TAG} -> ${NPM_NAME}@${VERSION} from ${DIR} (image: ${IMAGE}, prerelease: ${PRERELEASE})"
+
+  # ---------------------------------------------------------------------------
+  # publish: test, build, set the version from the tag, publish to npm
+  # ---------------------------------------------------------------------------
+  publish:
+    name: "publish (${{ needs.resolve.outputs.npm_name }}@${{ needs.resolve.outputs.version }})"
+    needs: resolve
     runs-on: ubuntu-latest
     container:
-      image: node:22.17
-    strategy:
-      fail-fast: false
-      matrix:
-        # Mirrors the `.packages` anchor, plus the publishable packages added
-        # since the GitLab migration (apps, command-line).
-        name:
-          - apps
-          - command-line
-          - foundation
-          - langgraph
-          - slack
-          - system
-          - ui
+      image: ${{ needs.resolve.outputs.image }}
+      # The puppeteer image defaults to a non-root user that cannot write to the
+      # runner-mounted workspace. The node image already runs as root, so this
+      # is a no-op there.
+      options: --user root
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      PACKAGE_DIR: packages/${{ matrix.name }}
+      PACKAGE: ${{ needs.resolve.outputs.package }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      NPM_NAME: ${{ needs.resolve.outputs.npm_name }}
+      PACKAGE_DIR: packages/${{ needs.resolve.outputs.package }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,10 +141,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .npm
-          key: publish-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', matrix.name)) }}
+          key: publish-${{ needs.resolve.outputs.package }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', needs.resolve.outputs.package)) }}
           restore-keys: |
-            publish-packages-${{ matrix.name }}-${{ github.ref_name }}-
-            publish-packages-${{ matrix.name }}-
+            publish-${{ needs.resolve.outputs.package }}-
 
       - name: Configure npm cache directory
         run: npm config set cache "$GITHUB_WORKSPACE/.npm"
@@ -84,14 +158,15 @@ jobs:
       - name: Configure npm auth
         run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
 
-      # `npm run pub` calls scripts/bump_version.sh, which needs zsh and jq.
-      # Neither ships in the node:22.17 image, so install them here (no-op if
-      # they are already present).
-      - name: Install bump prerequisites (zsh, jq)
+      # Fail before the (slow) install/test/build if this version is already on
+      # npm. `npm view` prints nothing for an unpublished version and exits
+      # non-zero (E404) when the package has never been published at all.
+      - name: Check version is not already published
         run: |
-          if ! command -v zsh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-            apt-get update -qq
-            apt-get install -y -qq --no-install-recommends zsh jq
+          EXISTING="$(npm view "${NPM_NAME}@${VERSION}" version 2>/dev/null || true)"
+          if [ -n "$EXISTING" ]; then
+            echo "::error::${NPM_NAME}@${VERSION} is already published. Push a new tag with a higher version."
+            exit 1
           fi
 
       # The root package.json has an `install` lifecycle script that runs
@@ -112,85 +187,106 @@ jobs:
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm run build
 
-      - name: Publish
+      # Write the tag's version into package.json (and package-lock.json)
+      # without creating a git commit or tag. --allow-same-version covers the
+      # case where the committed version already matches the tag.
+      - name: Set version from tag
         working-directory: ${{ env.PACKAGE_DIR }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          npm run pub
+          npm version "${VERSION}" --no-git-tag-version --allow-same-version
+          echo "package.json version: $(node -p "require('./package.json').version")"
+
+      - name: Publish
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm publish --access public
 
   # ---------------------------------------------------------------------------
-  # publish:automation:packages
+  # release: create the GitHub Release for this tag once the package is on npm
   # ---------------------------------------------------------------------------
-  publish-automation-packages:
-    name: "publish:automation:packages (${{ matrix.name }})"
+  release:
+    name: "release (${{ github.ref_name }})"
+    needs: [resolve, publish]
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/puppeteer/puppeteer:24.43.1
-      # See validate.yml: the image's default non-root user cannot write to the
-      # runner-mounted workspace, so run as root.
-      options: --user root
-    strategy:
-      fail-fast: false
-      matrix:
-        # Mirrors the `.automation_packages` anchor
-        name:
-          - actors
+    permissions:
+      contents: write
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      PACKAGE_DIR: packages/${{ matrix.name }}
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      PACKAGE: ${{ needs.resolve.outputs.package }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      NPM_NAME: ${{ needs.resolve.outputs.npm_name }}
+      PRERELEASE: ${{ needs.resolve.outputs.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Restore npm cache
-        uses: actions/cache@v4
         with:
-          path: .npm
-          key: publish-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package.json', matrix.name)) }}
-          restore-keys: |
-            publish-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-
-            publish-automation-packages-${{ matrix.name }}-
+          # Full history and all tags, to find this package's previous release
+          # and list the commits since then.
+          fetch-depth: 0
 
-      - name: Configure npm cache directory
-        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
-
-      - name: Require NPM_TOKEN
+      - name: Create GitHub Release
         run: |
-          if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "NPM_TOKEN is required."
-            exit 1
+          # Previous tag for the same package reachable from this tag, if any.
+          PREV="$(git describe --tags --abbrev=0 --match "${PACKAGE}-v*" --exclude "${TAG}" "${TAG}" 2>/dev/null || true)"
+          if [[ -n "$PREV" ]]; then
+            RANGE="${PREV}..${TAG}"
+            echo "Previous release of ${PACKAGE}: ${PREV}"
+          else
+            RANGE="${TAG}"
+            echo "No previous release of ${PACKAGE} found; listing its full history."
           fi
 
-      - name: Configure npm auth
-        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+          # Commits that touched this package, grouped by conventional-commit type.
+          git log "${RANGE}" --no-merges --pretty='%s (%h)' -- "packages/${PACKAGE}" > commits.txt
 
-      - name: Install bump prerequisites (zsh, jq)
-        run: |
-          if ! command -v zsh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-            apt-get update -qq
-            apt-get install -y -qq --no-install-recommends zsh jq
+          section() {
+            local heading="$1" pattern="$2" invert="${3:-}" lines
+            lines="$(grep -E ${invert} "${pattern}" commits.txt || true)"
+            if [[ -n "$lines" ]]; then
+              printf '### %s\n\n' "$heading"
+              printf '%s\n' "$lines" | sed 's/^/- /'
+              echo
+            fi
+          }
+
+          {
+            echo "## ${NPM_NAME}@${VERSION}"
+            echo
+            echo "npm: https://www.npmjs.com/package/${NPM_NAME}/v/${VERSION}"
+            echo
+            if [[ -n "$PREV" ]]; then
+              echo "Changes in \`packages/${PACKAGE}\` since ${PREV}:"
+            else
+              echo "Changes in \`packages/${PACKAGE}\` (first release):"
+            fi
+            echo
+            if [[ -s commits.txt ]]; then
+              section "Features" '^feat(\(.*\))?!?:'
+              section "Fixes" '^fix(\(.*\))?!?:'
+              section "Other changes" '^(feat|fix)(\(.*\))?!?:' -v
+            else
+              echo "_No commits touched packages/${PACKAGE} in this range._"
+              echo
+            fi
+          } > notes.md
+
+          echo "----- notes.md -----"
+          cat notes.md
+          echo "--------------------"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists; updating it."
+            gh release edit "${TAG}" \
+              --title "${TAG}" \
+              --notes-file notes.md \
+              --prerelease="${PRERELEASE}"
+          else
+            ARGS=(--title "${TAG}" --notes-file notes.md --generate-notes)
+            if [[ -n "$PREV" ]]; then
+              ARGS+=(--notes-start-tag "${PREV}")
+            fi
+            if [[ "$PRERELEASE" == "true" ]]; then
+              ARGS+=(--prerelease)
+            fi
+            gh release create "${TAG}" "${ARGS[@]}"
           fi
-
-      # See publish-packages for why scripts are skipped at the root.
-      - name: Install root dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Install package dependencies
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm ci
-
-      - name: Test
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run test
-
-      - name: Build
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run build
-
-      - name: Publish
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          npm run pub
