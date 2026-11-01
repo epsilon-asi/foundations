@@ -28,12 +28,14 @@ export async function createTestRepository(): Promise<TestRepository> {
   const repoPath = path.join(root, 'repo');
   await mkdir(path.join(repoPath, 'src'), { recursive: true });
   const git = (...args: string[]): string =>
-    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {
+    execFileSync('git', args, {
       cwd: repoPath,
       encoding: 'utf8',
     });
 
   git('init', '-q', '-b', 'main');
+  git('config', 'user.name', 'Test');
+  git('config', 'user.email', 'test@epsilonasi.com');
   await writeFile(
     path.join(repoPath, 'package.json'),
     `${JSON.stringify({ name: 'fixture', private: true, scripts: { test: 'node -e "console.log(\'tests ok\')"' } }, null, 2)}\n`,
