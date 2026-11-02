@@ -19,7 +19,8 @@ and calls `run()`.
 
 The things every CLI needs are built in: the root reads its name, version and
 description from package.json, every root gets a `--log-level` option, every
-command gets a logger, and `runMain` is the whole `bin` entrypoint.
+command gets a logger and live lines for progress, and `runMain` is the whole
+`bin` entrypoint.
 
 ```ts
 import { Argument, Command, Option, runMain, type CliCommand, type CommandContext } from '@epsilon-asi/command-line';
@@ -127,6 +128,52 @@ builds one anywhere. To use something else, give `buildCli` / `runCli` /
 await runMain(App, { logger: ({ level, io, name }) => myLogger(level) });
 ```
 
+## Live lines
+
+A live line is a line of output rewritten in place, for progress and status
+that keeps changing. Every command can start one with `context.liveLine`:
+
+```ts
+async run({ logger, liveLine }: CommandContext): Promise<void> {
+  const line = liveLine('Syncing', { spinner: true });  // ⠋ Syncing
+
+  for (const [index, repo] of repos.entries()) {
+    line.update(`Syncing ${repo} (${index + 1}/${repos.length})`);
+    await sync(repo);
+    logger.info(`synced ${repo}`);                       // printed above the line
+  }
+
+  line.done(`Synced ${repos.length} repos`);            // left behind as an ordinary line
+}
+```
+
+| Member         | Meaning                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `update(text)` | Replaces the text.                                                  |
+| `done(text?)`  | Ends the line, leaving `text`, or else the current text, behind.    |
+| `clear()`      | Ends the line, erasing it.                                          |
+| `text`         | The text last given to `liveLine()` or `update()`.                  |
+| `active`       | False once the line has ended. An ended line ignores every call.    |
+
+The line is drawn on `io.stderr`. On a terminal it is redrawn in place, cut
+with `…` to fit on one row, and everything written through `context.io` and
+`context.logger` meanwhile appears above it. Output that leaves a row
+unfinished (no trailing newline) keeps the line off that row until it ends.
+
+Anywhere else (a pipe, a file, CI, `TERM=dumb`, or a captured `io` in tests)
+nothing is redrawn: a line writes only the text it leaves behind, so the output
+matches what a terminal would end up showing.
+
+One line is live at a time. Starting another ends the current one with
+`done()`, and a line still live when `run()` returns or throws is ended the
+same way. `spinner: true` animates `DEFAULT_SPINNER` (`⠋⠙⠹…`) before the text
+on a terminal; pass `{ frames, interval }` for your own.
+
+Outside a command, `createLiveOutput(io)` returns `{ io, liveLine, end }` for
+any `CliIO`; write through its `io` while a line is live. Whether that is a
+terminal comes from `io.terminal`, which `processIO` fills in with
+`detectTerminal(process.stderr, process.stdout)`.
+
 ## `@Option.<type>(spec?)`
 
 Options are instance fields. Flags are derived from the property name unless
@@ -187,6 +234,7 @@ value unless `required: false`.
 | `io`          | `stdout` / `stderr` writers. Write here, not to `console`, so tests can capture. |
 | `logger`      | `debug` / `info` / `warn` / `error` at the resolved level. See [Logging](#logging). |
 | `logLevel`    | The resolved level.                                                             |
+| `liveLine`    | Starts a line redrawn in place on a terminal. See [Live lines](#live-lines).    |
 | `cli`         | The root's `name`, `version`, `description` and parsed `package`.               |
 | `argv`        | The raw user arguments.                                                         |
 | `root`        | The populated root command instance, typed via `CommandContext<Root>`.          |
@@ -225,6 +273,9 @@ expect(out.join('')).toBe('Hello, World!\n');
 
 Options with `env` read `process.env`; stub it (`vi.stubEnv`) in tests.
 
+A captured `io` has no `terminal`, so live lines write only their final text.
+Give it one to see the redraws: `{ stdout, stderr, terminal: { columns: 40 } }`.
+
 Vite 8 transforms TypeScript with oxc, which only implements legacy
 decorators, so a project that tests decorated classes with vitest needs the
 plugin published at `@epsilon-asi/command-line/vitest`. It transforms
@@ -254,6 +305,8 @@ export default defineConfig({ plugins: [standardDecorators()], test: { /* ... */
 | `src/describe.ts`        | Decorators → validated `CommandDefinition` tree, package and logging resolution |
 | `src/program.ts`         | `CommandDefinition` → commander program, instance population, `run()` |
 | `src/logging.ts`         | Log levels, `createLogger`, the default logger factory                |
+| `src/liveLine.ts`        | Live lines: `createLiveOutput`, redrawing in place, fitting the terminal width |
+| `src/io.ts`              | `processIO` and `detectTerminal`                                      |
 | `src/package.ts`         | `readPackageJson`, `findPackageJson`, `cliNameFromPackage`            |
 | `src/naming.ts`          | Name, flag and environment variable derivation                        |
 | `src/vitest.ts`          | The `standardDecorators` vitest plugin (`./vitest` export)            |

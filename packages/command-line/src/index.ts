@@ -10,7 +10,8 @@ export {
   runMain,
 } from './createCliSystem.js';
 export { CliDefinitionError } from './errors.js';
-export { processIO } from './io.js';
+export { detectTerminal, processIO } from './io.js';
+export { DEFAULT_SPINNER, createLiveOutput } from './liveLine.js';
 export {
   DEFAULT_LOG_LEVEL,
   DEFAULT_LOG_LEVEL_DESCRIPTION,

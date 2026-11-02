@@ -5,6 +5,7 @@ import {
   Option as CommanderOption,
 } from 'commander';
 import { processIO } from './io.js';
+import { createLiveOutput } from './liveLine.js';
 import { DEFAULT_LOG_LEVEL, LOG_LEVELS, defaultLoggerFactory, isLogLevel } from './logging.js';
 import { argumentSyntax } from './naming.js';
 import { numberParser } from './parsers.js';
@@ -16,6 +17,7 @@ import type {
   CliInfo,
   CommandClass,
   CommandDefinition,
+  LiveOutput,
   LoggerFactory,
   LoggingDefinition,
   LogLevel,
@@ -46,7 +48,9 @@ export function createBuildCli(
   describeCommand: (target: CommandClass) => CommandDefinition,
 ): (target: CommandClass, options?: BuildCliOptions) => Cli {
   return (target, options = {}) => {
-    const io = options.io ?? processIO;
+    // Everything is written through the live output, so a live line stays below it.
+    const live = createLiveOutput(options.io ?? processIO);
+    const { io } = live;
     const definition = describeCommand(target);
     const state: RunState = { argv: [], exitCode: undefined, started: false };
 
@@ -57,6 +61,7 @@ export function createBuildCli(
 
     const env: BuildEnvironment = {
       io,
+      live,
       state,
       cli: Object.freeze({
         name: definition.name,
@@ -99,6 +104,7 @@ export function createBuildCli(
 
 interface BuildEnvironment {
   readonly io: CliIO;
+  readonly live: LiveOutput;
   readonly state: RunState;
   readonly cli: CliInfo;
   readonly loggerFactory: LoggerFactory;
@@ -158,18 +164,24 @@ function configure(
     const logLevel = env.logLevel();
     const logger = env.loggerFactory({ level: logLevel, io: env.io, name: env.cli.name });
 
-    // `runnable` guarantees run() exists; the cast types it as optional.
-    const result = await instance.run?.({
-      io: env.io,
-      argv: env.state.argv,
-      root,
-      ancestors,
-      command,
-      cli: env.cli,
-      logLevel,
-      logger,
-    });
-    if (typeof result === 'number') env.state.exitCode = result;
+    try {
+      // `runnable` guarantees run() exists; the cast types it as optional.
+      const result = await instance.run?.({
+        io: env.io,
+        argv: env.state.argv,
+        root,
+        ancestors,
+        command,
+        cli: env.cli,
+        logLevel,
+        logger,
+        liveLine: env.live.liveLine,
+      });
+      if (typeof result === 'number') env.state.exitCode = result;
+    } finally {
+      // A line still live keeps its last text, above anything printed after the run.
+      env.live.end();
+    }
   });
 }
 

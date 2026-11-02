@@ -15,6 +15,26 @@ export type Writer = (text: string) => void;
 export interface CliIO {
   readonly stdout: Writer;
   readonly stderr: Writer;
+  /**
+   * The terminal `stderr` writes to, when it is an interactive one. Live lines
+   * are only redrawn in place on a terminal; leave this out for pipes, files
+   * and captured output.
+   */
+  readonly terminal?: CliTerminal | undefined;
+}
+
+/** What live lines need to know about the terminal `CliIO.stderr` writes to. */
+export interface CliTerminal {
+  /** Width in columns, when known. Read before every redraw, so resizing is followed. */
+  readonly columns?: number | undefined;
+  /** Whether `stdout` writes to the same terminal, so its output is kept clear of live lines too. Defaults to true. */
+  readonly stdout?: boolean | undefined;
+}
+
+/** The parts of a stream `detectTerminal` reads. `process.stderr` and `process.stdout` have them. */
+export interface TerminalStream {
+  readonly isTTY?: boolean | undefined;
+  readonly columns?: number | undefined;
 }
 
 /** Log levels, least to most severe. `silent` turns logging off. */
@@ -40,6 +60,49 @@ export interface LoggerOptions {
 
 /** Builds the logger for one run. The default writes `[level] message` lines to stderr. */
 export type LoggerFactory = (options: LoggerOptions) => Logger;
+
+/** Frames drawn in turn before a live line's text. */
+export interface LiveLineSpinner {
+  readonly frames: readonly string[];
+  /** Milliseconds each frame is shown. */
+  readonly interval: number;
+}
+
+export interface LiveLineOptions {
+  /** Animates a spinner before the text while the line is drawn: `true` for DEFAULT_SPINNER, or your own. */
+  readonly spinner?: boolean | LiveLineSpinner;
+}
+
+/**
+ * A line of output rewritten in place, for progress and status. On a terminal
+ * it is redrawn on every change, cut to the terminal's width; elsewhere
+ * nothing is written until it ends, so logs only get what it leaves behind.
+ */
+export interface LiveLine {
+  /** The text last given to `liveLine()` or `update()`, without the spinner. */
+  readonly text: string;
+  /** False once the line has ended, after which every call is ignored. */
+  readonly active: boolean;
+  /** Replaces the text. */
+  update(text: string): void;
+  /** Ends the line, leaving `text`, or else the current text, behind as an ordinary line. */
+  done(text?: string): void;
+  /** Ends the line, erasing it. */
+  clear(): void;
+}
+
+/** Output that can show a live line below everything written through it. */
+export interface LiveOutput {
+  /**
+   * Writes through this io appear above the live line rather than breaking it.
+   * It is the io given to createLiveOutput when that has no terminal.
+   */
+  readonly io: CliIO;
+  /** Starts a live line on `io.stderr`, first ending the current one with `done()`. */
+  liveLine(text?: string, options?: LiveLineOptions): LiveLine;
+  /** Ends the current live line, if there is one, with `done()`. */
+  end(): void;
+}
 
 /** The fields of package.json a CLI cares about. Everything else is kept as `unknown`. */
 export interface PackageJson {
@@ -78,6 +141,12 @@ export interface CommandContext<TRoot extends object = object> {
   readonly logLevel: LogLevel;
   /** A logger at `logLevel`, writing to `io.stderr` unless `buildCli` was given another factory. */
   readonly logger: Logger;
+  /**
+   * Starts a live line on `io.stderr`. On a terminal it is redrawn in place
+   * while `io` and `logger` output appears above it. A line still live when
+   * `run()` returns or throws is ended with `done()`.
+   */
+  readonly liveLine: (text?: string, options?: LiveLineOptions) => LiveLine;
 }
 
 /** Implemented by command classes that do something when invoked. */
