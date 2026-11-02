@@ -75,8 +75,8 @@ export function createDescribeCommand(
     return Object.freeze({
       target,
       name,
-      description: metadata.description ?? stringField(packageJson, 'description'),
-      version: metadata.version ?? packageVersion(target, packageJson),
+      description: metadata.description ?? stringField(packageJson, 'description') ?? "No description given",
+      version: metadata.version ?? packageVersion(target, packageJson) ?? '0.0.0-undefined-version',
       aliases: Object.freeze([...(metadata.aliases ?? [])]),
       hidden: metadata.hidden ?? false,
       runnable,

@@ -129,7 +129,7 @@ describe('@Command({ package })', () => {
     }
 
     const definition = describeCommand(Whatever);
-    expect([definition.name, definition.version, definition.description]).toEqual(['plain', '0.1.0', undefined]);
+    expect([definition.name, definition.version, definition.description]).toEqual(['plain', '0.1.0', 'No description given']);
   });
 
   it('rejects a package without a version', () => {

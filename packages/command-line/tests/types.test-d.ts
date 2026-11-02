@@ -185,7 +185,7 @@ describe('@Command contract', () => {
         expectTypeOf(logLevel).toEqualTypeOf<LogLevel>();
         expectTypeOf(logger).toEqualTypeOf<Logger>();
         expectTypeOf(cli).toEqualTypeOf<CliInfo>();
-        expectTypeOf(cli.version).toEqualTypeOf<string | undefined>();
+        expectTypeOf(cli.version).toEqualTypeOf<string>();
 
         // @ts-expect-error unknown property on the root
         void root.nope;

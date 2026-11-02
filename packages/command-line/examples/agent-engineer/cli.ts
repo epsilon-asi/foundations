@@ -33,7 +33,7 @@ export class InfoCommand implements CliCommand<AgentEngineer> {
 
     const info: RuntimeInfo = {
       name: cli.name,
-      version: cli.version ?? 'unknown',
+      version: cli.version ?? '0.0.0',
       node: process.version,
       platform: `${process.platform}-${process.arch}`,
     };

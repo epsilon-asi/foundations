@@ -53,8 +53,8 @@ export interface PackageJson {
 /** Identity of the root command, available to every command as `context.cli`. */
 export interface CliInfo {
   readonly name: string;
-  readonly version: string | undefined;
-  readonly description: string | undefined;
+  readonly version: string;
+  readonly description: string;
   /** The package.json read for `@Command({ package })`, when one was given. */
   readonly package: PackageJson | undefined;
 }
@@ -371,8 +371,8 @@ export interface LoggingDefinition {
 export interface CommandDefinition {
   readonly target: CommandClass;
   readonly name: string;
-  readonly description: string | undefined;
-  readonly version: string | undefined;
+  readonly description: string;
+  readonly version: string;
   readonly aliases: readonly string[];
   readonly hidden: boolean;
   /** Whether the class has a `run()` method. */

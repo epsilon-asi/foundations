@@ -12,7 +12,7 @@ set -euo pipefail
 
 # Package directory names to skip. Add entries as needed, one per line.
 SKIP_PACKAGES=(
-"actors",
+"actors"
 "agent-engineer"
 )
 
