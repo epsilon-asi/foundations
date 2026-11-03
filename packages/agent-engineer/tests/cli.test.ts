@@ -1,7 +1,6 @@
-import { readPackageJson, runCli } from '@epsilon-asi/command-line';
+import { readPackageJson, runCli, type RuntimeInfo } from '@epsilon-asi/command-line';
 import { describe, expect, it, vi } from 'vitest';
 import { AgentEngineer } from '../src/cli.js';
-import type { RuntimeInfo } from '../src/commands/info.js';
 import { captureIO } from './helpers/captureIO.js';
 
 const PACKAGE = readPackageJson(import.meta.url);

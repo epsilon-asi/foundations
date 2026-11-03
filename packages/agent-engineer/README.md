@@ -44,12 +44,13 @@ Commands:
 ## Adding a command
 
 1. Create `src/commands/<name>.ts` with a class decorated `@Command({ description })` that
-   implements `CliCommand<AgentEngineer>`. The command name is derived from the class name
-   (`SyncReposCommand` → `sync-repos`).
-2. Declare its options and arguments as `@Option.<type>()` / `@Argument.<type>()` fields. The
-   field type must match what the decorator produces; see the command-line README.
-3. In `run()`, write output through `context.io`, log through `context.logger`, and read the CLI's
-   name and version from `context.cli`.
+   extends `CliCommand<AgentEngineer>`, as [info.ts](src/commands/info.ts) does. The command
+   name is derived from the class name (`SyncReposCommand` → `sync-repos`), and the base class
+   gives it `-f, --format text|json`.
+2. Declare any options and arguments of its own as `@Option.<type>()` / `@Argument.<type>()`
+   fields. The field type must match what the decorator produces; see the command-line README.
+3. In `run()`, print data with `io.stdout(this.render(data))`, log through `context.logger`, and
+   read the CLI's name and version from `context.cli`.
 4. Add the class to `commands` in `src/cli.ts`, and cover it in `tests/cli.test.ts`.
 
 ## Scripts
