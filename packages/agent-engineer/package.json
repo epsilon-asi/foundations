@@ -27,7 +27,7 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
-    "@epsilon-asi/command-line": "^0.0.7"
+    "@epsilon-asi/command-line": "^0.0.9"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

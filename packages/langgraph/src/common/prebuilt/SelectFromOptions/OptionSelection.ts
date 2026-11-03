@@ -13,11 +13,7 @@ export const createOptionSelectionNode = <
     options: EnumToPromptMap<Keys, Values>,
 ) => {
     const TypedOptionsArray: (Keys & string)[] = Object.keys(options) as (Keys)[];
-    const InputFields = {
-        prompt: z.string(),
-    }
     const InputSchema = z.object({
-        ...InputFields,
         messages: AgenticMessagingStateZod
     })
     const OutputFields = {
@@ -57,7 +53,8 @@ export const createOptionSelectionNode = <
         }]);
 
         return {
-            messages: nodeInput.messages,
+            // The choice adds nothing to the conversation; returning nodeInput.messages would duplicate its last message.
+            messages: [],
             ...response.parsed,
         }
     })

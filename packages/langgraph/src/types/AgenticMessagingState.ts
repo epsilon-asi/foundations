@@ -14,6 +14,6 @@ export const AgenticMessagingStateZod = z.array(z.object({
 export const AgenticMessagingState = Annotation.Root({
     messages: Annotation<StandardMessage[]>({
 
-        reducer: (left, right) => [...left, ...right.splice(-1)]
+        reducer: (left, right) => [...left, ...right.slice(-1)]
     })
 });

@@ -26,6 +26,8 @@
     "pub": "npm run build && npm run bump && npm publish --access public"
   },
   "dependencies": {
+    "@epsilon-asi/foundation": "^0.0.10",
+    "@epsilon-asi/sandbox": "^0.0.6",
     "@langchain/core": "latest",
     "@langchain/langgraph": "^1.4.8",
     "@langchain/langgraph-checkpoint": "^1.1.3",

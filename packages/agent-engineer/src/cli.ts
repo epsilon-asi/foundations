@@ -1,5 +1,6 @@
-import { Command } from '@epsilon-asi/command-line';
-import { InfoCommand } from './commands/info.js';
+import {Command} from '@epsilon-asi/command-line';
+import {InfoCommand} from './commands/info.js';
+import {QueryCommand} from "./commands/q.js";
 
 /**
  * The root command. Its name, version and description come from package.json
@@ -9,5 +10,6 @@ import { InfoCommand } from './commands/info.js';
  * Subcommands are listed in `commands` in help order and must be imported
  * (and therefore defined) before this class.
  */
-@Command({ package: import.meta.url, commands: [InfoCommand] })
-export class AgentEngineer {}
+@Command({package: import.meta.url, commands: [InfoCommand, QueryCommand]})
+export class AgentEngineer {
+}

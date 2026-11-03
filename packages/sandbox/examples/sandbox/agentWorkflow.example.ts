@@ -1,16 +1,11 @@
-import {
-  Sandbox,
-  type CreateSandboxOptions,
-  type GitCommitInfo,
-  type GitDiffNameStatusEntry,
-} from '../../src/index.js';
+import {type CreateSandboxOptions, type GitCommitInfo, type GitDiffNameStatusEntry, Sandbox,} from '../../src/index.js';
 
 export interface AgentWorkflowResult {
-  readonly testsPassed: boolean;
-  readonly changedFiles: readonly GitDiffNameStatusEntry[];
-  readonly patch: string;
-  /** Present when the tests passed and the change was committed to the sandbox branch. */
-  readonly commit: GitCommitInfo | undefined;
+    readonly testsPassed: boolean;
+    readonly changedFiles: readonly GitDiffNameStatusEntry[];
+    readonly patch: string;
+    /** Present when the tests passed and the change was committed to the sandbox branch. */
+    readonly commit: GitCommitInfo | undefined;
 }
 
 /**
@@ -19,19 +14,20 @@ export interface AgentWorkflowResult {
  * `await using` removes the container and the worktree afterwards; the branch and its commit remain.
  */
 export async function agentWorkflowExample(
-  options: Pick<CreateSandboxOptions, 'repoPath' | 'worktreePath' | 'container'>,
-  edit: (worktreePath: string) => Promise<void>,
+    options: Pick<CreateSandboxOptions, 'repoPath' | 'worktreePath' | 'container'>,
+    edit: (worktreePath: string) => Promise<void>,
 ): Promise<AgentWorkflowResult> {
-  await using sandbox = await Sandbox.create({ ...options, branchName: 'agent/example' });
+    await using sandbox = await Sandbox.create({...options, branchName: 'agent/example', container: {image: ''}});
 
-  await sandbox.installDependencies();
-  await edit(sandbox.worktreePath);
+    await sandbox.installDependencies();
+    await edit(sandbox.worktreePath);
 
-  const tests = await sandbox.runTask('test', { allowNonZeroExit: true });
-  const testsPassed = tests.exitCode === 0;
-  const changedFiles = await sandbox.changedFiles();
-  const patch = await sandbox.diff();
-  const commit = testsPassed ? await sandbox.commit({ message: 'agent: apply change' }) : undefined;
+    const tests = await sandbox.runTask('test', {allowNonZeroExit: true});
+    sandbox.search()
+    const testsPassed = tests.exitCode === 0;
+    const changedFiles = await sandbox.changedFiles();
+    const patch = await sandbox.diff();
+    const commit = testsPassed ? await sandbox.commit({message: 'agent: apply change'}) : undefined;
 
-  return { testsPassed, changedFiles, patch, commit };
+    return {testsPassed, changedFiles, patch, commit};
 }
