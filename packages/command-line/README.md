@@ -19,14 +19,15 @@ and calls `run()`.
 
 The things every CLI needs are built in: the root reads its name, version and
 description from package.json, every root gets a `--log-level` option, every
-command gets a logger and live lines for progress, and `runMain` is the whole
-`bin` entrypoint.
+command gets a logger and live lines for progress, commands extending
+`CliCommand` get `--format` and `render()`, and `runMain` is the whole `bin`
+entrypoint.
 
 ```ts
-import { Argument, Command, Option, runMain, type CliCommand, type CommandContext } from '@epsilon-asi/command-line';
+import { Argument, CliCommand, Command, Option, runMain, type CommandContext } from '@epsilon-asi/command-line';
 
 @Command({ description: 'Greet someone.' })
-class GreetCommand implements CliCommand<App> {
+class GreetCommand extends CliCommand<App> {
   @Argument.string({ description: 'who to greet' })
   name!: string;                                    // greet <name>
 
@@ -72,6 +73,33 @@ help when invoked without a subcommand (exit code 1). A class with both runs
 `@Command` is not inherited: a subclass is a different command and must be
 decorated itself. `@Option` and `@Argument` fields *are* inherited, so shared
 options can live on a base class.
+
+## `CliCommand`
+
+The base class commands extend. It brings the output format, so a command is
+just its `@Command`, its own options and `run()`:
+
+```ts
+@Command({ description: 'Print CLI and runtime information.' })
+export class InfoCommand extends CliCommand<App> {
+  run({ io, cli }: CommandContext<App>): void {
+    io.stdout(this.render(this.runtimeInfo(cli)));
+  }
+}
+```
+
+| Member              | Meaning                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `format`            | `-f, --format <format>`: `text` (default) or `json`. Do not declare it again. |
+| `render(data)`      | `data` in that format, ending in a newline. Text is a `key  value` line per property, keys padded into a column (at least 10 wide); object values are written as JSON. JSON is indented by 2. |
+| `runtimeInfo(cli)`  | `{ name, version, node, platform }` for an info command.                   |
+
+Override `render()` to print a command's text differently; `super.render(data)`
+keeps the default. The same functions are exported as `renderOutput(data, format)`
+and `runtimeInfo(cli)`, and the formats as `OUTPUT_FORMATS`.
+
+A command that should not have `--format` implements `RunnableCommand<Root>`
+instead, which is just the `run()` signature.
 
 ## Package metadata
 
@@ -302,6 +330,7 @@ export default defineConfig({ plugins: [standardDecorators()], test: { /* ... */
 | ------------------------ | --------------------------------------------------------------------- |
 | `src/types.ts`           | Every public type: metadata, contexts, decorator APIs, definitions    |
 | `src/createCliSystem.ts` | Registry, decorators, `runMain`, default instance                     |
+| `src/cliCommand.ts`      | The `CliCommand` base class, `renderOutput` and `runtimeInfo`         |
 | `src/describe.ts`        | Decorators → validated `CommandDefinition` tree, package and logging resolution |
 | `src/program.ts`         | `CommandDefinition` → commander program, instance population, `run()` |
 | `src/logging.ts`         | Log levels, `createLogger`, the default logger factory                |

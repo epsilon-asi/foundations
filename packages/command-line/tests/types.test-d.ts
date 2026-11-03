@@ -7,7 +7,7 @@ import {
   describeCommand,
   runCli,
   runMain,
-  type CliCommand,
+  type RunnableCommand,
   type CliInfo,
   type CommandContext,
   type Logger,
@@ -118,7 +118,7 @@ describe('@Argument field types', () => {
 describe('@Command contract', () => {
   it('checks run() signatures and subcommand constructors', () => {
     @Command()
-    class Fine implements CliCommand {
+    class Fine implements RunnableCommand {
       run(): number {
         return 0;
       }
@@ -157,18 +157,18 @@ describe('@Command contract', () => {
 
   it('types package and logging metadata', () => {
     @Command({ package: import.meta.url, logging: { level: 'warn', flags: false } })
-    class Configured implements CliCommand {
+    class Configured implements RunnableCommand {
       run(): void {}
     }
 
     @Command({ package: new URL(import.meta.url), logging: false })
-    class Disabled implements CliCommand {
+    class Disabled implements RunnableCommand {
       run(): void {}
     }
 
     // @ts-expect-error the level must be a LogLevel
     @Command({ logging: { level: 'loud' } })
-    class BadLevel implements CliCommand {
+    class BadLevel implements RunnableCommand {
       run(): void {}
     }
 
@@ -178,7 +178,7 @@ describe('@Command contract', () => {
   });
 
   it('types the root, logger and cli on the command context', () => {
-    class Child implements CliCommand<AgentEngineer> {
+    class Child implements RunnableCommand<AgentEngineer> {
       run({ root, ancestors, logLevel, logger, cli }: CommandContext<AgentEngineer>): void {
         expectTypeOf(root).toEqualTypeOf<AgentEngineer>();
         expectTypeOf(ancestors).toEqualTypeOf<readonly object[]>();

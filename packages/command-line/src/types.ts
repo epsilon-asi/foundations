@@ -149,9 +149,24 @@ export interface CommandContext<TRoot extends object = object> {
   readonly liveLine: (text?: string, options?: LiveLineOptions) => LiveLine;
 }
 
-/** Implemented by command classes that do something when invoked. */
-export interface CliCommand<TRoot extends object = object> {
+/**
+ * What a command class that does something when invoked implements. Most
+ * commands extend the CliCommand base class instead, which adds `--format`
+ * and `render()`; implement this directly for a command without them.
+ */
+export interface RunnableCommand<TRoot extends object = object> {
   run(context: CommandContext<TRoot>): CommandResult | Promise<CommandResult>;
+}
+
+/** The values of the `-f, --format` option every CliCommand has. */
+export type OutputFormat = 'text' | 'json';
+
+/** The CLI and runtime facts `runtimeInfo()` reports. */
+export interface RuntimeInfo {
+  readonly name: string;
+  readonly version: string;
+  readonly node: string;
+  readonly platform: string;
 }
 
 /** The signature `run()` must have when a command class declares one. */

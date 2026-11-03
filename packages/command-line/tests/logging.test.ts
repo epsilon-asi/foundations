@@ -10,7 +10,7 @@ import {
   isLogLevel,
   logLevelEnvName,
   runCli,
-  type CliCommand,
+  type RunnableCommand,
   type CommandContext,
   type Logger,
   type LoggerOptions,
@@ -68,7 +68,7 @@ describe('the built-in log level option', () => {
     const seen: string[] = [];
 
     @Command({ name: 'my-tool' })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ logLevel, logger }: CommandContext): void {
         seen.push(logLevel);
         logger.info('shown');
@@ -94,7 +94,7 @@ describe('the built-in log level option', () => {
     const seen: LogLevel[] = [];
 
     @Command({ name: 'tool' })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ logLevel }: CommandContext): void {
         seen.push(logLevel);
       }
@@ -111,7 +111,7 @@ describe('the built-in log level option', () => {
 
   it('rejects a level outside the choices', async () => {
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run(): void {}
     }
 
@@ -122,7 +122,7 @@ describe('the built-in log level option', () => {
 
   it('lists the option after the root options in help', async () => {
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.boolean({ description: 'be careful' })
       dryRun: boolean | undefined;
 
@@ -144,7 +144,7 @@ describe('the built-in log level option', () => {
     let seen: LogLevel | undefined;
 
     @Command()
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run({ logLevel }: CommandContext): void {
         seen = logLevel;
       }
@@ -168,7 +168,7 @@ describe('@Command({ logging })', () => {
       name: 'tool',
       logging: { level: 'warn', flags: '-v, --verbosity <v>', env: 'TOOL_VERBOSITY', description: 'how chatty', hidden: true },
     })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ logLevel }: CommandContext): void {
         seen.push(logLevel);
       }
@@ -198,7 +198,7 @@ describe('@Command({ logging })', () => {
     const seen: LogLevel[] = [];
 
     @Command({ logging: { flags: false, level: 'debug' } })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ logLevel, logger }: CommandContext): void {
         seen.push(logLevel);
         logger.debug('on');
@@ -225,7 +225,7 @@ describe('@Command({ logging })', () => {
     let seen: LogLevel | undefined;
 
     @Command({ name: 'tool', logging: false })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ logLevel }: CommandContext): void {
         seen = logLevel;
       }
@@ -240,7 +240,7 @@ describe('@Command({ logging })', () => {
 
   it('rejects an environment variable without the option', () => {
     @Command({ logging: { flags: false, env: 'TOOL_LOG_LEVEL' } })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run(): void {}
     }
 
@@ -249,7 +249,7 @@ describe('@Command({ logging })', () => {
 
   it('rejects an unknown level', () => {
     @Command({ logging: { level: 'loud' as LogLevel } })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run(): void {}
     }
 
@@ -258,7 +258,7 @@ describe('@Command({ logging })', () => {
 
   it('rejects logging on a subcommand', () => {
     @Command({ logging: { level: 'debug' } })
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run(): void {}
     }
     @Command({ commands: [Child] })
@@ -269,7 +269,7 @@ describe('@Command({ logging })', () => {
 
   it('rejects a root option that reuses the long flag', () => {
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.string()
       logLevel: string | undefined;
 
@@ -283,7 +283,7 @@ describe('@Command({ logging })', () => {
 
   it('rejects a root option that reuses the short flag', () => {
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.boolean({ short: 'l' })
       list: boolean | undefined;
 
@@ -297,7 +297,7 @@ describe('@Command({ logging })', () => {
     let seen: string | undefined;
 
     @Command({ logging: false })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.string({ short: 'l' })
       logLevel: string | undefined;
 
@@ -324,13 +324,13 @@ describe('buildCli({ logger })', () => {
     });
 
     @Command()
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run({ logger }: CommandContext): void {
         logger.debug('from child');
       }
     }
     @Command({ name: 'tool', commands: [Child] })
-    class Root implements CliCommand {
+    class Root implements RunnableCommand {
       run({ logger }: CommandContext): void {
         logger.info('from root');
       }
@@ -357,7 +357,7 @@ describe('buildCli({ logger })', () => {
     const logger = vi.fn(() => createLogger('info', () => {}));
 
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run(): void {}
     }
 

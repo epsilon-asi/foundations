@@ -11,7 +11,7 @@ import {
   findPackageJson,
   readPackageJson,
   runCli,
-  type CliCommand,
+  type RunnableCommand,
   type CommandContext,
 } from '../src/index.js';
 import { captureIO } from './helpers/captureIO.js';
@@ -75,7 +75,7 @@ describe('@Command({ package })', () => {
     let seen: CommandContext['cli'] | undefined;
 
     @Command({ package: fixture('cli-package') })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run({ cli }: CommandContext): void {
         seen = cli;
       }
@@ -96,7 +96,7 @@ describe('@Command({ package })', () => {
 
   it('lets explicit metadata win', () => {
     @Command({ package: fixture('cli-package'), name: 'other', version: '0.0.0', description: 'Mine.' })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run(): void {}
     }
 
@@ -106,7 +106,7 @@ describe('@Command({ package })', () => {
 
   it('derives the env variable of the log level option from the package name', () => {
     @Command({ package: fixture('cli-package') })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run(): void {}
     }
 
@@ -115,7 +115,7 @@ describe('@Command({ package })', () => {
 
   it('falls back to the class name when the package has several bins', () => {
     @Command({ package: fixture('multi-bin') })
-    class FirstCli implements CliCommand {
+    class FirstCli implements RunnableCommand {
       run(): void {}
     }
 
@@ -124,7 +124,7 @@ describe('@Command({ package })', () => {
 
   it('accepts a path string', () => {
     @Command({ package: fileURLToPath(new URL('scoped-package', fixtures)) })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run(): void {}
     }
 
@@ -134,7 +134,7 @@ describe('@Command({ package })', () => {
 
   it('rejects a package without a version', () => {
     @Command({ package: fixture('no-version') })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run(): void {}
     }
 
@@ -144,7 +144,7 @@ describe('@Command({ package })', () => {
 
   it('rejects a package that cannot be read', () => {
     @Command({ package: fixture('not-object') })
-    class Whatever implements CliCommand {
+    class Whatever implements RunnableCommand {
       run(): void {}
     }
 
@@ -153,7 +153,7 @@ describe('@Command({ package })', () => {
 
   it('rejects package on a subcommand', () => {
     @Command({ package: fixture('cli-package') })
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run(): void {}
     }
     @Command({ commands: [Child] })

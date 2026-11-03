@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AgentEngineer, type RuntimeInfo } from '../examples/agent-engineer/cli.js';
+import { AgentEngineer } from '../examples/agent-engineer/cli.js';
 import {
   Argument,
   Command,
@@ -7,7 +7,8 @@ import {
   buildCli,
   readPackageJson,
   runCli,
-  type CliCommand,
+  type RunnableCommand,
+  type RuntimeInfo,
   type CommandContext,
 } from '../src/index.js';
 import { captureIO } from './helpers/captureIO.js';
@@ -152,7 +153,7 @@ describe('runCli behaviours', () => {
     const seen: string[] = [];
 
     @Command()
-    class LeafCommand implements CliCommand<Root> {
+    class LeafCommand implements RunnableCommand<Root> {
       run({ root, ancestors }: CommandContext<Root>): void {
         seen.push(root.region, ...ancestors.map((ancestor) => ancestor.constructor.name));
         const group = ancestors[1] as GroupCommand;
@@ -179,7 +180,7 @@ describe('runCli behaviours', () => {
     let sameInstance = false;
 
     @Command()
-    class Single implements CliCommand<Single> {
+    class Single implements RunnableCommand<Single> {
       run({ root, ancestors }: CommandContext<Single>): void {
         sameInstance = root === this && ancestors.length === 0;
       }
@@ -193,7 +194,7 @@ describe('runCli behaviours', () => {
     let seen: CommandContext['cli'] | undefined;
 
     @Command({ description: 'Child.' })
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run({ cli }: CommandContext): void {
         seen = cli;
       }
@@ -210,13 +211,13 @@ describe('runCli behaviours', () => {
     const calls: string[] = [];
 
     @Command()
-    class Child implements CliCommand {
+    class Child implements RunnableCommand {
       run(): void {
         calls.push('child');
       }
     }
     @Command({ commands: [Child] })
-    class Root implements CliCommand {
+    class Root implements RunnableCommand {
       run(): void {
         calls.push('root');
       }
@@ -230,7 +231,7 @@ describe('runCli behaviours', () => {
 
   it('uses the exit code returned by run()', async () => {
     @Command()
-    class Exit implements CliCommand {
+    class Exit implements RunnableCommand {
       run(): number {
         return 3;
       }
@@ -241,7 +242,7 @@ describe('runCli behaviours', () => {
 
   it('reports errors thrown by run()', async () => {
     @Command()
-    class Boom implements CliCommand {
+    class Boom implements RunnableCommand {
       async run(): Promise<void> {
         throw new Error('boom');
       }
@@ -256,7 +257,7 @@ describe('runCli behaviours', () => {
     let seen: string | undefined;
 
     @Command()
-    class Fallback implements CliCommand {
+    class Fallback implements RunnableCommand {
       @Option.string()
       name: string | undefined = 'fallback';
 
@@ -275,7 +276,7 @@ describe('runCli behaviours', () => {
     let seen: string | undefined;
 
     @Command()
-    class Custom implements CliCommand {
+    class Custom implements RunnableCommand {
       @Option.string({ flags: '--lvl <value>' })
       level: string | undefined;
 
@@ -292,7 +293,7 @@ describe('runCli behaviours', () => {
     const seen: unknown[] = [];
 
     @Command()
-    class Copy implements CliCommand {
+    class Copy implements RunnableCommand {
       @Argument.string()
       first!: string;
 
@@ -316,7 +317,7 @@ describe('runCli behaviours', () => {
     const seen: unknown[] = [];
 
     @Command()
-    class Typed implements CliCommand {
+    class Typed implements RunnableCommand {
       @Argument.number({ integer: true })
       count!: number;
 
@@ -337,7 +338,7 @@ describe('runCli behaviours', () => {
 
   it('enforces required options', async () => {
     @Command()
-    class Needs implements CliCommand {
+    class Needs implements RunnableCommand {
       @Option.string({ required: true })
       token!: string;
 
@@ -353,7 +354,7 @@ describe('runCli behaviours', () => {
     let context: CommandContext | undefined;
 
     @Command()
-    class Inspect implements CliCommand {
+    class Inspect implements RunnableCommand {
       @Argument.string({ required: false })
       thing: string | undefined;
 
@@ -369,7 +370,7 @@ describe('runCli behaviours', () => {
 
   it('refuses to run a built CLI twice', async () => {
     @Command()
-    class Once implements CliCommand {
+    class Once implements RunnableCommand {
       run(): void {}
     }
 
@@ -383,7 +384,7 @@ describe('runCli behaviours', () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     @Command({ version: '9.9.9' })
-    class Default implements CliCommand {
+    class Default implements RunnableCommand {
       run(): void {}
     }
 

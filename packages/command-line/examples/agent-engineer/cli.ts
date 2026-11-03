@@ -1,4 +1,4 @@
-import { Argument, Command, Option, type CliCommand, type CommandContext } from '../../src/index.js';
+import { Argument, CliCommand, Command, Option, type CommandContext } from '../../src/index.js';
 
 /**
  * The agent-engineer CLI (packages/agent-engineer) rebuilt on the CLI system.
@@ -9,41 +9,22 @@ import { Argument, Command, Option, type CliCommand, type CommandContext } from 
  * package.json, so the name and description are given explicitly; a real CLI
  * package leaves them to its package.json and `bin` too.
  *
- * Nothing declares a log level: every root gets `-l, --log-level <level>` and
- * an `AGENT_ENGINEER_LOG_LEVEL` variable, and every command gets a logger.
+ * Nothing declares a log level or an output format: every root gets
+ * `-l, --log-level <level>` and an `AGENT_ENGINEER_LOG_LEVEL` variable, and
+ * every command extending CliCommand gets `-f, --format` and `render()`.
  */
 
-export const OUTPUT_FORMATS = ['text', 'json'] as const;
-export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
-
-export interface RuntimeInfo {
-  readonly name: string;
-  readonly version: string;
-  readonly node: string;
-  readonly platform: string;
-}
-
 @Command({ description: 'Print CLI and runtime information.' })
-export class InfoCommand implements CliCommand<AgentEngineer> {
-  @Option.choice({ short: 'f', choices: OUTPUT_FORMATS, default: 'text', description: 'output format' })
-  format!: OutputFormat;
-
+export class InfoCommand extends CliCommand<AgentEngineer> {
   run({ io, cli, logger }: CommandContext<AgentEngineer>): void {
     logger.debug(`rendering info as ${this.format}`);
 
-    const info: RuntimeInfo = {
-      name: cli.name,
-      version: cli.version ?? '0.0.0',
-      node: process.version,
-      platform: `${process.platform}-${process.arch}`,
-    };
-
-    io.stdout(this.format === 'json' ? `${JSON.stringify(info, null, 2)}\n` : renderText(info));
+    io.stdout(this.render(this.runtimeInfo(cli)));
   }
 }
 
 @Command({ description: 'Greet someone, to show arguments and typed options.' })
-export class GreetCommand implements CliCommand<AgentEngineer> {
+export class GreetCommand extends CliCommand<AgentEngineer> {
   @Argument.string({ description: 'who to greet' })
   name!: string;
 
@@ -66,9 +47,3 @@ export class GreetCommand implements CliCommand<AgentEngineer> {
   commands: [InfoCommand, GreetCommand],
 })
 export class AgentEngineer {}
-
-function renderText(info: RuntimeInfo): string {
-  return `${Object.entries(info)
-    .map(([key, value]) => `${key.padEnd(10)}${value}`)
-    .join('\n')}\n`;
-}

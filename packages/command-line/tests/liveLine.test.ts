@@ -5,7 +5,7 @@ import {
   Option,
   createLiveOutput,
   runCli,
-  type CliCommand,
+  type RunnableCommand,
   type CommandContext,
   type LiveLineSpinner,
 } from '../src/index.js';
@@ -369,7 +369,7 @@ it('does not let a spinner keep the process alive', () => {
 
 describe('context.liveLine', () => {
   @Command({ name: 'sync' })
-  class Sync implements CliCommand {
+  class Sync implements RunnableCommand {
     run({ io, logger, liveLine }: CommandContext): void {
       const line = liveLine('Syncing 0/2');
       logger.info('found a');
@@ -397,7 +397,7 @@ describe('context.liveLine', () => {
 
   it('ends a line still live when run() returns or throws', async () => {
     @Command({ name: 'tool' })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.boolean()
       fail: boolean | undefined;
 
@@ -418,7 +418,7 @@ describe('context.liveLine', () => {
 
   it('keeps commander output clear of the line too', async () => {
     @Command({ name: 'tool' })
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run({ command, liveLine }: CommandContext): void {
         liveLine('Halfway');
         command.error('error: gave up');

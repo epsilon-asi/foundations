@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Command, Option, runMain, type CliCommand } from '../src/index.js';
+import { Command, Option, runMain, type RunnableCommand } from '../src/index.js';
 import { captureIO } from './helpers/captureIO.js';
 
 const originalArgv = process.argv;
@@ -14,7 +14,7 @@ describe('runMain', () => {
     let seen: number | undefined;
 
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       @Option.number({ default: 1 })
       count!: number;
 
@@ -33,7 +33,7 @@ describe('runMain', () => {
 
   it('stores 0 on success', async () => {
     @Command()
-    class Tool implements CliCommand {
+    class Tool implements RunnableCommand {
       run(): void {}
     }
 
