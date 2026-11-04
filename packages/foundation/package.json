@@ -3,6 +3,14 @@
   "version": "0.0.10",
   "description": "",
   "mainDir": "./",
+  "types": "./build/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "files": [
+        "./build/files/index.d.ts"
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "build:clean": "rm -rf ./build && npm run build",
@@ -50,6 +58,11 @@
       "import": "./build/index.js",
       "require": "./build/index.js"
     },
+    "./files": {
+      "types": "./build/files/index.d.ts",
+      "import": "./build/files/index.js",
+      "require": "./build/files/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -59,7 +72,9 @@
   ],
   "author": "",
   "license": "SEE LICENSE IN LICENSE",
-  "dependencies": {},
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
   "peerDependencies": {
     "zod": "^4.0.0"
   }
