@@ -3,8 +3,10 @@ import type {AgentEngineer} from '../cli.js';
 
 /** `agent-engineer info`: the command name is derived from the class name. */
 @Command({
+    name: "query",
     description: 'Query the agent.',
-    commands: []
+    commands: [],
+    aliases: ["q"],
 })
 export class QueryCommand extends CliCommand<AgentEngineer> {
     run({

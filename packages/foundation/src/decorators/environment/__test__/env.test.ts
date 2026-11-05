@@ -1,3 +1,6 @@
+import {mkdtempSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {
     createEnvSystem,
     Env,
@@ -7,6 +10,20 @@ import {
     parseEnvValue,
     toEnvKey,
 } from '../';
+
+// Dotenv is on by default, so run from an empty directory to keep a real .env out of these tests.
+let dir: string;
+let cwd: jest.SpyInstance<string, []>;
+
+beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'env-'));
+    cwd = jest.spyOn(process, 'cwd').mockReturnValue(dir);
+});
+
+afterEach(() => {
+    cwd.mockRestore();
+    rmSync(dir, {recursive: true, force: true});
+});
 
 describe('env static decorator system', () => {
     test('loads string, number, and boolean values into static class fields', () => {
