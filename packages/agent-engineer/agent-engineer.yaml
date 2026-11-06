@@ -1,0 +1,10 @@
+# agent-engineer config (defaults from GlobalConfigSchema)
+generationsDir: .ai-gen
+model: gpt-5.4-codex
+maxToolRounds: 60              # 1-100
+maxContextFileSizeBytes: 60000
+maxOutputFiles: 10             # 1-100
+ignore: [ ]
+offLimits: [ ]
+defaultContext: [ ]
+defaultKeywordContexts: [ ]

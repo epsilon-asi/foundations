@@ -125,6 +125,35 @@ export interface SaveOptions extends Omit<SerializeOptions, "format" | "filePath
     mode?: number;
 }
 
+/** Where a layer was found: the start directory, one of its ancestors, or a fallback path. */
+export type LayerOrigin = "local" | "ancestor" | "fallback";
+
+/** One file discovered by discoverLayers(). */
+export interface FileLayer {
+    /** Absolute path of the file. */
+    filePath: string;
+    origin: LayerOrigin;
+}
+
+export interface DiscoverOptions {
+    /** Directory the upward walk starts from. Default: process.cwd(). */
+    startDir?: string;
+    /** Last directory the walk visits (inclusive). Default: the filesystem root. */
+    stopDir?: string;
+    /** Paths checked after the walk, in order; they rank below every directory match. `~/` is expanded. */
+    fallbacks?: readonly string[];
+}
+
+/** Options for loadLayeredFile(): discovery, plus load options applied to every layer. */
+export interface LayeredLoadOptions extends Omit<LoadOptions, "filePath">, DiscoverOptions {}
+
+export interface LayeredResult<T> {
+    /** The merged, validated value. */
+    value: T;
+    /** The layers that were merged, highest precedence first. */
+    layers: FileLayer[];
+}
+
 export const EXTENSIONS: Record<string, FileFormat> = {
     ".json": "json",
     ".yaml": "yaml",

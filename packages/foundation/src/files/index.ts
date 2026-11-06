@@ -5,9 +5,26 @@ import { parseString } from "./parse";
 import {serialize, serializeAsync } from "./serialize";
 import {saveFile, saveFileSync} from "./save";
 import {SchemaFileError} from "./types";
+import {deepMerge} from "./util";
+import {
+    createLayeredFile,
+    discoverLayers,
+    discoverLayersSync,
+    loadLayeredFile,
+    loadLayeredFileSync,
+    loadMergedFiles,
+    loadMergedFilesSync,
+    safeLoadLayeredFile,
+    safeLoadLayeredFileSync,
+} from "./layered";
 
 export type {
+    DiscoverOptions,
     ErrorFormatter,
+    FileLayer,
+    LayeredLoadOptions,
+    LayeredResult,
+    LayerOrigin,
     FileFormat,
     LoadOptions,
     ParseOptions,
@@ -34,5 +51,15 @@ export {
     parseStringSync,
     saveFileSync,
     saveFile,
-    SchemaFileError
+    SchemaFileError,
+    deepMerge,
+    createLayeredFile,
+    discoverLayers,
+    discoverLayersSync,
+    loadLayeredFile,
+    loadLayeredFileSync,
+    loadMergedFiles,
+    loadMergedFilesSync,
+    safeLoadLayeredFile,
+    safeLoadLayeredFileSync,
 }

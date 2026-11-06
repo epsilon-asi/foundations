@@ -1,6 +1,7 @@
 import * as YAML from "yaml";
 import * as z from "zod";
 import {access, chmod, mkdir, readFile, readlink, realpath, rename, stat, unlink, writeFile} from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
     chmodSync,
@@ -20,6 +21,7 @@ import {
     FileFormat,
     LoadOptions,
     ParseOptions,
+    SafeResult,
     SaveOptions,
     SchemaFileError,
     SerializeOptions,
@@ -42,6 +44,60 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
     if (typeof v !== "object" || v === null) return false;
     const proto = Object.getPrototypeOf(v);
     return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Recursively merge plain objects; later sources win. `undefined` values and non-object sources are
+ * skipped, arrays and scalars are replaced (not concatenated), and no source is mutated.
+ */
+export function deepMerge<T extends Record<string, unknown> = Record<string, unknown>>(
+    ...sources: readonly unknown[]
+): T {
+    const result: Record<string, unknown> = {};
+    for (const source of sources) {
+        if (!isPlainObject(source)) continue;
+        for (const [key, value] of Object.entries(source)) {
+            if (value === undefined) continue;
+            const existing = result[key];
+            // defineProperty, not assignment: a parsed "__proto__" key must stay data, not swap the prototype.
+            Object.defineProperty(result, key, {
+                value: isPlainObject(existing) && isPlainObject(value) ? deepMerge(existing, value) : value,
+                enumerable: true,
+                writable: true,
+                configurable: true,
+            });
+        }
+    }
+    return result as T;
+}
+
+/** Replace a leading `~` with the current user's home directory. */
+export function expandHome(filePath: string): string {
+    if (filePath === "~") return os.homedir();
+    return /^~[\\/]/.test(filePath) ? path.join(os.homedir(), filePath.slice(2)) : filePath;
+}
+
+export function pathExists(filePath: string): Promise<boolean> {
+    return access(filePath).then(() => true, () => false);
+}
+
+/** Run `run`, turning a thrown SchemaFileError into a failed SafeResult. Other errors propagate. */
+export async function safely<T>(run: () => Promise<T>): Promise<SafeResult<T>> {
+    try {
+        return {success: true, data: await run()};
+    } catch (error) {
+        if (error instanceof SchemaFileError) return {success: false, error};
+        throw error;
+    }
+}
+
+export function safelySync<T>(run: () => T): SafeResult<T> {
+    try {
+        return {success: true, data: run()};
+    } catch (error) {
+        if (error instanceof SchemaFileError) return {success: false, error};
+        throw error;
+    }
 }
 
 function isNotFound(e: unknown): boolean {
@@ -113,6 +169,19 @@ export function readTextSync(filePath: string, opts: LoadOptions): string | type
         if (opts.allowMissing && isNotFound(cause)) return MISSING;
         throw new SchemaFileError("read", `Failed to read ${filePath}: ${errMsg(cause)}`, {filePath, cause});
     }
+}
+
+/** Read, decode and preprocess a file: everything loadFile does short of validation. */
+export async function readRawAsync(filePath: string, options: LoadOptions): Promise<unknown> {
+    const opts = {...options, filePath};
+    const {raw, format} = toRaw(await readTextAsync(filePath, opts), opts);
+    return runPreprocess(raw, format, opts);
+}
+
+export function readRawSync(filePath: string, options: LoadOptions): unknown {
+    const opts = {...options, filePath};
+    const {raw, format} = toRaw(readTextSync(filePath, opts), opts);
+    return runPreprocessSync(raw, format, opts);
 }
 
 export async function runPreprocess(raw: unknown, format: FileFormat, opts: ParseOptions): Promise<unknown> {
@@ -317,7 +386,7 @@ function preservedModeSync(target: string, opts: SaveOptions): number | undefine
 export async function writeTextAsync(filePath: string, text: string, opts: SaveOptions): Promise<void> {
     try {
         if (opts.createDirs !== false) await mkdir(path.dirname(filePath), {recursive: true});
-        if (opts.overwrite === false && (await access(filePath).then(() => true, () => false))) {
+        if (opts.overwrite === false && (await pathExists(filePath))) {
             throw new SchemaFileError("write", `Refusing to overwrite existing file ${filePath}`, {filePath});
         }
         const base = {encoding: opts.encoding ?? "utf8", mode: opts.mode} as const;

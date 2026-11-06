@@ -1,4 +1,4 @@
-import {GlobalConfig, GlobalConfigDefaults, GlobalConfigSchema} from "./global-config.js";
+import {type GlobalConfig, GlobalConfigDefaults, GlobalConfigSchema} from "./global-config.js";
 import {type TemplateConfig, TemplateConfigSchema} from "./subconfig/template/types.js";
 import {
     type GeneratedUpdate,
@@ -31,6 +31,7 @@ export {
     type PathContextEntry,
     type PatternContextEntry,
     type GeneratedUpdate,
+    type GlobalConfig,
     type OutputTarget,
     type Output,
     type TemplateConfig,
@@ -46,5 +47,5 @@ export {
     TemplateConfigSchema,
     GlobalConfigDefaults,
     GlobalConfigSchema,
-    GlobalConfig
+
 }
