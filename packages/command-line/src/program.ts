@@ -7,6 +7,9 @@ import {
 import { processIO } from './io.js';
 import { createLiveOutput } from './liveLine.js';
 import { DEFAULT_LOG_LEVEL, LOG_LEVELS, defaultLoggerFactory, isLogLevel } from './logging.js';
+import { runChain } from './middleware/compose.js';
+import { resolveMiddleware, type ResolvedCommand } from './middleware/resolve.js';
+import type { AnyMiddleware } from './middleware/types.js';
 import { argumentSyntax } from './naming.js';
 import { numberParser } from './parsers.js';
 import type {
@@ -31,6 +34,14 @@ interface RunState {
   started: boolean;
 }
 
+/** Where one middleware's flags were added, and the commander attribute of each, by the middleware's key. */
+interface MiddlewareOptionSource {
+  readonly command: CommanderCommand;
+  readonly attributes: Readonly<Record<string, string>>;
+}
+
+type MiddlewareOptionSources = ReadonlyMap<AnyMiddleware, MiddlewareOptionSource>;
+
 /** A command definition wired to its commander command, able to produce a populated instance. */
 interface Binding {
   readonly definition: CommandDefinition;
@@ -52,6 +63,7 @@ export function createBuildCli(
     const live = createLiveOutput(options.io ?? processIO);
     const { io } = live;
     const definition = describeCommand(target);
+    const resolved = resolveMiddleware(definition, options.use ?? []);
     const state: RunState = { argv: [], exitCode: undefined, started: false };
 
     // exitOverride and configureOutput are set before subcommands exist so they inherit them.
@@ -71,9 +83,10 @@ export function createBuildCli(
       }),
       loggerFactory: options.logger ?? defaultLoggerFactory,
       logLevel: () => DEFAULT_LOG_LEVEL,
+      resolved,
     };
 
-    configure(program, definition, [], env);
+    configure(program, definition, [], new Map(), env);
     // Added last so the built-in option follows the root's own options in help.
     env.logLevel = attachLogging(program, definition.logging);
 
@@ -98,6 +111,9 @@ export function createBuildCli(
           return 1;
         }
       },
+      middleware(path: readonly string[] = []): readonly AnyMiddleware[] {
+        return resolvedAt(definition, path, resolved).chain;
+      },
     });
   };
 }
@@ -110,6 +126,28 @@ interface BuildEnvironment {
   readonly loggerFactory: LoggerFactory;
   /** Reads the log level once the root command has been parsed. */
   logLevel: () => LogLevel;
+  readonly resolved: ReadonlyMap<CommandDefinition, ResolvedCommand>;
+}
+
+/** The resolved middleware of the command at `path`, given as names or aliases from the root. */
+function resolvedAt(
+  root: CommandDefinition,
+  path: readonly string[],
+  resolved: ReadonlyMap<CommandDefinition, ResolvedCommand>,
+): ResolvedCommand {
+  let current = root;
+  for (const [index, name] of path.entries()) {
+    const child = current.commands.find((command) => command.name === name || command.aliases.includes(name));
+    if (child === undefined) {
+      throw new Error(`No command "${path.slice(0, index + 1).join(' ')}" under ${root.name}.`);
+    }
+    current = child;
+  }
+
+  const found = resolved.get(current);
+  // Every command in the tree is resolved when the CLI is built.
+  if (found === undefined) throw new Error(`The middleware of "${path.join(' ')}" were never resolved.`);
+  return found;
 }
 
 /** Adds the root's log level option to the program and returns a reader for the parsed level. */
@@ -132,6 +170,7 @@ function configure(
   command: CommanderCommand,
   definition: CommandDefinition,
   lineage: readonly Binding[],
+  inheritedSources: MiddlewareOptionSources,
   env: BuildEnvironment,
 ): void {
   if (definition.description !== undefined) command.description(definition.description);
@@ -144,6 +183,23 @@ function configure(
     return built;
   });
 
+  const resolved = env.resolved.get(definition);
+  // resolveMiddleware visits every command in the tree.
+  if (resolved === undefined) throw new Error(`The middleware of ${definition.name} were never resolved.`);
+
+  // Middleware flags follow the command's own options in help.
+  const sources = new Map(inheritedSources);
+  for (const middleware of resolved.attached) {
+    const attributes: Record<string, string> = {};
+    for (const flag of resolved.flags) {
+      if (flag.middleware !== middleware) continue;
+      const built = buildOption(flag.option);
+      command.addOption(built);
+      attributes[flag.key] = built.attributeName();
+    }
+    sources.set(middleware, { command, attributes: Object.freeze(attributes) });
+  }
+
   for (const argument of definition.arguments) {
     command.addArgument(buildArgument(argument));
   }
@@ -152,7 +208,7 @@ function configure(
 
   for (const subcommand of definition.commands) {
     const child = command.command(subcommand.name, { hidden: subcommand.hidden });
-    configure(child, subcommand, [...lineage, binding], env);
+    configure(child, subcommand, [...lineage, binding], sources, env);
   }
 
   if (!definition.runnable) return;
@@ -165,24 +221,42 @@ function configure(
     const logger = env.loggerFactory({ level: logLevel, io: env.io, name: env.cli.name });
 
     try {
-      // `runnable` guarantees run() exists; the cast types it as optional.
-      const result = await instance.run?.({
-        io: env.io,
-        argv: env.state.argv,
-        root,
-        ancestors,
-        command,
-        cli: env.cli,
-        logLevel,
-        logger,
-        liveLine: env.live.liveLine,
+      env.state.exitCode = await runChain({
+        chain: resolved.chain,
+        base: {
+          io: env.io,
+          argv: env.state.argv,
+          root,
+          ancestors,
+          command,
+          cli: env.cli,
+          logLevel,
+          logger,
+          liveLine: env.live.liveLine,
+        },
+        instance,
+        definition,
+        optionsFor: (middleware) => readMiddlewareOptions(sources.get(middleware)),
+        // `runnable` guarantees run() exists; the cast types it as optional.
+        run: (context) => instance.run?.(context as Parameters<RunMethod>[0]),
       });
-      if (typeof result === 'number') env.state.exitCode = result;
     } finally {
       // A line still live keeps its last text, above anything printed after the run.
       env.live.end();
     }
   });
+}
+
+/** The parsed values of one middleware's flags, read from the command they were added to. */
+function readMiddlewareOptions(source: MiddlewareOptionSource | undefined): Readonly<Record<string, unknown>> {
+  if (source === undefined) return Object.freeze({});
+
+  const values = source.command.opts();
+  const options: Record<string, unknown> = {};
+  for (const [key, attribute] of Object.entries(source.attributes)) {
+    options[key] = values[attribute];
+  }
+  return Object.freeze(options);
 }
 
 function buildOption(definition: OptionDefinition): CommanderOption {

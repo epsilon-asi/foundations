@@ -4,6 +4,7 @@ import type {
   PropertyDecoratorDefinition,
 } from '@epsilon-asi/foundation';
 import type { Command as CommanderCommand } from 'commander';
+import type { AnyMiddleware, ProvidedBy } from './middleware/types.js';
 
 // ---------------------------------------------------------------------------
 // Runtime contracts
@@ -125,7 +126,8 @@ export interface CliInfo {
 /** A command's `run()` may return an exit code. Returning nothing means 0. */
 export type CommandResult = number | undefined | void;
 
-export interface CommandContext<TRoot extends object = object> {
+/** What every command receives, before anything middleware provides. */
+export interface BaseCommandContext<TRoot extends object = object> {
   readonly io: CliIO;
   /** The user arguments passed to the CLI, before parsing. */
   readonly argv: readonly string[];
@@ -150,12 +152,20 @@ export interface CommandContext<TRoot extends object = object> {
 }
 
 /**
+ * What a command's `run()` receives: the base context plus `TExtra`, the
+ * values its middleware provide. Declare them with `Provided`:
+ * `CommandContext<App, Provided<typeof client>>`.
+ */
+export type CommandContext<TRoot extends object = object, TExtra extends object = {}> = BaseCommandContext<TRoot> &
+  Readonly<TExtra>;
+
+/**
  * What a command class that does something when invoked implements. Most
  * commands extend the CliCommand base class instead, which adds `--format`
  * and `render()`; implement this directly for a command without them.
  */
-export interface RunnableCommand<TRoot extends object = object> {
-  run(context: CommandContext<TRoot>): CommandResult | Promise<CommandResult>;
+export interface RunnableCommand<TRoot extends object = object, TExtra extends object = {}> {
+  run(context: CommandContext<TRoot, TExtra>): CommandResult | Promise<CommandResult>;
 }
 
 /** The values of the `-f, --format` option every CliCommand has. */
@@ -173,12 +183,18 @@ export interface RuntimeInfo {
 export type RunMethod = (context: CommandContext<any>) => CommandResult | Promise<CommandResult>;
 
 /**
- * Resolves to `TClass` when its instances have no `run`, or one compatible with
- * RunMethod, and to `never` otherwise. `@Command` uses it to reject bad
- * signatures while still accepting classes that only group subcommands.
+ * Resolves to `TClass` when its instances have no `run`, or one that accepts
+ * the context `@Command` gives it (the base context plus `TProvided`, what its
+ * own `use` provides), and to `never` otherwise. `@Command` uses it to reject
+ * bad signatures, including a `run()` that reads values no middleware in its
+ * `use` provides, while still accepting classes that only group subcommands.
  */
-export type ValidCommandClass<TClass extends abstract new (...args: any[]) => object> =
-  InstanceType<TClass> extends { run: infer TRun } ? (TRun extends RunMethod ? TClass : never) : TClass;
+export type ValidCommandClass<TClass extends abstract new (...args: any[]) => object, TProvided extends object = {}> =
+  InstanceType<TClass> extends { run: infer TRun }
+    ? TRun extends (context: CommandContext<any, TProvided>) => CommandResult | Promise<CommandResult>
+      ? TClass
+      : never
+    : TClass;
 
 /** Command classes are instantiated by the system, so they take no constructor arguments. */
 export type CommandClass = new () => object;
@@ -220,6 +236,12 @@ export interface CommandMetadata {
   /** Subcommands, in the order they appear in help. */
   commands?: readonly CommandClass[];
   /**
+   * Middleware that run before this command and every command below it, after
+   * those of its ancestors. List every middleware whose values `run()` reads:
+   * a middleware already listed further up runs only once.
+   */
+  use?: readonly AnyMiddleware[];
+  /**
    * Where to find the package.json that describes this CLI: usually
    * `import.meta.url`, or a path to a file or directory. Its `version` fills
    * `version`, its `description` fills `description` and its single `bin`
@@ -231,7 +253,7 @@ export interface CommandMetadata {
 }
 
 /** What is stored in the decorator registry: everything except the subcommand classes. */
-export type CommandRecordMetadata = Omit<CommandMetadata, 'commands'>;
+export type CommandRecordMetadata = Omit<CommandMetadata, 'commands' | 'use'>;
 
 export interface OptionMetadataBase {
   /** Full commander flags, e.g. `"-f, --format <format>"`. Derived from the property name when omitted. */
@@ -371,8 +393,10 @@ export type ArgumentValue<T, TSpec> = TSpec extends { required: false }
   : T;
 
 export interface CommandDecorator {
-  (metadata?: CommandMetadata): <TClass extends new (...args: any[]) => object>(
-    value: TClass & ValidCommandClass<TClass>,
+  <const TUse extends readonly AnyMiddleware[] = []>(
+    metadata?: CommandMetadata & { use?: TUse },
+  ): <TClass extends new (...args: any[]) => object>(
+    value: TClass & ValidCommandClass<TClass, ProvidedBy<TUse>>,
     context: ClassDecoratorContext<TClass>,
   ) => void;
 }
@@ -468,6 +492,8 @@ export interface CommandDefinition {
   readonly package: PackageJson | undefined;
   /** The log level option. Always set on the root, never on subcommands. */
   readonly logging: LoggingDefinition | undefined;
+  /** The middleware listed in this command's own `use`, before ordering and dedupe. */
+  readonly use: readonly AnyMiddleware[];
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +505,8 @@ export interface BuildCliOptions {
   io?: CliIO;
   /** Replaces the default logger. Receives the resolved level and `io` on every run. */
   logger?: LoggerFactory;
+  /** Middleware that run first, before those of the root command, for every command. */
+  use?: readonly AnyMiddleware[];
 }
 
 export interface Cli {
@@ -490,6 +518,12 @@ export interface Cli {
    * process. A built CLI can be run once; build again to run again.
    */
   run(argv: readonly string[]): Promise<number>;
+  /**
+   * The middleware that run, in order, for the command at `path`: names or
+   * aliases from the root down, `[]` for the root itself. Throws for a path
+   * that names no command.
+   */
+  middleware(path?: readonly string[]): readonly AnyMiddleware[];
 }
 
 export interface CreateCliSystemOptions {

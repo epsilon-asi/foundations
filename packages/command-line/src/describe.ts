@@ -1,5 +1,7 @@
 import type { DecorationRecord, DecoratorRegistry } from '@epsilon-asi/foundation';
 import { CliDefinitionError } from './errors.js';
+import { isMiddleware } from './middleware/define.js';
+import type { AnyMiddleware } from './middleware/types.js';
 import {
   DEFAULT_LOG_LEVEL,
   DEFAULT_LOG_LEVEL_DESCRIPTION,
@@ -25,6 +27,7 @@ import type {
 } from './types.js';
 
 export type SubcommandLookup = Pick<WeakMap<Function, readonly CommandClass[]>, 'get'>;
+export type MiddlewareLookup = Pick<WeakMap<Function, readonly unknown[]>, 'get'>;
 
 /**
  * Creates the `describeCommand` function for one registry. It turns a decorated
@@ -34,6 +37,7 @@ export type SubcommandLookup = Pick<WeakMap<Function, readonly CommandClass[]>, 
 export function createDescribeCommand(
   registry: DecoratorRegistry<CliDecoratorSchema>,
   subcommands: SubcommandLookup,
+  middleware: MiddlewareLookup,
 ): (target: CommandClass) => CommandDefinition {
   function describe(target: CommandClass, isRoot: boolean): CommandDefinition {
     // @Command itself is not inherited: a subclass is a different command and must say so.
@@ -85,10 +89,20 @@ export function createDescribeCommand(
       commands: Object.freeze(commands),
       package: packageJson,
       logging: isRoot ? describeLogging(target, name, metadata.logging, members.options) : undefined,
+      use: describeUse(target, middleware.get(target) ?? []),
     });
   }
 
   return (target) => describe(target, true);
+}
+
+function describeUse(target: CommandClass, use: readonly unknown[]): readonly AnyMiddleware[] {
+  use.forEach((entry, index) => {
+    if (!isMiddleware(entry)) {
+      throw new CliDefinitionError(target, `has use[${index}], which is not a middleware made by defineMiddleware().`);
+    }
+  });
+  return Object.freeze([...(use as readonly AnyMiddleware[])]);
 }
 
 function loadPackage(target: CommandClass, from: string | URL): PackageJson {

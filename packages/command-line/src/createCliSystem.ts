@@ -39,13 +39,15 @@ export function createCliSystem(options: CreateCliSystemOptions = {}): CliSystem
   // Subcommand classes are kept out of the registry because it deep-freezes
   // metadata, which would freeze the classes themselves.
   const subcommands = new WeakMap<Function, readonly CommandClass[]>();
+  // Middleware hold functions, so they are kept out of the registry for the same reason.
+  const middleware = new WeakMap<Function, readonly unknown[]>();
 
   // The run() signature is checked by CommandDecorator's types, so the
   // registry contract is just "a class".
   const RawCommand = registry.for<object>().class('command');
 
   const Command: CommandDecorator = (metadata: CommandMetadata = {}) => {
-    const { commands, package: packageFrom, ...rest } = metadata;
+    const { commands, use, package: packageFrom, ...rest } = metadata;
     // The registry deep-clones metadata, which would hollow out a URL; keep its string form.
     const record: CommandRecordMetadata =
       packageFrom === undefined ? rest : { ...rest, package: packageFrom instanceof URL ? packageFrom.href : packageFrom };
@@ -57,6 +59,7 @@ export function createCliSystem(options: CreateCliSystemOptions = {}): CliSystem
     ): void => {
       decorate(value, context);
       subcommands.set(value, Object.freeze([...(commands ?? [])]));
+      middleware.set(value, Object.freeze([...(use ?? [])]));
     };
   };
 
@@ -88,7 +91,7 @@ export function createCliSystem(options: CreateCliSystemOptions = {}): CliSystem
   Argument.list = ((metadata: Spec<ListArgumentMetadata> = {}) =>
     argument({ ...metadata, type: 'list' })) as unknown as ArgumentDecoratorApi['list'];
 
-  const describeCommand = createDescribeCommand(registry, subcommands);
+  const describeCommand = createDescribeCommand(registry, subcommands, middleware);
   const buildCli = createBuildCli(describeCommand);
 
   const system: CliSystem = {

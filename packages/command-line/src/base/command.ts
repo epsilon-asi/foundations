@@ -20,11 +20,12 @@ import {OUTPUT_FORMATS,} from "./static.js";
  * `@Option` is inherited, so a subclass must not declare `format` again.
  * `@Command` is not: every concrete command declares its own.
  */
-export abstract class CliCommand<TRoot extends object = object> implements RunnableCommand<TRoot> {
+export abstract class CliCommand<TRoot extends object = object, TExtra extends object = {}>
+    implements RunnableCommand<TRoot, TExtra> {
     @Option.choice({short: 'f', choices: OUTPUT_FORMATS, default: 'text', description: 'output format'})
     format!: OutputFormat;
 
-    abstract run(context: CommandContext<TRoot>): CommandResult | Promise<CommandResult>;
+    abstract run(context: CommandContext<TRoot, TExtra>): CommandResult | Promise<CommandResult>;
 
     /** `data` as `--format` asks for it. Override to print something else for `text`. */
     protected render(data: object): string {
