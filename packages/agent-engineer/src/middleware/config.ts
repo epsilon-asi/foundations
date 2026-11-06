@@ -17,8 +17,10 @@ export const config = defineMiddleware({
         config: {}
     },
     async handle(ctx, next) {
-        const {value, layers} = await AgentEngineerConfig.load();
-        AgentEngineerConfig.l
+        const {value, layers} = await AgentEngineerConfig.load({
+            extraFiles: []
+        }, );
+
         ctx.logger.debug(
             layers.length === 0
                 ? `no ${CONFIG_FILE_NAME} found; using the default config`
