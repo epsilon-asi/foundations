@@ -374,3 +374,74 @@ describe("default options", () => {
         expect(loadMergedFilesSync([local], Config)).toEqual(expected.value);
     });
 });
+
+describe("extraFiles", () => {
+    test.each([
+        ["async", (o: object) => loadLayeredFile(NAME, Config, o)],
+        ["sync", async (o: object) => loadLayeredFileSync(NAME, Config, o)],
+    ])("%s: extra files rank above everything discovered, index 0 first", async (_, load) => {
+        const paths = standardLayers();
+        const first = file(join(root, "extras", "first.yaml"), "model: first\n");
+        const second = file(join(root, "extras", "second.json"), '{"model": "second", "rounds": 99, "ignore": ["x"]}');
+
+        const {value, layers} = await load({startDir: cwd, fallbacks, extraFiles: [first, second]});
+
+        expect(layers).toEqual([
+            {filePath: first, origin: "extra"},
+            {filePath: second, origin: "extra"},
+            {filePath: paths.local, origin: "local"},
+            {filePath: paths.project, origin: "ancestor"},
+            {filePath: paths.root, origin: "ancestor"},
+            {filePath: paths.user, origin: "fallback"},
+        ]);
+        expect(value).toEqual({
+            model: "first", // extraFiles[0] beats extraFiles[1]
+            rounds: 99, // extraFiles[1] beats every discovered layer
+            ignore: ["x"],
+            server: {host: "root-host", port: 8080},
+        });
+    });
+
+    test("relative paths resolve against startDir and ~ is expanded", async () => {
+        const relative = file(join(cwd, "conf", "extra.yaml"), "{}");
+        const inHome = file(join(home, "extra.yaml"), "{}");
+
+        const layers = await discoverLayers(NAME, {startDir: cwd, extraFiles: ["conf/extra.yaml", "~/extra.yaml"]});
+
+        expect(layers).toEqual([
+            {filePath: relative, origin: "extra"},
+            {filePath: inHome, origin: "extra"},
+        ]);
+    });
+
+    test("an extra file that is also discovered keeps its extra slot", () => {
+        const local = file(join(cwd, NAME), "model: local\n");
+        const extra = file(join(root, "extra.yaml"), "model: extra\n");
+
+        expect(discoverLayersSync(NAME, {startDir: cwd, stopDir: cwd, extraFiles: [local, extra]})).toEqual([
+            {filePath: local, origin: "extra"},
+            {filePath: extra, origin: "extra"},
+        ]);
+    });
+
+    test("a missing extra file is reported unless allowMissing is set", async () => {
+        file(join(cwd, NAME), "model: local\n");
+        const missing = join(cwd, "missing.yaml");
+        const options = {startDir: cwd, stopDir: cwd, extraFiles: [missing]};
+
+        expect((await discoverLayers(NAME, options))[0]).toEqual({filePath: missing, origin: "extra"});
+        await expect(loadLayeredFile(NAME, Config, options)).rejects.toMatchObject({kind: "read", filePath: missing});
+        expect(() => loadLayeredFileSync(NAME, Config, options)).toThrow(SchemaFileError);
+        expect((await loadLayeredFile(NAME, Config, {...options, allowMissing: true})).value.model).toBe("local");
+    });
+
+    test("createLayeredFile takes extra files per call", async () => {
+        file(join(cwd, NAME), "model: local\n");
+        const extra = file(join(root, "override.yaml"), "model: override\n");
+        const Tool = createLayeredFile(Config, NAME, {startDir: cwd, stopDir: cwd});
+
+        expect((await Tool.load()).value.model).toBe("local");
+        expect((await Tool.load({extraFiles: [extra]})).value.model).toBe("override");
+        expect(Tool.loadSync({extraFiles: [extra]}).layers.map((layer) => layer.origin)).toEqual(["extra", "local"]);
+    });
+});

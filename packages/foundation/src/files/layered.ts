@@ -24,13 +24,16 @@ import {
 } from "./util";
 
 /**
- * Every place `fileName` may live, highest precedence first: the start directory, each ancestor up to
- * `stopDir` (or the root), then the fallbacks. Duplicates keep their highest-precedence slot.
+ * Every place `fileName` may live, highest precedence first: the extra files, the start directory, each
+ * ancestor up to `stopDir` (or the root), then the fallbacks. Duplicates keep their highest-precedence slot.
  */
 function candidates(fileName: string, options: DiscoverOptions): FileLayer[] {
     const start = path.resolve(expandHome(options.startDir ?? process.cwd()));
     const stopAt = options.stopDir === undefined ? undefined : path.resolve(expandHome(options.stopDir));
-    const all: FileLayer[] = [];
+    const all: FileLayer[] = (options.extraFiles ?? []).map((extra) => ({
+        filePath: path.resolve(start, expandHome(extra)),
+        origin: "extra",
+    }));
 
     for (let dir = start; ; dir = path.dirname(dir)) {
         all.push({filePath: path.join(dir, fileName), origin: dir === start ? "local" : "ancestor"});
@@ -44,18 +47,22 @@ function candidates(fileName: string, options: DiscoverOptions): FileLayer[] {
     return all.filter(({filePath}) => !seen.has(filePath) && Boolean(seen.add(filePath)));
 }
 
+/** Extra files are kept whether or not they exist, so a missing one is reported when it loads. */
+const isRequested = (layer: FileLayer): boolean => layer.origin === "extra";
+
 /**
  * Find every existing `fileName` (a name or a relative path such as `.tool/config.yaml`) from
- * `startDir` upwards, then among `fallbacks`. Results are ordered highest precedence first.
+ * `startDir` upwards, then among `fallbacks`, after any `extraFiles`. Results are ordered highest
+ * precedence first.
  */
 export async function discoverLayers(fileName: string, options: DiscoverOptions = {}): Promise<FileLayer[]> {
     const all = candidates(fileName, options);
-    const present = await Promise.all(all.map(({filePath}) => pathExists(filePath)));
+    const present = await Promise.all(all.map((layer) => isRequested(layer) || pathExists(layer.filePath)));
     return all.filter((_, i) => present[i]);
 }
 
 export function discoverLayersSync(fileName: string, options: DiscoverOptions = {}): FileLayer[] {
-    return candidates(fileName, options).filter(({filePath}) => existsSync(filePath));
+    return candidates(fileName, options).filter((layer) => isRequested(layer) || existsSync(layer.filePath));
 }
 
 /** A layer must be a mapping to merge; an empty file contributes nothing. */
@@ -97,7 +104,7 @@ export function loadMergedFilesSync<S extends z.ZodType>(
 
 /**
  * Discover every `fileName` layer (see discoverLayers), merge them and validate.
- * Precedence: start directory > nearer ancestors > farther ancestors > fallbacks, in order.
+ * Precedence: extraFiles (in order) > start directory > nearer ancestors > farther ancestors > fallbacks (in order).
  * With no layers found, the schema validates `{}`, so its defaults apply.
  */
 export async function loadLayeredFile<S extends z.ZodType>(

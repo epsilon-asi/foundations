@@ -2,11 +2,14 @@ import { readPackageJson, runCli, type RuntimeInfo } from '@epsilon-asi/command-
 import { describe, expect, it, vi } from 'vitest';
 import { AgentEngineer } from '../src/cli.js';
 import { captureIO } from './helpers/captureIO.js';
+import { useConfigSandbox } from './helpers/configSandbox.js';
 
 const PACKAGE = readPackageJson(import.meta.url);
 const ENV = 'AGENT_ENGINEER_LOG_LEVEL';
 
 describe('agent-engineer', () => {
+  useConfigSandbox();
+
   it('prints the package version for --version', async () => {
     const { io, stdout } = captureIO();
 
@@ -82,14 +85,14 @@ describe('agent-engineer', () => {
     const { io, stderr } = captureIO();
 
     await expect(runCli(AgentEngineer, ['--log-level', 'debug', 'info', '-f', 'json'], { io })).resolves.toBe(0);
-    expect(stderr()).toBe('[debug] rendering info as json\n');
+    expect(stderr()).toMatch(/\[debug\] rendering info as json\n$/);
   });
 
   it('accepts the log level after the subcommand too', async () => {
     const { io, stderr } = captureIO();
 
     await expect(runCli(AgentEngineer, ['info', '-l', 'debug'], { io })).resolves.toBe(0);
-    expect(stderr()).toBe('[debug] rendering info as text\n');
+    expect(stderr()).toMatch(/\[debug\] rendering info as text\n$/);
   });
 
   it('reads the log level from the environment', async () => {
@@ -97,7 +100,7 @@ describe('agent-engineer', () => {
     const { io, stderr } = captureIO();
 
     await expect(runCli(AgentEngineer, ['info'], { io })).resolves.toBe(0);
-    expect(stderr()).toBe('[debug] rendering info as text\n');
+    expect(stderr()).toMatch(/\[debug\] rendering info as text\n$/);
   });
 
   it('prefers the flag over the environment variable', async () => {

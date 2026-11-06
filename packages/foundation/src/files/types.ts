@@ -125,8 +125,8 @@ export interface SaveOptions extends Omit<SerializeOptions, "format" | "filePath
     mode?: number;
 }
 
-/** Where a layer was found: the start directory, one of its ancestors, or a fallback path. */
-export type LayerOrigin = "local" | "ancestor" | "fallback";
+/** Where a layer came from: an extra file, the start directory, one of its ancestors, or a fallback path. */
+export type LayerOrigin = "extra" | "local" | "ancestor" | "fallback";
 
 /** One file discovered by discoverLayers(). */
 export interface FileLayer {
@@ -136,6 +136,12 @@ export interface FileLayer {
 }
 
 export interface DiscoverOptions {
+    /**
+     * Additional files to layer in, ranked above everything discovered; index 0 has the highest
+     * precedence. Relative paths resolve against `startDir`, and `~/` is expanded. They are always
+     * included, so loading a missing one fails with a "read" error unless `allowMissing` is set.
+     */
+    extraFiles?: readonly string[];
     /** Directory the upward walk starts from. Default: process.cwd(). */
     startDir?: string;
     /** Last directory the walk visits (inclusive). Default: the filesystem root. */
