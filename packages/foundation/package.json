@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/foundation",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "mainDir": "./",
   "types": "./build/index.d.ts",
