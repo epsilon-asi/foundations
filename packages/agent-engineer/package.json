@@ -30,7 +30,8 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@epsilon-asi/command-line": "^0.0.11",
-    "@epsilon-asi/foundation": "^0.0.13"
+    "@epsilon-asi/foundation": "^0.0.13",
+    "@epsilon-asi/langgraph": "^0.2.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
