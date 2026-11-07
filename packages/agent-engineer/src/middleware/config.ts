@@ -14,7 +14,12 @@ export const AgentEngineerConfig = createLayeredFile(GlobalConfigSchema, CONFIG_
 export const config = defineMiddleware({
     name: 'config',
     options: {
-        config: {}
+        config: {
+            type: 'string',
+            short: 'c',
+            env: 'EASI_AGENT_CONFIG',
+            description: 'Relative or absolute path to additional config to load. This config takes precedence over all others.'
+        }
     },
     async handle(ctx, next) {
         const {value, layers} = await AgentEngineerConfig.load({

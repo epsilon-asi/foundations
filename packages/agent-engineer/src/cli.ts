@@ -1,5 +1,6 @@
 import {Command} from '@epsilon-asi/command-line';
 import {InfoCommand} from './commands/info.js';
+import {InitCommand} from './commands/init.js';
 import {QueryCommand} from "./commands/q.js";
 import {config} from './middleware/config.js';
 
@@ -12,6 +13,6 @@ import {config} from './middleware/config.js';
  * (and therefore defined) before this class. The `config` middleware runs
  * before every command, so each one starts with the merged config loaded.
  */
-@Command({package: import.meta.url, use: [config], commands: [InfoCommand, QueryCommand]})
+@Command({package: import.meta.url, use: [config], commands: [InfoCommand, InitCommand, QueryCommand]})
 export class AgentEngineer {
 }

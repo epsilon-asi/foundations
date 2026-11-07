@@ -8,6 +8,7 @@
   },
   "files": [
     "dist",
+    "templates",
     "README.md",
     "LICENSE"
   ],
@@ -20,6 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "templates:validate": "tsx scripts/validate-templates.ts",
     "verify": "npm run typecheck && npm run test && npm run build"
   },
   "engines": {
@@ -28,7 +30,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@epsilon-asi/command-line": "^0.0.11",
-    "@epsilon-asi/foundation": "^0.0.12"
+    "@epsilon-asi/foundation": "^0.0.13"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
