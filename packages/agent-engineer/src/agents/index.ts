@@ -1,3 +1,4 @@
+export {createOpenAIModel, ENCRYPTED_REASONING, isReasoningModel, OPENAI_MAX_RETRIES} from './openai.js';
 export {
     buildRepoAgentPrompt,
     createChatModel,

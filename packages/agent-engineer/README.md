@@ -34,7 +34,13 @@ Commands:
   query|q [-C] <question...> answer a question about the repository
 ```
 
-`do` and `query` need `OPENAI_API_KEY`. Their agents work in a sandbox: a git worktree of the
+`do` and `query` need `OPENAI_API_KEY`. They call OpenAI with zero data retention: every request
+goes to the Responses API with `store: false` and carries the whole conversation, reasoning
+included, encrypted. So OpenAI keeps nothing, and keys that require zero data retention work.
+Every model comes from `createOpenAIModel`, and
+[tests/agents/retention.test.ts](tests/agents/retention.test.ts) checks the requests on the wire.
+
+Their agents work in a sandbox: a git worktree of the
 repository in a temporary directory, with your uncommitted and untracked files copied in, so they
 see the repository as it is and never touch your checkout. Agents read it through code-search
 tools from `@epsilon-asi/sandbox`; `offLimits` and `ignore` paths and files over
@@ -133,7 +139,8 @@ text, tool calls or errors, against real git repositories from
   switched on.
 - **Live smoke tests** in [tests/live](tests/live) run the real CLI on real models. They are
   skipped unless `AGENT_ENGINEER_LIVE_TESTS=1` is set (`npm run test:live` sets it), so a key in
-  your environment never costs money on a plain `npm test`.
+  your environment never costs money on a plain `npm test`. `AGENT_ENGINEER_LIVE_MODEL=<model>`
+  runs them on another agent model than the config's.
 - **The intent model** is `models.intent`: any LangChain chat model, or in tests
   `ScriptedIntentModel`, which always makes one choice: `provideModels({ agent, intent })`.
 
@@ -145,6 +152,9 @@ They are built on `@epsilon-asi/evals`, live in [evals/](evals), and never run i
 ```bash
 OPENAI_API_KEY=... npm run eval
 ```
+
+`npm run eval` and `npm run test:live` also read `OPENAI_API_KEY` from the repository's `.env`,
+which git ignores; a variable set in the shell wins.
 
 | Suite | Measures |
 | --- | --- |

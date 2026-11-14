@@ -1,6 +1,8 @@
 import {runCli} from '@epsilon-asi/command-line';
+import {join} from 'node:path';
 import {beforeEach, describe, expect, it} from 'vitest';
 import {AgentEngineer} from '../../src/cli.js';
+import {CONFIG_FILE_NAME} from '../../src/middleware/config.js';
 import {captureIO} from '../helpers/captureIO.js';
 import {useConfigSandbox} from '../helpers/configSandbox.js';
 import {type GitRepoFixture, initGitRepo} from '../helpers/gitRepo.js';
@@ -9,6 +11,7 @@ import {type GitRepoFixture, initGitRepo} from '../helpers/gitRepo.js';
  * Live smoke tests: the real CLI on the real OpenAI models, against a tiny repository. They check the wiring a
  * scripted model cannot: tool schemas the API accepts, structured intent output, and the Responses API. They cost
  * money, so they run only when asked for: AGENT_ENGINEER_LIVE_TESTS=1 with OPENAI_API_KEY set (npm run test:live).
+ * AGENT_ENGINEER_LIVE_MODEL runs the agents on another model than the config's default.
  */
 const LIVE = process.env['AGENT_ENGINEER_LIVE_TESTS'] === '1' && Boolean(process.env['OPENAI_API_KEY']);
 const TIMEOUT_MS = 180_000;
@@ -22,6 +25,10 @@ describe.skipIf(!LIVE)('live', () => {
             'pkg/src/greet.ts': 'export function greet(name: string): string {\n    return `Hello, ${name}!`;\n}\n',
             'pkg/src/main.ts': "import {greet} from './greet.js';\n\nconsole.log(greet('world'));\n",
         });
+        const model = process.env['AGENT_ENGINEER_LIVE_MODEL'];
+        if (model) {
+            sandbox.write(join(sandbox.cwd, CONFIG_FILE_NAME), `model: ${model}\n`);
+        }
     });
 
     const cli = async (...argv: string[]) => {
@@ -47,7 +54,11 @@ describe.skipIf(!LIVE)('live', () => {
         const {intent, changes} = JSON.parse(result.stdout) as { intent: string; changes?: { branch: string; files: string[] } };
         expect(['mini_change', 'component_change']).toContain(intent);
         expect(changes?.files.sort()).toEqual(['pkg/src/greet.ts', 'pkg/src/main.ts']);
+        // The function is renamed, not its module: main.ts still imports it from ./greet.js.
+        const renamed = /\bgreet\b(?!\.js)/;
+        expect(repo.git('show', `${changes!.branch}:pkg/src/greet.ts`)).toContain('function welcome(');
+        expect(repo.git('show', `${changes!.branch}:pkg/src/greet.ts`)).not.toMatch(renamed);
         expect(repo.git('show', `${changes!.branch}:pkg/src/main.ts`)).toContain('welcome(');
-        expect(repo.git('show', `${changes!.branch}:pkg/src/main.ts`)).not.toContain('greet');
+        expect(repo.git('show', `${changes!.branch}:pkg/src/main.ts`)).not.toMatch(renamed);
     }, TIMEOUT_MS);
 });

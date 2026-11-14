@@ -1,9 +1,9 @@
 import type {AgenticMessagingState} from '@epsilon-asi/langgraph';
 import {GraphRecursionError, type LangGraphRunnableConfig} from '@langchain/langgraph';
-import {ChatOpenAI} from '@langchain/openai';
 import {posix} from 'node:path';
 import {createAgent} from 'langchain';
 import type {GlobalConfig} from '../config/index.js';
+import {createOpenAIModel} from './openai.js';
 import {createReadTools} from './tools/read.js';
 import {createTaskTools} from './tools/task.js';
 import {RepoToolkit} from './tools/shared.js';
@@ -51,9 +51,8 @@ export const recursionLimitFor = (maxToolRounds: number): number => maxToolRound
 const isRecursionError = (error: unknown): boolean =>
     error instanceof GraphRecursionError || (error instanceof Error && error.name === 'GraphRecursionError');
 
-/** The chat model an agent runs on: the config's `model`, through the Responses API. */
-export const createChatModel = (config: Pick<GlobalConfig, 'model'>) =>
-    new ChatOpenAI({model: config.model, useResponsesApi: true, zdrEnabled: true, maxRetries: 2});
+/** The chat model an agent runs on: the config's `model`, through OpenAI with zero data retention. */
+export const createChatModel = (config: Pick<GlobalConfig, 'model'>) => createOpenAIModel(config.model);
 
 const accessPrompt: Record<RepoAccess, string> = {
     read: 'You can read the repository but not change it. Never claim to have changed a file.',
