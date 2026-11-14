@@ -38,11 +38,12 @@ jobs:
       fail-fast: false
       matrix:
         # Mirrors the `.packages` anchor, plus the packages added since the
-        # GitLab migration (agent-engineer, apps, command-line, sandbox).
+        # GitLab migration (agent-engineer, apps, command-line, evals, sandbox).
         name:
           - agent-engineer
           - apps
           - command-line
+          - evals
           - foundation
           - langgraph
           - sandbox
