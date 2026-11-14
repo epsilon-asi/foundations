@@ -17,13 +17,26 @@ import importlib.util, json, sys
 print(json.dumps([m for m in ("typing_extensions", "pydantic") if importlib.util.find_spec(m)]))
 `;
 
+const VERSIONS = ['3.11', '3.12', '3.13', '3.14'] as const;
+const REQUIRED_MODULES = ['typing_extensions', 'pydantic'];
+
 /** Python interpreters on PATH (`python3.11` ... `python3.14`); tests that need one skip when it is missing. */
-export const INTERPRETERS: Interpreter[] = (['3.11', '3.12', '3.13', '3.14'] as const).flatMap((version) => {
+export const INTERPRETERS: Interpreter[] = VERSIONS.flatMap((version) => {
   const bin = `python${version}`;
   const probe = spawnSync(bin, ['-I', '-c', PROBE], { encoding: 'utf8' });
   if (probe.status !== 0) return [];
   return [{ version, bin, modules: new Set(JSON.parse(probe.stdout) as string[]) }];
 });
+
+// CI sets TYPE_BRIDGE_REQUIRE_PYTHON so a broken interpreter setup fails the run instead of skipping the tests.
+if (process.env.TYPE_BRIDGE_REQUIRE_PYTHON) {
+  const missing = VERSIONS.flatMap((version) => {
+    const found = INTERPRETERS.find((i) => i.version === version);
+    if (!found) return [`python${version}`];
+    return REQUIRED_MODULES.filter((m) => !found.modules.has(m)).map((m) => `${m} for python${version}`);
+  });
+  if (missing.length) throw new Error(`TYPE_BRIDGE_REQUIRE_PYTHON is set but these are missing: ${missing.join(', ')}`);
+}
 
 export function interpreter(version: PythonVersion, ...needs: string[]): Interpreter | undefined {
   return INTERPRETERS.find((i) => i.version === version && needs.every((m) => i.modules.has(m)));

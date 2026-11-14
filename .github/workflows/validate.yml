@@ -108,6 +108,25 @@ jobs:
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm ci
 
+      # type-bridge's integration tests compile and run the Python they generate
+      # on every supported version, with typing_extensions and pydantic. uv
+      # installs standalone CPython builds, which run inside this container.
+      - name: Set up Python 3.11-3.14
+        if: matrix.name == 'type-bridge'
+        shell: bash
+        env:
+          UV_VERSION: "0.13.8"
+        run: |
+          curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
+          UV="$HOME/.local/bin/uv"
+          for version in 3.11 3.12 3.13 3.14; do
+            venv="$RUNNER_TEMP/python-$version"
+            "$UV" venv --python "$version" "$venv"
+            "$UV" pip install --python "$venv/bin/python" typing_extensions pydantic
+            "$venv/bin/python$version" -I -c "import sys, pydantic; print(sys.version, 'pydantic', pydantic.VERSION)"
+            echo "$venv/bin" >> "$GITHUB_PATH"
+          done
+
       # Builds compile src only and vitest does not type-check *.test.ts, so
       # this is the only step that type-checks the tests.
       - name: Typecheck
@@ -116,6 +135,9 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
+        # Makes type-bridge fail, rather than skip, if an interpreter is missing.
+        env:
+          TYPE_BRIDGE_REQUIRE_PYTHON: ${{ matrix.name == 'type-bridge' && '1' || '' }}
         run: npm run test
 
       - name: Build
