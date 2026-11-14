@@ -1,0 +1,71 @@
+{
+  "name": "@epsilon-asi/type-bridge",
+  "version": "0.1.0",
+  "description": "Convert Python type annotations to TypeScript types and TypeScript types to Python, with the semantics of both languages mapped deliberately: optional vs nullable, TypedDict/dataclass/pydantic, enums, generics, forward references and Python version targets.",
+  "keywords": [
+    "python",
+    "typescript",
+    "types",
+    "codegen",
+    "typeddict",
+    "pydantic",
+    "dataclass",
+    "type-conversion"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:package": "npm run build && publint --strict && attw --pack . --profile esm-only",
+    "prepack": "npm run clean && npm run build",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run coverage && npm run check:package",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0 <7.0.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^10.14.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "publint": "^0.3.25",
+    "pyright": "^1.1.414",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
