@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {GlobalConfigSchema} from '../src/config/global-config.js';
-import {buildRouterGraph, IntentGraphs, Intents} from '../src/graphs/router.js';
+import {buildRouterGraph, IntentAgents, intentAccess, Intents} from '../src/graphs/router.js';
 import {useGitRepo} from './helpers/gitRepo.js';
 import {ScriptedChatModel, ScriptedIntentModel} from './helpers/scriptedModel.js';
 
@@ -14,8 +14,10 @@ const invoke = (chatModel: ScriptedChatModel, intent: ScriptedIntentModel, progr
     );
 
 describe('router graph', () => {
-    it('has a graph for every intent', () => {
-        expect(Object.keys(IntentGraphs).sort()).toEqual(Object.keys(Intents).sort());
+    it('has an agent for every intent, and knows which ones change the repository', () => {
+        expect(Object.keys(IntentAgents).sort()).toEqual(Object.keys(Intents).sort());
+        expect(Object.keys(Intents).filter((intent) => intentAccess(intent as keyof typeof Intents) === 'write').sort())
+            .toEqual(['bug_fix', 'component_change', 'feature_change', 'mini_change']);
     });
 
     it('routes a question to the answer agent', async () => {

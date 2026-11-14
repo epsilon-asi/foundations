@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "test:live": "AGENT_ENGINEER_LIVE_TESTS=1 vitest run tests/live",
     "test:container": "AGENT_ENGINEER_CONTAINER_TESTS=1 vitest run tests/container",
+    "eval": "vitest run --config vitest.evals.config.ts",
     "test:coverage": "vitest run --coverage",
     "templates:validate": "tsx scripts/validate-templates.ts",
     "verify": "npm run typecheck && npm run test && npm run build"
@@ -42,6 +43,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@epsilon-asi/evals": "^0.1.0",
     "@types/node": "^22.20.5",
     "@vitest/coverage-v8": "^5.0.5",
     "esbuild": "^0.28.2",

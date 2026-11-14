@@ -1,7 +1,7 @@
-import {createAgentGraph} from '../agent-graph.js';
+import {type AgentGraphOptions, createAgentGraph} from '../agent-graph.js';
 
 /** Fixes a reported bug whose cause or fix is clear enough to act on. */
-export const buildBugFixGraph = () => createAgentGraph({
+export const bugFixAgent: AgentGraphOptions = {
     name: 'bug-fix',
     access: 'write',
     instructions: [
@@ -9,4 +9,6 @@ export const buildBugFixGraph = () => createAgentGraph({
         'change that fixes the cause rather than the symptom. Add or update a test that would have caught it when the',
         'package has tests. Reply with the cause, the fix, and anything you could not verify.',
     ].join(' '),
-});
+};
+
+export const buildBugFixGraph = () => createAgentGraph(bugFixAgent);

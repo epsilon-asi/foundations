@@ -1,7 +1,7 @@
-import {createAgentGraph} from '../agent-graph.js';
+import {type AgentGraphOptions, createAgentGraph} from '../agent-graph.js';
 
 /** Builds or changes one self-contained component, module, class or function. */
-export const buildComponentChangeGraph = () => createAgentGraph({
+export const componentChangeAgent: AgentGraphOptions = {
     name: 'component-change',
     access: 'write',
     instructions: [
@@ -9,4 +9,6 @@ export const buildComponentChangeGraph = () => createAgentGraph({
         'repository is structured and follow it. Update its callers, exports and tests to match its new interface.',
         'Reply with what the component now does and every file you changed.',
     ].join(' '),
-});
+};
+
+export const buildComponentChangeGraph = () => createAgentGraph(componentChangeAgent);

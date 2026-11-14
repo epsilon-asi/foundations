@@ -101,6 +101,7 @@ container:
 | `npm test`              | Run all tests with v8 coverage; fails under the 90% thresholds |
 | `npm run test:live`     | Run the live smoke tests on real OpenAI models (needs `OPENAI_API_KEY`; costs money) |
 | `npm run test:container` | Run the `--container` tests on real Docker (pulls `node:24.15` on first run) |
+| `npm run eval`          | Run the evals on real models (needs `OPENAI_API_KEY`; costs money) |
 | `npm run test:watch`    | Run tests in watch mode                              |
 | `npm run verify`        | Typecheck, test, and build                           |
 
@@ -116,6 +117,7 @@ container:
 | `tests/commands/*.test.ts` | `do` and `query` end to end through `runCli`, and config from every layer |
 | `tests/agents/task.test.ts` | `run_task`: installs, arguments, failures, unknown tasks, directories |
 | `tests/container/docker.test.ts` | `--container` on real Docker; skipped unless `AGENT_ENGINEER_CONTAINER_TESTS=1` |
+| `tests/evals/intent.test.ts` | The intent dataset is sound, and the intent eval scores scripted models as it should |
 
 Apart from the live tests, no test calls a model or the network. Agents run on `ScriptedChatModel`
 ([tests/helpers/scriptedModel.ts](tests/helpers/scriptedModel.ts)), which replies with scripted
@@ -134,6 +136,31 @@ text, tool calls or errors, against real git repositories from
   your environment never costs money on a plain `npm test`.
 - **The intent model** is `models.intent`: any LangChain chat model, or in tests
   `ScriptedIntentModel`, which always makes one choice: `provideModels({ agent, intent })`.
+
+## Evals
+
+Tests check that the code is right; evals measure how well the agents do their jobs, on real models.
+They are built on `@epsilon-asi/evals`, live in [evals/](evals), and never run in `npm test`:
+
+```bash
+OPENAI_API_KEY=... npm run eval
+```
+
+| Suite | Measures |
+| --- | --- |
+| [intent](evals/intent) | How `do` routes 153 labeled requests ([dataset.yaml](evals/intent/dataset.yaml)), 57 of them on the boundary between two intents. `correct` is the share routed to their intent; `readRoutedToWrite` the share of questions and plans sent to an agent that changes code, the costly mistake. The summary has a confusion matrix and accuracy by boundary pair. |
+
+Each run writes `eval-results/<suite>.json` and prints a summary. It fails when a score breaks its
+threshold or drops below `evals/baselines/<suite>.json` by more than noise. Useful settings:
+
+- `EVAL_INTENT_MODEL=<model>`: run the intent suite on another OpenAI model, to compare.
+- `EVAL_TRIALS=3`: run each case three times, for narrower intervals and to see flaky cases.
+- `EVAL_FILTER=boundary`: run only the cases with that tag or id (the baseline is not enforced).
+- `EVAL_REGRADE=1`: grade the last report again after changing a grader, without calling the model.
+- `EVAL_UPDATE_BASELINE=1`: record the run as the baseline; commit the file.
+
+The **Evals** workflow runs them on GitHub (Actions → Evals → Run workflow), with the summary on the
+run's page and the report as an artifact. It needs an `OPENAI_API_KEY` repository secret.
 
 ## Toolchain notes
 
