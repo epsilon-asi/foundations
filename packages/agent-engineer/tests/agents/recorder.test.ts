@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import {RunRecorder, withWorkspace} from '../../src/agents/index.js';
+import {RunRecorder} from '@epsilon-asi/langgraph';
+import {withWorkspace} from '../../src/agents/index.js';
 import {GlobalConfigSchema} from '../../src/config/global-config.js';
 import {buildAnswerQuestionGraph} from '../../src/graphs/answer-question/index.js';
 import {useGitRepo} from '../helpers/gitRepo.js';
@@ -7,6 +8,7 @@ import {SCRIPTED_USAGE, ScriptedChatModel} from '../helpers/scriptedModel.js';
 
 const repo = useGitRepo({'src/greet.ts': 'export const greet = () => "hi";\n'});
 
+// RunRecorder and its unit tests live in @epsilon-asi/langgraph; this checks it sees an engineer run's nested agent.
 describe('RunRecorder', () => {
     it('records the tool calls and model calls of a graph run', async () => {
         const recorder = new RunRecorder();
@@ -34,34 +36,5 @@ describe('RunRecorder', () => {
             outputTokens: 2 * SCRIPTED_USAGE.output_tokens,
             toolsUsed: {find_files: 1, read_file: 1},
         });
-    });
-
-    it('records errors and durations, and ignores events for runs it did not see start', () => {
-        let now = 0;
-        const recorder = new RunRecorder({now: () => now});
-        recorder.handleToolStart({lc: 1, type: 'not_implemented', id: ['tools', 'grep']}, 'not json', 'tool-1');
-        recorder.handleChatModelStart({lc: 1, type: 'constructor', id: ['ChatOpenAI'], kwargs: {model: 'gpt-x'}}, [], 'model-1');
-        now = 25;
-        recorder.handleToolError(new Error('boom'), 'tool-1');
-        recorder.handleLLMError(new Error('rate limited'), 'model-1');
-        recorder.handleToolEnd('late', 'unknown-run');
-        recorder.handleLLMEnd({generations: []}, 'unknown-run');
-
-        expect(recorder.toolCalls).toEqual([{name: 'grep', input: 'not json', output: undefined, error: 'boom', durationMs: 25}]);
-        expect(recorder.modelCalls).toEqual([{model: 'gpt-x', inputTokens: undefined, outputTokens: undefined, error: 'rate limited', durationMs: 25}]);
-        expect(recorder.summary()).toMatchObject({toolErrors: 1, inputTokens: 0, outputTokens: 0});
-    });
-
-    it('takes the model name from the invocation parameters first, and leaves usage unset when none is reported', () => {
-        const recorder = new RunRecorder();
-        recorder.handleChatModelStart({lc: 1, type: 'constructor', id: ['X'], kwargs: {model: 'from-kwargs'}}, [], 'm', undefined, {invocation_params: {model: 'from-call'}});
-        recorder.handleChatModelStart({lc: 1, type: 'not_implemented', id: ['X']}, [], 'n');
-        recorder.handleLLMEnd({generations: [[{text: 'hi'}]]}, 'm');
-        recorder.handleToolStart({lc: 1, type: 'not_implemented', id: []}, '{}', 't');
-        recorder.handleToolEnd({content: [{type: 'text', text: 'x'}]}, 't');
-
-        expect(recorder.modelCalls.map((call) => call.model)).toEqual(['from-call', undefined]);
-        expect(recorder.modelCalls[0]?.inputTokens).toBeUndefined();
-        expect(recorder.toolCalls[0]).toMatchObject({name: 'unknown', output: '[{"type":"text","text":"x"}]'});
     });
 });

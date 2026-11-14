@@ -30,4 +30,3 @@ export {
     type ProgressReporter,
     type RepoWorkspaceOptions,
 } from './workspace.js';
-export {RunRecorder, type RecordedModelCall, type RecordedToolCall, type RunSummary} from './recorder.js';

@@ -54,7 +54,7 @@ describe('read agents', () => {
         expect(search?.content).toContain('src/main.ts:1');
         expect(search?.content).toContain('src/greet.ts:1');
         expect(definition?.content).toMatch(/^src\/greet\.ts:1/);
-        expect(line?.content).toBe('src/greet.ts (lines 2-2 of 4)\n2 |     return `Hello, ${name}`;\n... 2 more lines');
+        expect(line?.content).toBe('src/greet.ts (lines 2-2 of 3)\n2 |     return `Hello, ${name}`;\n... 1 more line');
         // Untracked working changes are part of the snapshot.
         expect(draft?.content).toContain('export const draft = true;');
         expect(progress).toEqual(expect.arrayContaining(['listing src', 'searching: greet', 'reading src/draft.ts']));

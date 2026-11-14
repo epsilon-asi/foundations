@@ -5,15 +5,8 @@ import {provideModels} from '../../src/middleware/models.js';
 import {captureIO} from '../helpers/captureIO.js';
 import {useConfigSandbox} from '../helpers/configSandbox.js';
 import {type GitRepoFixture, initGitRepo} from '../helpers/gitRepo.js';
-import {type ScriptedReply, ScriptedChatModel} from '../helpers/scriptedModel.js';
+import {type ScriptedReply, ScriptedChatModel, ScriptedIntentModel} from '../helpers/scriptedModel.js';
 
-const parsed = vi.hoisted(() => ({choice: 'answer_question', reasoning: 'it asks a question'}));
-
-// The intent model runs inside @epsilon-asi/langgraph; replace it with a fixed choice until it can be injected.
-vi.mock('@epsilon-asi/langgraph', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@epsilon-asi/langgraph')>()),
-    createOptionSelectionNode: () => async () => ({messages: [], ...parsed}),
-}));
 
 const sandbox = useConfigSandbox();
 let repo: GitRepoFixture;
@@ -23,10 +16,10 @@ beforeEach(() => {
     repo = initGitRepo(sandbox.project, {'pkg/src/greet.ts': 'export const greet = () => "hello";\n'});
 });
 
-async function cli(argv: string[], replies?: ScriptedReply[]) {
+async function cli(argv: string[], replies?: ScriptedReply[], intent = new ScriptedIntentModel('answer_question', 'it asks a question')) {
     const agent = replies === undefined ? undefined : new ScriptedChatModel(replies);
     const {io, stdout, stderr} = captureIO();
-    const exitCode = await runCli(AgentEngineer, argv, {io, ...(agent === undefined ? {} : {use: [provideModels({agent})]})});
+    const exitCode = await runCli(AgentEngineer, argv, {io, ...(agent === undefined ? {} : {use: [provideModels({agent, intent})]})});
     return {exitCode, stdout: stdout(), stderr: stderr(), agent};
 }
 
@@ -81,8 +74,6 @@ describe('query', () => {
 
 describe('do', () => {
     it('routes the request and prints the intent and the answer', async () => {
-        Object.assign(parsed, {choice: 'answer_question', reasoning: 'it asks a question'});
-
         const result = await cli(['do', 'what', 'does', 'greet', 'return?'], ['"hello".']);
 
         expect(result.exitCode).toBe(0);
@@ -91,12 +82,10 @@ describe('do', () => {
     });
 
     it('prints the branch and files a change agent committed', async () => {
-        Object.assign(parsed, {choice: 'mini_change', reasoning: 'a one-word edit'});
-
         const result = await cli(['do', 'say', 'hi', 'instead'], [
             [{name: 'edit_file', args: {path: 'pkg/src/greet.ts', oldText: 'hello', newText: 'hi'}}],
             'Changed the greeting.',
-        ]);
+        ], new ScriptedIntentModel('mini_change', 'a one-word edit'));
 
         expect(result.exitCode).toBe(0);
         const branch = /to branch (\S+)/.exec(result.stdout)?.[1];
@@ -106,12 +95,10 @@ describe('do', () => {
     });
 
     it('prints the intent, reasoning and changes as JSON', async () => {
-        Object.assign(parsed, {choice: 'mini_change', reasoning: 'a one-word edit'});
-
         const result = await cli(['do', '--format', 'json', 'say', 'hi'], [
             [{name: 'edit_file', args: {path: 'pkg/src/greet.ts', oldText: 'hello', newText: 'hi'}}],
             'Done.',
-        ]);
+        ], new ScriptedIntentModel('mini_change', 'a one-word edit'));
 
         expect(JSON.parse(result.stdout)).toEqual({
             request: 'say hi',

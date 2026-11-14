@@ -20,9 +20,8 @@ const repo = useGitRepo({
     'src/greet.ts': 'export function greet() {\n    return greeting;\n}\nconst greeting = "hello";\n',
     'src/main.ts': "import {greet} from './greet.js';\ngreet();\n",
     'docs/guide.md': 'Call greet() to say hello.\n',
-    // No final newline: the sandbox counts the empty string after one as a line.
-    'src/long.txt': LONG_FILE,
-    'logo.png': '\u0000\u0001binary',
+    'src/long.txt': `${LONG_FILE}\n`,
+    'logo.png': '\u0000\u0001binary\n',
     'big.txt': `${'x'.repeat(20_000)}\n`,
     ...MANY_FILES,
 });
@@ -94,8 +93,8 @@ describe('read tools', () => {
         expect(top.split('\n').at(-1)).toBe('... 50 more lines');
         expect(await call('read_file', {path: 'src/long.txt', startLine: 449})).toBe('src/long.txt (lines 449-450 of 450)\n449 | line 449\n450 | line 450');
         expect(await call('read_file', {path: 'logo.png'})).toMatch(/^Error: logo\.png does not exist, or is ignored, too large or not text\.$/);
-        // The sandbox counts the empty string after a final newline as a line, so this 4-line file has "5".
-        expect(await call('read_file', {path: 'src/greet.ts', startLine: 2, endLine: 2})).toBe('src/greet.ts (lines 2-2 of 5)\n2 |     return greeting;\n... 3 more lines');
+        expect(await call('read_file', {path: 'src/greet.ts', startLine: 2, endLine: 2})).toBe('src/greet.ts (lines 2-2 of 4)\n2 |     return greeting;\n... 2 more lines');
+        expect(await call('read_file', {path: 'src/greet.ts', startLine: 3, endLine: 3})).toBe('src/greet.ts (lines 3-3 of 4)\n3 | }\n... 1 more line');
     });
 
     it('refuse files the search did not index: too large, missing or off limits', async () => {
@@ -130,8 +129,13 @@ describe('write tools', () => {
 
         expect(await call('write_file', {path: 'src/new/deep/file.ts', content: 'export {};\n'})).toBe('Wrote src/new/deep/file.ts.');
         expect(readFileSync(join(sandbox.worktreePath, 'src/new/deep/file.ts'), 'utf8')).toBe('export {};\n');
+        // Content without a final newline gets one; empty content stays empty.
+        await call('write_file', {path: 'src/no-newline.ts', content: 'export {};'});
+        expect(readFileSync(join(sandbox.worktreePath, 'src/no-newline.ts'), 'utf8')).toBe('export {};\n');
+        await call('write_file', {path: 'src/empty.ts', content: ''});
+        expect(readFileSync(join(sandbox.worktreePath, 'src/empty.ts'), 'utf8')).toBe('');
         expect(await call('delete_file', {path: 'docs/guide.md'})).toBe('Deleted docs/guide.md.');
-        expect([...toolkit.changedFiles]).toEqual(['src/new/deep/file.ts', 'docs/guide.md']);
+        expect([...toolkit.changedFiles]).toEqual(['src/new/deep/file.ts', 'src/no-newline.ts', 'src/empty.ts', 'docs/guide.md']);
         // Listings follow the writes.
         expect(await call('list_directory', {path: 'docs'})).toBe('No files under docs.');
         expect(await call('list_directory', {path: 'src/new/deep'})).toBe('file.ts');

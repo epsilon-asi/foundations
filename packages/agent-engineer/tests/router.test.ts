@@ -1,23 +1,16 @@
-import {describe, expect, it, vi} from 'vitest';
+import {describe, expect, it} from 'vitest';
 import {GlobalConfigSchema} from '../src/config/global-config.js';
 import {buildRouterGraph, IntentGraphs, Intents} from '../src/graphs/router.js';
 import {useGitRepo} from './helpers/gitRepo.js';
-import {ScriptedChatModel} from './helpers/scriptedModel.js';
+import {ScriptedChatModel, ScriptedIntentModel} from './helpers/scriptedModel.js';
 
-const parsed = vi.hoisted(() => ({choice: 'answer_question', reasoning: 'it asks a question'}));
-
-// The intent model runs inside @epsilon-asi/langgraph; replace it with a fixed choice.
-vi.mock('@epsilon-asi/langgraph', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@epsilon-asi/langgraph')>()),
-    createOptionSelectionNode: () => async () => ({messages: [], ...parsed}),
-}));
 
 const repo = useGitRepo({'src/index.ts': 'export const answer = 42;\n'});
 
-const invoke = (chatModel: ScriptedChatModel, progress: string[] = []) =>
+const invoke = (chatModel: ScriptedChatModel, intent: ScriptedIntentModel, progress: string[] = []) =>
     buildRouterGraph().invoke(
         {messages: [{role: 'user', content: 'what is the answer?'}]},
-        {context: {config: GlobalConfigSchema.parse({}), cwd: repo.root, models: {agent: chatModel}, progress: (text: string) => progress.push(text)}},
+        {context: {config: GlobalConfigSchema.parse({}), cwd: repo.root, models: {agent: chatModel, intent}, progress: (text: string) => progress.push(text)}},
     );
 
 describe('router graph', () => {
@@ -26,11 +19,12 @@ describe('router graph', () => {
     });
 
     it('routes a question to the answer agent', async () => {
-        Object.assign(parsed, {choice: 'answer_question', reasoning: 'it asks a question'});
+        const intent = new ScriptedIntentModel('answer_question', 'it asks a question');
         const progress: string[] = [];
 
-        const result = await invoke(new ScriptedChatModel(['42, from src/index.ts:1.']), progress);
+        const result = await invoke(new ScriptedChatModel(['42, from src/index.ts:1.']), intent, progress);
 
+        expect(intent.calls[0]?.[0]).toEqual({role: 'user', content: 'what is the answer?'});
         expect(result.choice).toBe('answer_question');
         expect(result.reasoning).toBe('it asks a question');
         expect(result.messages).toEqual([
@@ -42,12 +36,10 @@ describe('router graph', () => {
     });
 
     it('routes a change to a change agent, which commits to a branch', async () => {
-        Object.assign(parsed, {choice: 'mini_change', reasoning: 'a one-line edit'});
-
         const result = await invoke(new ScriptedChatModel([
             [{name: 'edit_file', args: {path: 'src/index.ts', oldText: '42', newText: '43'}}],
             'Changed it to 43.',
-        ]));
+        ]), new ScriptedIntentModel('mini_change', 'a one-line edit'));
 
         expect(result.choice).toBe('mini_change');
         expect(result.changes?.branch).toMatch(/^agent-engineer\/mini-change-/);

@@ -1,4 +1,4 @@
-import {ContextualGraph} from '@epsilon-asi/langgraph';
+import {ContextualGraph, type StructuredOutputModel} from '@epsilon-asi/langgraph';
 import {
     ChildProcessCommandExecutor,
     type CommandExecutor,
@@ -41,6 +41,8 @@ export type EngineerRunContext = {
 export type EngineerModels = {
     /** The model repo agents run on. Default: the config's `model`, through OpenAI (see `createChatModel`). */
     readonly agent?: BaseChatModel;
+    /** The model that parses a request's intent. Default: @epsilon-asi/langgraph's DEFAULT_OPTION_SELECTION_MODEL. */
+    readonly intent?: StructuredOutputModel;
 };
 
 /** The runtime context every engineer node reads: the run context plus the workspace created for the run. */
@@ -239,8 +241,7 @@ export const withWorkspace = <Graph extends { invoke: (input: any, options?: any
 
 /** The engineer context of a node's runtime, failing loudly when the graph was not wrapped with {@link withWorkspace}. */
 export const engineerContext = (runtime: { readonly context?: unknown } | undefined): EngineerContext => {
-    // Not requireContext: @epsilon-asi/langgraph is typed against the CommonJS build of @langchain/core, so its
-    // LangGraphRunnableConfig is a different type from the one ESM code here gets.
+    // Its own check rather than langgraph's requireContext, so the error says how to fix it: wrap with withWorkspace.
     const context = runtime?.context as Partial<EngineerContext> | undefined;
     if (context?.workspace === undefined || context.config === undefined) {
         throw new Error('This node needs an engineer context. Wrap the graph with withWorkspace() and invoke it with { context: { config } }.');

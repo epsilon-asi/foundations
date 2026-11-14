@@ -133,7 +133,8 @@ export const createReadTools = (toolkit: RepoToolkit) => [
                 line: startLine ?? 1,
                 ...(endLine === undefined ? {endLine: (startLine ?? 1) + DEFAULT_READ_LINES - 1} : {endLine}),
             });
-            const more = file.endLine < file.totalLines ? `\n... ${file.totalLines - file.endLine} more lines` : '';
+            const remaining = file.totalLines - file.endLine;
+            const more = remaining > 0 ? `\n... ${remaining} more line${remaining === 1 ? '' : 's'}` : '';
             return `${file.path} (lines ${file.line}-${file.endLine} of ${file.totalLines})\n${file.numberedText}${more}`;
         },
     }),

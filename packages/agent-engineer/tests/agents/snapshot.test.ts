@@ -13,7 +13,7 @@ const repo = useGitRepo({
     'src/both.ts': 'committed\n',
     'src/deleted.ts': 'gone soon\n',
     'src/old-name.ts': 'renamed\n',
-    'image.bin': '\u0000\u0001\u0002',
+    'image.bin': '\u0000\u0001\u0002\n',
 });
 
 let workspace: RepoWorkspace;

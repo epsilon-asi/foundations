@@ -32,13 +32,14 @@ export const createWriteTools = (toolkit: RepoToolkit) => {
         defineRepoTool(toolkit, {
             name: 'write_file',
             serial: true,
-            description: 'Create a file, or replace all of its contents. Prefer edit_file for changes to part of an existing file.',
+            description: 'Create a file, or replace all of its contents; it is ended with a newline. Prefer edit_file for changes to part of an existing file.',
             schema: z.object({path: z.string().describe('Repository-relative path.'), content: z.string()}),
             describe: ({path}) => `writing ${path}`,
             async run({path, content}) {
                 const resolved = writable(path);
                 await mkdir(dirname(resolved.absolutePath), {recursive: true});
-                await writeFile(resolved.absolutePath, content);
+                // Files end with a newline, as linters expect; models often leave it off.
+                await writeFile(resolved.absolutePath, content === '' || content.endsWith('\n') ? content : `${content}\n`);
                 toolkit.touched(resolved.path);
                 return `Wrote ${resolved.path}.`;
             },

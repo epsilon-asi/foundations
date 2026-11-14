@@ -126,15 +126,14 @@ text, tool calls or errors, against real git repositories from
   `withWorkspace(graph).invoke(input, { context: { config, cwd, models: { agent } } })`.
 - **The CLI** takes them from the `models` middleware, which a test provides ahead of it:
   `runCli(AgentEngineer, argv, { io, use: [provideModels({ agent })] })`.
-- **Trajectories**: pass a `RunRecorder` in `callbacks` to record every tool call (input, output,
+- **Trajectories**: pass a `RunRecorder` (from `@epsilon-asi/langgraph`) in `callbacks` to record every tool call (input, output,
   duration) and model call (tokens, duration). The callbacks also reach LangSmith tracing when it is
   switched on.
 - **Live smoke tests** in [tests/live](tests/live) run the real CLI on real models. They are
   skipped unless `AGENT_ENGINEER_LIVE_TESTS=1` is set (`npm run test:live` sets it), so a key in
   your environment never costs money on a plain `npm test`.
-- **The intent model** runs inside `@epsilon-asi/langgraph`. Until agent-engineer is on a release
-  where it can be injected, tests replace `createOptionSelectionNode` with `vi.mock`, as
-  [router.test.ts](tests/router.test.ts) does.
+- **The intent model** is `models.intent`: any LangChain chat model, or in tests
+  `ScriptedIntentModel`, which always makes one choice: `provideModels({ agent, intent })`.
 
 ## Toolchain notes
 

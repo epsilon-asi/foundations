@@ -1,6 +1,6 @@
 import {createOptionSelectionNode} from "@epsilon-asi/langgraph";
 import {END, type LangGraphRunnableConfig, START, StateGraph} from "@langchain/langgraph";
-import {engineerContext, withWorkspace} from "../agents/workspace.js";
+import {type EngineerContext, engineerContext, withWorkspace} from "../agents/workspace.js";
 import type {createAgentGraph} from "./agent-graph.js";
 import {buildAnswerQuestionGraph} from "./answer-question/index.js";
 import {buildBugFixPlannerGraph} from "./bug-fix-planner/index.js";
@@ -29,12 +29,15 @@ export type Intent = keyof typeof Intents;
 const parseIntentPrompt =
     "Which workflow should handle the user's latest request? If more than one fits, choose the one that matches the size of the work and whether the user wants a plan first.";
 
-export const ParseIntentNode = createOptionSelectionNode(parseIntentPrompt, Intents);
+/** Picks the intent graph for a request, on the run's `models.intent` when it has one. */
+export const ParseIntentNode = createOptionSelectionNode(parseIntentPrompt, Intents, {
+    model: (runtime) => (runtime?.context as Partial<EngineerContext> | undefined)?.models?.intent,
+});
 
 /** ParseIntentNode, reporting the intent it chose as the run's progress. */
 const parseIntent = async (state: EngineerStateType, runtime?: LangGraphRunnableConfig) => {
     engineerContext(runtime).progress?.("parsing the intent");
-    const result = await ParseIntentNode(state);
+    const result = await ParseIntentNode(state, runtime);
     engineerContext(runtime).progress?.(`routing to ${result.choice}`);
     return result;
 };

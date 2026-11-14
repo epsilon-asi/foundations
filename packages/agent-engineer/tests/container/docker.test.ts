@@ -1,7 +1,7 @@
 import {runCli} from '@epsilon-asi/command-line';
 import {execFileSync} from 'node:child_process';
 import {join} from 'node:path';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {beforeEach, describe, expect, it} from 'vitest';
 import {CONTAINER_LABEL} from '../../src/agents/index.js';
 import {AgentEngineer} from '../../src/cli.js';
 import {CONFIG_FILE_NAME} from '../../src/middleware/config.js';
@@ -9,7 +9,7 @@ import {provideModels} from '../../src/middleware/models.js';
 import {captureIO} from '../helpers/captureIO.js';
 import {useConfigSandbox} from '../helpers/configSandbox.js';
 import {type GitRepoFixture, initGitRepo} from '../helpers/gitRepo.js';
-import {type ScriptedReply, ScriptedChatModel} from '../helpers/scriptedModel.js';
+import {type ScriptedReply, ScriptedChatModel, ScriptedIntentModel} from '../helpers/scriptedModel.js';
 
 /**
  * `--container` on real Docker: the agent's tasks run inside a container mounted on its worktree. They need a Docker
@@ -19,11 +19,6 @@ import {type ScriptedReply, ScriptedChatModel} from '../helpers/scriptedModel.js
 const ENABLED = process.env['AGENT_ENGINEER_CONTAINER_TESTS'] === '1';
 const TIMEOUT_MS = 600_000;
 
-const parsed = vi.hoisted(() => ({choice: 'mini_change', reasoning: 'a small edit'}));
-vi.mock('@epsilon-asi/langgraph', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@epsilon-asi/langgraph')>()),
-    createOptionSelectionNode: () => async () => ({messages: [], ...parsed}),
-}));
 
 const script = (code: string) => `node -e ${JSON.stringify(code)}`;
 
@@ -58,7 +53,8 @@ describe.skipIf(!ENABLED)('--container', () => {
     async function cli(argv: string[], replies: ScriptedReply[]) {
         const agent = new ScriptedChatModel(replies);
         const {io, stdout, stderr} = captureIO();
-        const exitCode = await runCli(AgentEngineer, argv, {io, use: [provideModels({agent})]});
+        const intent = new ScriptedIntentModel('mini_change', 'a small edit');
+        const exitCode = await runCli(AgentEngineer, argv, {io, use: [provideModels({agent, intent})]});
         return {exitCode, stdout: stdout(), stderr: stderr(), results: agent.toolResults().map((result) => result.content), tools: agent.boundTools};
     }
 

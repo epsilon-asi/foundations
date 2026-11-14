@@ -43,7 +43,7 @@ describe('config from agent-engineer.yaml', () => {
             'Error: pkg/secrets/key.txt is off limits.',
             'Error: pkg/app.log is off limits.',
             'Error: pkg/big.txt does not exist, or is ignored, too large or not text.',
-            'pkg/src/app.ts (lines 1-2 of 2)\n1 | export const app = true;\n2 | ',
+            'pkg/src/app.ts (lines 1-1 of 1)\n1 | export const app = true;',
         ]);
     });
 

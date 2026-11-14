@@ -11,6 +11,27 @@ export interface ScriptedToolCall {
 /** A reply: text ends the agent's run, a list of tool calls makes another tool round. */
 export type ScriptedReply = string | ScriptedToolCall[] | Error;
 
+/** An intent model that always makes one choice, and records the messages of every call. */
+export class ScriptedIntentModel {
+    readonly calls: { role: string; content: string }[][] = [];
+    readonly choice: string;
+    readonly reasoning: string;
+
+    constructor(choice: string, reasoning = 'scripted') {
+        this.choice = choice;
+        this.reasoning = reasoning;
+    }
+
+    withStructuredOutput() {
+        return {
+            invoke: async (messages: { role: string; content: string }[]) => {
+                this.calls.push(messages);
+                return {parsed: {choice: this.choice, reasoning: this.reasoning}};
+            },
+        };
+    }
+}
+
 /** Token usage every scripted reply reports. */
 export const SCRIPTED_USAGE = {input_tokens: 100, output_tokens: 20, total_tokens: 120};
 
