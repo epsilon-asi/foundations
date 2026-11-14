@@ -4,6 +4,9 @@ import {defineRepoTool, formatSearchResults, type RepoToolkit} from './shared.js
 /** Results a search tool returns when the model does not ask for a number. */
 export const DEFAULT_MAX_SEARCH_RESULTS = 12;
 
+/** How listings mark a file that exists but is too large or not text to read. */
+export const UNREADABLE = '(too large or not text to read)';
+
 /** Lines `read_file` returns when the model gives no end line. */
 export const DEFAULT_READ_LINES = 400;
 
@@ -22,27 +25,32 @@ const scope = z.array(z.string()).optional().describe('Only search paths matchin
 
 /**
  * Read-only tools over the sandbox's worktree: listing directories, searching code and symbols, and reading files.
- * Only files the code search indexed can be read, so ignored, oversized and off-limits files stay out of reach.
+ * Only files the code search indexed as text can be read, so ignored, oversized, binary and off-limits files stay
+ * out of reach. Listings still show oversized and binary files, marked as unreadable.
  */
 export const createReadTools = (toolkit: RepoToolkit) => [
     defineRepoTool(toolkit, {
         name: 'list_directory',
-        description: 'List the files and directories directly inside a directory of the repository. Use "" or "." for the repository root.',
+        description: [
+            'List the files and directories directly inside a directory of the repository. Use "" or "." for the root.',
+            `Files marked "${UNREADABLE}" exist but are too large or not text for read_file and search.`,
+        ].join(' '),
         schema: z.object({path: z.string().describe('Repository-relative directory.')}),
         describe: ({path}) => `listing ${path || '.'}`,
         async run({path}) {
             const directory = path === '' || path === '.' ? '' : `${toolkit.resolvePath(path).path}/`;
-            const entries = new Set<string>();
-            for (const file of (await toolkit.search()).files) {
+            const entries = new Map<string, string>();
+            for (const file of await toolkit.files()) {
                 if (file.path.startsWith(directory)) {
                     const [first, ...rest] = file.path.slice(directory.length).split('/');
-                    entries.add(rest.length > 0 ? `${first}/` : first!);
+                    const entry = rest.length > 0 ? `${first}/` : first!;
+                    entries.set(entry, rest.length > 0 || file.readable ? entry : `${entry} ${UNREADABLE}`);
                 }
             }
             if (entries.size === 0) {
                 return `No files under ${path || '.'}.`;
             }
-            const sorted = [...entries].sort();
+            const sorted = [...entries.keys()].sort().map((entry) => entries.get(entry)!);
             const shown = sorted.slice(0, DEFAULT_MAX_LISTED_ENTRIES).join('\n');
             return sorted.length > DEFAULT_MAX_LISTED_ENTRIES ? `${shown}\n... ${sorted.length - DEFAULT_MAX_LISTED_ENTRIES} more` : shown;
         },
@@ -53,8 +61,14 @@ export const createReadTools = (toolkit: RepoToolkit) => [
         schema: z.object({query: z.string(), maxResults}),
         describe: ({query}) => `finding files: ${query}`,
         async run({query, maxResults = DEFAULT_MAX_SEARCH_RESULTS}) {
-            const results = (await toolkit.search()).searchPaths(query, {maxResults});
-            return results.length === 0 ? 'No files found.' : results.map((result) => result.path).join('\n');
+            const ranked = (await toolkit.search()).searchPaths(query, {maxResults}).map((result) => result.path);
+            // The search only ranks files it indexed; files too large or not text are matched by their words.
+            const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+            const unreadable = (await toolkit.files())
+                .filter((file) => !file.readable && words.length > 0 && words.every((word) => file.path.toLowerCase().includes(word)))
+                .map((file) => `${file.path} ${UNREADABLE}`);
+            const found = [...ranked, ...unreadable].slice(0, maxResults);
+            return found.length === 0 ? 'No files found.' : found.join('\n');
         },
     }),
     defineRepoTool(toolkit, {
@@ -112,7 +126,7 @@ export const createReadTools = (toolkit: RepoToolkit) => [
         async run({path, startLine, endLine}) {
             const resolved = toolkit.resolvePath(path);
             const search = await toolkit.search();
-            if (!search.files.some((file) => file.path === resolved.path)) {
+            if (!search.documents.some((document) => document.path === resolved.path)) {
                 throw new Error(`${resolved.path} does not exist, or is ignored, too large or not text.`);
             }
             const file = await search.openFile(resolved.path, {

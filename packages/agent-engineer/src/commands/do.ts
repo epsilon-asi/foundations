@@ -1,6 +1,7 @@
 import {Command} from '@epsilon-asi/command-line';
 import {buildRouterGraph} from '../graphs/router.js';
 import {config} from '../middleware/config.js';
+import {models} from '../middleware/models.js';
 import {EngineerCommand} from './engineer.js';
 
 /**
@@ -10,7 +11,7 @@ import {EngineerCommand} from './engineer.js';
 @Command({
     name: 'do',
     description: 'Parse the intent of a request and hand it to the agent for that intent.',
-    use: [config],
+    use: [config, models],
 })
 export class DoCommand extends EngineerCommand {
     protected graph() {

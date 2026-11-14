@@ -17,7 +17,7 @@ const repo = useGitRepo({'src/index.ts': 'export const answer = 42;\n'});
 const invoke = (chatModel: ScriptedChatModel, progress: string[] = []) =>
     buildRouterGraph().invoke(
         {messages: [{role: 'user', content: 'what is the answer?'}]},
-        {context: {config: GlobalConfigSchema.parse({}), cwd: repo.root, chatModel, progress: (text: string) => progress.push(text)}},
+        {context: {config: GlobalConfigSchema.parse({}), cwd: repo.root, models: {agent: chatModel}, progress: (text: string) => progress.push(text)}},
     );
 
 describe('router graph', () => {

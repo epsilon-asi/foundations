@@ -1,6 +1,7 @@
-import type {LocalRepoSearch, Sandbox, SearchResult} from '@epsilon-asi/sandbox';
+import {ChildProcessCommandExecutor, type CommandExecutor, type LocalRepoSearch, type Sandbox, type SearchResult} from '@epsilon-asi/sandbox';
+import {existsSync} from 'node:fs';
 import {tool} from '@langchain/core/tools';
-import {isAbsolute, relative, resolve} from 'node:path';
+import {isAbsolute, join, relative, resolve, sep} from 'node:path';
 import type {z} from 'zod/v4';
 import type {GlobalConfig} from '../../config/index.js';
 import type {ProgressReporter} from '../workspace.js';
@@ -8,22 +9,74 @@ import type {ProgressReporter} from '../workspace.js';
 /** Lines of a search result preview shown to the model. */
 export const DEFAULT_PREVIEW_LINES = 6;
 
+/** A file of the repository, and whether the read tools can read it. */
+export interface RepoFile {
+    /** Repository-relative, with forward slashes. */
+    readonly path: string;
+    /** False for files the code search did not index: larger than `maxContextFileSizeBytes`, or not text. */
+    readonly readable: boolean;
+}
+
 /** What every repo tool works with. One is shared by all tools of an agent run. */
 export class RepoToolkit {
     readonly sandbox: Sandbox;
     readonly config: GlobalConfig;
     readonly progress: ProgressReporter;
+    /** The directory the user ran the CLI from, repository-relative ('' at the root). */
+    readonly runDirectory: string;
     /** Repository-relative paths the agent has written or deleted. */
     readonly changedFiles = new Set<string>();
     readonly #offLimits: readonly RegExp[];
     #stale = false;
     #queue: Promise<unknown> = Promise.resolve();
 
-    constructor(options: { sandbox: Sandbox; config: GlobalConfig; progress?: ProgressReporter | undefined }) {
+    readonly #executor: CommandExecutor;
+    #files: Promise<readonly RepoFile[]> | undefined;
+
+    constructor(options: {
+        sandbox: Sandbox;
+        config: GlobalConfig;
+        progress?: ProgressReporter | undefined;
+        /** Runs git on the host to list the worktree's files. Default: a ChildProcessCommandExecutor. */
+        executor?: CommandExecutor | undefined;
+        /** The directory the user ran the CLI from, repository-relative. Default: '' (the root). */
+        runDirectory?: string | undefined;
+    }) {
         this.sandbox = options.sandbox;
         this.config = options.config;
+        this.runDirectory = options.runDirectory ?? '';
         this.progress = options.progress ?? (() => undefined);
+        this.#executor = options.executor ?? new ChildProcessCommandExecutor();
         this.#offLimits = ['.git', ...options.config.offLimits, ...options.config.ignore].map(globToRegExp);
+    }
+
+    /** Whether a repository-relative path is off limits (`.git`, the config's `offLimits` and `ignore`). */
+    isOffLimits(repoPath: string): boolean {
+        return this.#offLimits.some((pattern) => pattern.test(repoPath));
+    }
+
+    /**
+     * Every file of the worktree that git does not ignore and that is not off limits, sorted, including the ones
+     * too large or not text to read. Listed again after a write.
+     */
+    files(): Promise<readonly RepoFile[]> {
+        this.#files ??= this.#listFiles();
+        return this.#files;
+    }
+
+    async #listFiles(): Promise<readonly RepoFile[]> {
+        const root = this.sandbox.worktreePath;
+        const result = await this.#executor.run('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {cwd: root});
+        if (result.exitCode !== 0) {
+            throw new Error(`Listing the repository's files failed: ${result.stderr.trim()}`);
+        }
+        // Documents are what the search indexed as text; `files` also holds binaries it discovered but could not read.
+        const indexed = new Set((await this.search()).documents.map((document) => document.path));
+        // --cached also lists tracked files deleted from the worktree, hence the existence check.
+        return [...new Set(result.stdout.split('\0'))]
+            .filter((path) => path !== '' && !this.isOffLimits(path) && existsSync(join(root, path)))
+            .sort()
+            .map((path) => ({path, readable: indexed.has(path)}));
     }
 
     /** The sandbox's code search, re-indexed when files changed since it was last used. */
@@ -44,6 +97,7 @@ export class RepoToolkit {
     touched(path: string): void {
         this.changedFiles.add(path);
         this.#stale = true;
+        this.#files = undefined;
     }
 
     /**
@@ -52,20 +106,20 @@ export class RepoToolkit {
      */
     resolvePath(path: string): { path: string; absolutePath: string } {
         const root = this.sandbox.worktreePath;
-        const toRepoPath = (absolute: string) => relative(root, absolute).split('\\').join('/');
+        // Only the platform separator separates segments: on POSIX, a backslash is an ordinary filename character.
+        const toRepoPath = (absolute: string) => relative(root, absolute).split(sep).join('/');
         const inside = (repoPath: string) =>
             repoPath !== '' && repoPath !== '..' && !repoPath.startsWith('../') && !isAbsolute(repoPath);
 
-        let absolutePath = resolve(root, path);
-        // Models often write repository paths with a leading slash.
-        if (isAbsolute(path) && !inside(toRepoPath(absolutePath))) {
-            absolutePath = resolve(root, path.replace(/^\/+/, ''));
-        }
+        // An absolute path at or under the worktree is taken as it is. Any other absolute path is read as
+        // repository-relative, since models often write repository paths with a leading slash.
+        const underRoot = path === root || path.startsWith(`${root}${sep}`);
+        const absolutePath = isAbsolute(path) && !underRoot ? resolve(root, path.replace(/^[\\/]+/, '')) : resolve(root, path);
         const repoPath = toRepoPath(absolutePath);
         if (!inside(repoPath)) {
             throw new Error(`${path} is outside the repository.`);
         }
-        if (this.#offLimits.some((pattern) => pattern.test(repoPath))) {
+        if (this.isOffLimits(repoPath)) {
             throw new Error(`${repoPath} is off limits.`);
         }
         return {path: repoPath, absolutePath};

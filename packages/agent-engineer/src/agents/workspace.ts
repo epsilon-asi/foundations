@@ -1,11 +1,17 @@
 import {ContextualGraph} from '@epsilon-asi/langgraph';
-import {type GitCommitInfo, Sandbox} from '@epsilon-asi/sandbox';
+import {
+    ChildProcessCommandExecutor,
+    type CommandExecutor,
+    type CreateWorktreeResult,
+    type GitCommitInfo,
+    Sandbox,
+    type SandboxContainerOptions,
+} from '@epsilon-asi/sandbox';
 import type {BaseChatModel} from '@langchain/core/language_models/chat_models';
-import type {LangGraphRunnableConfig} from '@langchain/langgraph';
 import {randomUUID} from 'node:crypto';
-import {mkdtempSync, realpathSync, rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join, relative} from 'node:path';
+import {mkdirSync, mkdtempSync, realpathSync, rmSync} from 'node:fs';
+import {homedir, tmpdir} from 'node:os';
+import {join, relative, sep} from 'node:path';
 import type {GlobalConfig} from '../config/index.js';
 
 /** Prefix of every branch a change agent commits to. */
@@ -25,8 +31,16 @@ export type EngineerRunContext = {
     readonly cwd?: string;
     /** Called as agents read and change files. Default: nothing is reported. */
     readonly progress?: ProgressReporter;
-    /** The chat model agents run on. Default: the config's `model`, through OpenAI (see `createChatModel`). */
-    readonly chatModel?: BaseChatModel;
+    /** The chat models the run uses. Default: each one's own default. */
+    readonly models?: EngineerModels;
+    /** Run the agent's commands (`run_task`) in a Docker container mounted on its worktree. Default: false. */
+    readonly container?: boolean;
+};
+
+/** The chat models of an engineer run. A type, not an interface, so it fits LangGraph's context type. */
+export type EngineerModels = {
+    /** The model repo agents run on. Default: the config's `model`, through OpenAI (see `createChatModel`). */
+    readonly agent?: BaseChatModel;
 };
 
 /** The runtime context every engineer node reads: the run context plus the workspace created for the run. */
@@ -39,7 +53,42 @@ export interface RepoWorkspaceOptions {
     config: GlobalConfig;
     /** Directory the repository is found from. Default: process.cwd(). */
     cwd?: string;
+    /** Runs the git commands the workspace runs itself (deleting an unused branch). Default: a ChildProcessCommandExecutor. */
+    executor?: CommandExecutor;
+    /** Mount the worktree into a Docker container that runs the sandbox's commands (see `containerOptionsFor`). Default: false. */
+    container?: boolean;
 }
+
+/** Where the package manager's download cache is kept between container runs when `container.cache` is on. */
+export const defaultContainerCacheDir = (): string => join(homedir(), '.easi', 'cache', 'npm');
+
+export interface ContainerOptionsInput {
+    /** Host directory mounted as the package manager's cache. */
+    cacheDir: string;
+    /**
+     * `uid:gid` that commands run as, so files they write in the worktree belong to the host user and can be
+     * removed with it. Default: the current user's, where the platform has them.
+     */
+    user?: string | undefined;
+}
+
+/** The container a sandbox gets for `--container`, from the config's `container` section. */
+export const containerOptionsFor = (config: Pick<GlobalConfig, 'container'>, input: ContainerOptionsInput): SandboxContainerOptions => {
+    const user = input.user ?? (process.getuid && process.getgid ? `${process.getuid()}:${process.getgid()}` : undefined);
+    return {
+        image: config.container.image,
+        preset: 'node-typescript',
+        installCachePath: input.cacheDir,
+        // HOME on the writable /tmp, since the user that commands run as has no home in the image.
+        env: {HOME: '/tmp'},
+        labels: {[CONTAINER_LABEL]: 'true'},
+        ...(user === undefined ? {} : {user}),
+        ...(config.container.network ? {} : {security: {network: 'none'}}),
+    };
+};
+
+/** Label on every container agent-engineer starts, so leftover containers can be found. */
+export const CONTAINER_LABEL = 'agent-engineer';
 
 export interface OpenWorkspaceOptions {
     /**
@@ -53,17 +102,23 @@ export interface OpenWorkspaceOptions {
  * The repository an engineer run works on. The first `open()` creates a {@link Sandbox}: a git worktree of the
  * repository in a temporary directory with the working changes (untracked files included) copied in, so agents
  * see the repository as it is and never touch the checkout itself. Later calls return the same sandbox.
- * Disposing removes the worktree; a branch and its commits are kept.
+ * Disposing removes the worktree. A branch is kept when `commit()` committed to it, and deleted otherwise, so a run
+ * that failed or changed nothing leaves no branch behind.
  */
 export class RepoWorkspace implements AsyncDisposable {
     readonly config: GlobalConfig;
     readonly cwd: string;
+    readonly container: boolean;
     #sandbox: Promise<Sandbox> | undefined;
     #tempDir: string | undefined;
+    #committed = false;
+    readonly #executor: CommandExecutor;
 
     constructor(options: RepoWorkspaceOptions) {
         this.config = options.config;
         this.cwd = options.cwd ?? process.cwd();
+        this.#executor = options.executor ?? new ChildProcessCommandExecutor();
+        this.container = options.container ?? false;
     }
 
     /** The run's sandbox, created on first use. The options of the first call decide whether it has a branch. */
@@ -86,19 +141,25 @@ export class RepoWorkspace implements AsyncDisposable {
         if ((await sandbox.status()).length === 0) {
             return undefined;
         }
-        return await sandbox.commit({message});
+        const commit = await sandbox.commit({message});
+        this.#committed = true;
+        return commit;
     }
 
     /** The directory the run was started from, relative to the root of `sandbox`'s repository ('' at the root). */
     cwdIn(sandbox: Sandbox): string {
-        return relative(realpathSync(sandbox.worktree.repoRoot), realpathSync(this.cwd)).split('\\').join('/');
+        return relative(realpathSync(sandbox.worktree.repoRoot), realpathSync(this.cwd)).split(sep).join('/');
     }
 
     async dispose(): Promise<void> {
-        const sandbox = this.#sandbox;
+        const pending = this.#sandbox;
         this.#sandbox = undefined;
         try {
-            await (await sandbox?.catch(() => undefined))?.dispose();
+            const sandbox = await pending?.catch(() => undefined);
+            await sandbox?.dispose();
+            if (sandbox !== undefined && !this.#committed) {
+                await this.#deleteBranch(sandbox.worktree);
+            }
         } finally {
             if (this.#tempDir !== undefined) {
                 rmSync(this.#tempDir, {recursive: true, force: true});
@@ -111,14 +172,30 @@ export class RepoWorkspace implements AsyncDisposable {
         await this.dispose();
     }
 
+    /** Deletes the branch the sandbox was created on, once its worktree is gone. A failure here is not worth failing the run for. */
+    async #deleteBranch({branchName, repoRoot}: Pick<CreateWorktreeResult, 'branchName' | 'repoRoot'>): Promise<void> {
+        if (branchName !== null) {
+            await this.#executor.run('git', ['branch', '-D', branchName], {cwd: repoRoot}).catch(() => undefined);
+        }
+    }
+
     async #create({branch}: OpenWorkspaceOptions): Promise<Sandbox> {
         this.#tempDir = mkdtempSync(join(tmpdir(), 'agent-engineer-'));
+        let container: SandboxContainerOptions | undefined;
+        if (this.container) {
+            // Without a shared cache, each run downloads into a cache of its own, removed with the run.
+            const cacheDir = this.config.container.cache ? defaultContainerCacheDir() : join(this.#tempDir, 'cache');
+            mkdirSync(cacheDir, {recursive: true});
+            container = containerOptionsFor(this.config, {cacheDir});
+        }
         const sandbox = await Sandbox.create({
             repoPath: this.cwd,
             worktreePath: join(this.#tempDir, 'worktree'),
             ...(branch === undefined ? {} : {branchName: `${DEFAULT_BRANCH_PREFIX}/${branch}-${randomUUID().slice(0, 8)}`}),
             overlayWorkingChanges: true,
             includeUntracked: true,
+            taskTimeoutMs: this.config.container.taskTimeoutSeconds * 1000,
+            ...(container === undefined ? {} : {container}),
             search: {
                 includeHidden: true,
                 maxFileBytes: this.config.maxContextFileSizeBytes,
@@ -127,7 +204,14 @@ export class RepoWorkspace implements AsyncDisposable {
         });
         // On a branch, the copied working changes get a commit of their own, so the agent's commit holds only its work.
         if (branch !== undefined && sandbox.worktree.overlayApplied) {
-            await sandbox.commit({message: WORKING_CHANGES_COMMIT_MESSAGE});
+            try {
+                await sandbox.commit({message: WORKING_CHANGES_COMMIT_MESSAGE});
+            } catch (error) {
+                // dispose() never sees a sandbox whose creation failed, so it is removed here.
+                await sandbox.dispose().catch(() => undefined);
+                await this.#deleteBranch(sandbox.worktree);
+                throw error;
+            }
         }
         return sandbox;
     }
@@ -146,15 +230,15 @@ export const offLimitsGlobs = (config: Pick<GlobalConfig, 'ignore' | 'offLimits'
  */
 export const withWorkspace = <Graph extends { invoke: (input: any, options?: any) => Promise<any> }>(graph: Graph): Graph =>
     ContextualGraph(graph, (_input, runtime) => {
-        const {config, cwd} = (runtime.context ?? {}) as Partial<EngineerRunContext>;
+        const {config, cwd, container} = (runtime.context ?? {}) as Partial<EngineerRunContext>;
         if (config === undefined) {
             throw new Error('An engineer graph needs the agent-engineer config: invoke(input, { context: { config } }).');
         }
-        return {workspace: new RepoWorkspace({config, ...(cwd === undefined ? {} : {cwd})})};
+        return {workspace: new RepoWorkspace({config, ...(cwd === undefined ? {} : {cwd}), ...(container === undefined ? {} : {container})})};
     });
 
 /** The engineer context of a node's runtime, failing loudly when the graph was not wrapped with {@link withWorkspace}. */
-export const engineerContext = (runtime: LangGraphRunnableConfig | undefined): EngineerContext => {
+export const engineerContext = (runtime: { readonly context?: unknown } | undefined): EngineerContext => {
     // Not requireContext: @epsilon-asi/langgraph is typed against the CommonJS build of @langchain/core, so its
     // LangGraphRunnableConfig is a different type from the one ESM code here gets.
     const context = runtime?.context as Partial<EngineerContext> | undefined;

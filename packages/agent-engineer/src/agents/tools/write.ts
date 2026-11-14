@@ -1,3 +1,4 @@
+import {existsSync} from 'node:fs';
 import {mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {z} from 'zod/v4';
@@ -14,6 +15,15 @@ export const createWriteTools = (toolkit: RepoToolkit) => {
         const limit = toolkit.config.maxOutputFiles;
         if (!toolkit.changedFiles.has(resolved.path) && toolkit.changedFiles.size >= limit) {
             throw new Error(`This run may change at most ${limit} files; it has changed ${[...toolkit.changedFiles].join(', ')}.`);
+        }
+        return resolved;
+    };
+
+    /** Resolves a path to change that must already exist. */
+    const existing = (path: string) => {
+        const resolved = writable(path);
+        if (!existsSync(resolved.absolutePath)) {
+            throw new Error(`${resolved.path} does not exist.`);
         }
         return resolved;
     };
@@ -48,7 +58,7 @@ export const createWriteTools = (toolkit: RepoToolkit) => {
             }),
             describe: ({path}) => `editing ${path}`,
             async run({path, oldText, newText, replaceAll = false}) {
-                const resolved = writable(path);
+                const resolved = existing(path);
                 const content = await readFile(resolved.absolutePath, 'utf8');
                 const count = content.split(oldText).length - 1;
                 if (count === 0) {
@@ -69,7 +79,7 @@ export const createWriteTools = (toolkit: RepoToolkit) => {
             schema: z.object({path: z.string().describe('Repository-relative path.')}),
             describe: ({path}) => `deleting ${path}`,
             async run({path}) {
-                const resolved = writable(path);
+                const resolved = existing(path);
                 await rm(resolved.absolutePath);
                 toolkit.touched(resolved.path);
                 return `Deleted ${resolved.path}.`;

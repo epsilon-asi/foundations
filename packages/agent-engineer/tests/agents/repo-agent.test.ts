@@ -25,7 +25,7 @@ async function run(
     const progress: string[] = [];
     const result = await withWorkspace(build()).invoke(
         {messages: [{role: 'user', content: 'the request'}]},
-        {context: {config: GlobalConfigSchema.parse({offLimits: ['secrets'], ...config}), cwd: repo.root, chatModel, progress: (text: string) => progress.push(text)}},
+        {context: {config: GlobalConfigSchema.parse({offLimits: ['secrets'], ...config}), cwd: repo.root, models: {agent: chatModel}, progress: (text: string) => progress.push(text)}},
     );
     return {result, chatModel, progress};
 }
@@ -91,7 +91,7 @@ describe('read agents', () => {
         const chatModel = new ScriptedChatModel(['done']);
         await withWorkspace(buildAnswerQuestionGraph()).invoke(
             {messages: [{role: 'user', content: 'q'}]},
-            {context: {config: GlobalConfigSchema.parse({}), cwd: `${repo.root}/src`, chatModel}},
+            {context: {config: GlobalConfigSchema.parse({}), cwd: `${repo.root}/src`, models: {agent: chatModel}}},
         );
 
         expect(chatModel.calls[0]?.[0]?.text).toContain('The user ran you from src/');

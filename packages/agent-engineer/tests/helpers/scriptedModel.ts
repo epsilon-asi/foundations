@@ -9,9 +9,12 @@ export interface ScriptedToolCall {
 }
 
 /** A reply: text ends the agent's run, a list of tool calls makes another tool round. */
-export type ScriptedReply = string | ScriptedToolCall[];
+export type ScriptedReply = string | ScriptedToolCall[] | Error;
 
-/** A chat model that gives scripted replies in order and records the messages of every call. */
+/** Token usage every scripted reply reports. */
+export const SCRIPTED_USAGE = {input_tokens: 100, output_tokens: 20, total_tokens: 120};
+
+/** A chat model that gives scripted replies in order and records the messages of every call. A reply that is an Error is thrown. */
 export class ScriptedChatModel extends BaseChatModel {
     readonly calls: BaseMessage[][] = [];
     readonly replies: ScriptedReply[];
@@ -25,19 +28,28 @@ export class ScriptedChatModel extends BaseChatModel {
         return 'scripted';
     }
 
-    override bindTools(): this {
+    /** Names of the tools the agent bound, from the last bindTools call. */
+    boundTools: string[] = [];
+
+    override bindTools(tools: readonly ({ name?: string } | unknown)[]): this {
+        this.boundTools = tools.map((tool) => (tool as { name?: string }).name ?? '?');
         return this;
     }
 
     async _generate(messages: BaseMessage[]): Promise<ChatResult> {
         this.calls.push(messages);
         const reply = this.replies.shift() ?? 'done';
+        if (reply instanceof Error) {
+            throw reply;
+        }
         const message = typeof reply === 'string'
             ? new AIMessage(reply)
             : new AIMessage({
                 content: '',
                 tool_calls: reply.map((call, index) => ({...call, id: `call_${this.calls.length}_${index}`, type: 'tool_call' as const})),
             });
+        // Untyped: AIMessage's default type parameters type usage_metadata as undefined in this @langchain/core.
+        Object.assign(message, {usage_metadata: SCRIPTED_USAGE});
         return {generations: [{message, text: typeof reply === 'string' ? reply : ''}]};
     }
 
