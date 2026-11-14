@@ -169,9 +169,6 @@ threshold or drops below `evals/baselines/<suite>.json` by more than noise. Usef
 - `EVAL_REGRADE=1`: grade the last report again after changing a grader, without calling the model.
 - `EVAL_UPDATE_BASELINE=1`: record the run as the baseline; commit the file.
 
-The **Evals** workflow runs them on GitHub (Actions → Evals → Run workflow), with the summary on the
-run's page and the report as an artifact. It needs an `OPENAI_API_KEY` repository secret.
-
 ## Toolchain notes
 
 - `tsc` compiles standard decorators for every target. `tsx` (esbuild) runs them directly.
