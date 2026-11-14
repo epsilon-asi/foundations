@@ -48,7 +48,6 @@ jobs:
           - sandbox
           - slack
           - system
-          - type-bridge
           - ui
         # Every package runs on Node 22.17 unless an include below says
         # otherwise. Includes apply in order, and a later include may overwrite
