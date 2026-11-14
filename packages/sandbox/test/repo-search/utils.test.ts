@@ -178,6 +178,12 @@ describe('text utilities', () => {
   it('handles line contexts, snippets, boundaries, and numbering', () => {
     const lines = splitLines('alpha\nbeta gamma\r\ndelta\rlast');
     expect(lines).toEqual(['alpha', 'beta gamma', 'delta', 'last']);
+    // A final line break ends the last line; it does not start another.
+    expect(splitLines('a\nb\n')).toEqual(['a', 'b']);
+    expect(splitLines('a\r\nb\r\n')).toEqual(['a', 'b']);
+    expect(splitLines('a\n\n')).toEqual(['a', '']);
+    expect(splitLines('\n')).toEqual(['']);
+    expect(splitLines('')).toEqual(['']);
     expect(getLineContext(lines, 2, 2, 1, 1)).toEqual({
       preview: 'beta gamma',
       contextBefore: ['alpha'],

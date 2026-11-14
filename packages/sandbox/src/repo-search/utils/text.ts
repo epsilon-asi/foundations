@@ -5,9 +5,15 @@ export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Splits on `\r\n`, `\n`, or `\r`, the same line breaks `LineIndex` recognizes. */
+/**
+ * Splits on `\r\n`, `\n`, or `\r`, the same line breaks `LineIndex` recognizes. A final line break ends the last line
+ * rather than starting an empty one, so `"a\nb\n"` is two lines, as editors and `wc -l` count them. Text without a
+ * line break is one line, even when it is empty.
+ */
 export function splitLines(text: string): string[] {
-  return text.split(LINE_BREAK);
+  const lines = text.split(LINE_BREAK);
+  if (lines.length > 1 && lines.at(-1) === '') lines.pop();
+  return lines;
 }
 
 export function isWordBoundary(text: string, index: number): boolean {
