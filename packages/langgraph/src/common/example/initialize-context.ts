@@ -3,8 +3,9 @@ import { Sandbox } from "@epsilon-asi/sandbox";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { requireContext } from "../nodes/initializeContext";
-import { ContextualGraph } from "../wrappers/ContextualGraph";
+import { requireContext } from "../nodes/initializeContext.js";
+import { ContextualGraph } from "../wrappers/ContextualGraph.js";
+import {pathToFileURL} from "node:url";
 
 // The live objects every node can reach through the runtime context. They stay out of the graph state.
 type EngineeringContext = { sandbox: Sandbox };
@@ -50,7 +51,7 @@ export const buildGraph = () => {
 };
 
 // Run directly: npx tsx src/common/example/initialize-context.ts
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     buildGraph()
         .invoke({ repoPath: process.cwd() })
         .then((result) => console.log(result))

@@ -11,8 +11,13 @@ vi.mock("@langchain/openai", () => ({
     }),
 }));
 
-import {createOptionSelectionNode} from "../../src/common/prebuilt/SelectFromOptions/OptionSelection";
-import {formatRecord} from "../../src/common/prebuilt/SelectFromOptions/util";
+import {ChatOpenAI} from "@langchain/openai";
+import {
+    createOptionSelectionNode,
+    DEFAULT_OPTION_SELECTION_MODEL,
+    type StructuredOutputModel,
+} from "../../src/common/prebuilt/SelectFromOptions/OptionSelection.js";
+import {formatRecord} from "../../src/common/prebuilt/SelectFromOptions/util.js";
 
 describe("createOptionSelectionNode", () => {
     beforeEach(() => {
@@ -30,6 +35,49 @@ describe("createOptionSelectionNode", () => {
         expect(messages[0]).toEqual({role: "user", content: "Refund me"});
         expect(messages[1].content).toContain("billing   : Charges");
         expect(messages[2]).toEqual({role: "user", content: "Which team?"});
+    });
+
+    it("uses the default OpenAI model when none is given", async () => {
+        openai.structuredInvoke.mockResolvedValue({parsed: {choice: "billing", reasoning: "r"}});
+        await createOptionSelectionNode("Which team?", {billing: "Charges"})({messages: []});
+
+        expect(ChatOpenAI).toHaveBeenCalledWith(expect.objectContaining({model: DEFAULT_OPTION_SELECTION_MODEL}));
+    });
+
+    it("uses the model it is given", async () => {
+        const invoke = vi.fn().mockResolvedValue({parsed: {choice: "technical", reasoning: "a bug"}});
+        const model: StructuredOutputModel = {withStructuredOutput: vi.fn().mockReturnValue({invoke})};
+        vi.mocked(ChatOpenAI).mockClear();
+
+        const result = await createOptionSelectionNode("Which team?", {billing: "Charges", technical: "Bugs"}, {model})({messages: []});
+
+        expect(result.choice).toBe("technical");
+        expect(model.withStructuredOutput).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({strict: true, includeRaw: true}));
+        expect(ChatOpenAI).not.toHaveBeenCalled();
+    });
+
+    it("picks the model for each run from the runtime, falling back to the default", async () => {
+        const invoke = vi.fn().mockResolvedValue({parsed: {choice: "billing", reasoning: "from context"}});
+        const contextModel: StructuredOutputModel = {withStructuredOutput: () => ({invoke})};
+        openai.structuredInvoke.mockResolvedValue({parsed: {choice: "billing", reasoning: "default"}});
+        const resolver = vi.fn((runtime: { readonly context?: unknown } | undefined) =>
+            (runtime?.context as { model?: StructuredOutputModel } | undefined)?.model);
+        const node = createOptionSelectionNode("Which team?", {billing: "Charges"}, {model: resolver});
+
+        await expect(node({messages: []}, {context: {model: contextModel}})).resolves.toMatchObject({reasoning: "from context"});
+        await expect(node({messages: []}, {context: {}})).resolves.toMatchObject({reasoning: "default"});
+        expect(resolver).toHaveBeenCalledWith(expect.objectContaining({context: {model: contextModel}}));
+    });
+
+    it("passes the runtime's callbacks and signal to the model call", async () => {
+        const invoke = vi.fn().mockResolvedValue({parsed: {choice: "billing", reasoning: "r"}});
+        const model: StructuredOutputModel = {withStructuredOutput: () => ({invoke})};
+        const callbacks = [{handleLLMStart: vi.fn()}];
+        const signal = new AbortController().signal;
+
+        await createOptionSelectionNode("Which team?", {billing: "Charges"}, {model})({messages: []}, {callbacks, signal});
+
+        expect(invoke).toHaveBeenCalledWith(expect.any(Array), {callbacks, signal});
     });
 
     it("rejects a choice that is not one of the options", async () => {

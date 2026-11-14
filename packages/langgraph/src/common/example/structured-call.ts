@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod/v4";
+import {pathToFileURL} from "node:url";
 
 // The shape we want the model to return.
 const MovieReviewSchema = z.object({
@@ -32,7 +33,7 @@ export const reviewMovie = async (review: string): Promise<MovieReview> => {
 };
 
 // Run directly: npx tsx src/common/example/structured-call.ts
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     reviewMovie("Just watched Arrival. Slow burn, but the ending floored me. Easily a 9.")
         .then((result) => console.log(result))
         .catch((err) => {

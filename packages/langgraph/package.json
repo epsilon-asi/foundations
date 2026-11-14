@@ -2,12 +2,12 @@
   "name": "@epsilon-asi/langgraph",
   "version": "0.2.8",
   "description": "Zod v4-first LangGraph StateGraph wrapper with standardized node schemas, hooks, logging, checkpointing, test helpers, and resume support.",
+  "type": "module",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "exports": {
     ".": {
       "types": "./build/index.d.ts",
-      "require": "./build/index.js",
       "default": "./build/index.js"
     },
     "./package.json": "./package.json"

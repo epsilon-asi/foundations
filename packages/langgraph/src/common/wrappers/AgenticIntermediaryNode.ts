@@ -1,6 +1,7 @@
+import type {LangGraphRunnableConfig} from "@langchain/langgraph";
 import {z} from "zod/v4";
-import {AgenticMessagingState} from "../../types/AgenticMessagingState";
-import {ProtectedStructuredNode} from "./ProtectedNode";
+import {AgenticMessagingState} from "../../types/AgenticMessagingState.js";
+import {ProtectedStructuredNode} from "./ProtectedNode.js";
 
 
 export type AgenticMessageBasedState<StateType> = typeof AgenticMessagingState.State & StateType
@@ -11,10 +12,10 @@ export function AgenticIntermediaryNode<Input, Output>(
         input: z.ZodType<AgenticMessageBasedState<Input>>,
         output: z.ZodType<AgenticMessageBasedState<Output>>
     },
-    node: (state: AgenticMessageBasedState<Input>) => Promise<Output> | Output,
+    node: (state: AgenticMessageBasedState<Input>, runtime?: LangGraphRunnableConfig) => Promise<Output> | Output,
 ) {
-    return ProtectedStructuredNode(schemas, async(state: AgenticMessageBasedState<Input>) => {
-        return node(state);
+    return ProtectedStructuredNode(schemas, async (state: AgenticMessageBasedState<Input>, runtime?: LangGraphRunnableConfig) => {
+        return node(state, runtime);
     })
 }
 
