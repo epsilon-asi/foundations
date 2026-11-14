@@ -1,0 +1,44 @@
+{
+  "name": "@epsilon-asi/evals",
+  "version": "0.0.0",
+  "description": "Evals for LLM agents on vitest: datasets, graders, repeated trials, confidence intervals, baselines and thresholds.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "bump": "../../scripts/bump_version.sh",
+    "pub": "npm run build && npm run bump && npm publish --access public"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "peerDependencies": {
+    "vitest": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
