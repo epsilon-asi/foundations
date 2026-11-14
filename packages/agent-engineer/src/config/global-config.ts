@@ -5,6 +5,9 @@ import {ContextEntrySchema, KeywordContextSchema} from "./subconfig/context/type
 
 export const GlobalConfigDefaults = {}
 
+/** The OpenAI model agents run on when the config names none. */
+export const DEFAULT_MODEL = 'gpt-5.3-codex';
+
 /** Image `--container` runs the agent's commands in when the config names none. */
 export const DEFAULT_CONTAINER_IMAGE = 'node:24.15';
 
@@ -25,7 +28,7 @@ export const ContainerConfigSchema = z.object({
 
 export const GlobalConfigSchema = z.object({
     generationsDir: z.string().default('.ai-gen'),
-    model: z.string().default('gpt-5.4-codex'),
+    model: z.string().default(DEFAULT_MODEL),
     maxToolRounds: z.number().int().min(1).max(100).default(60),
     maxContextFileSizeBytes: z.number().int().positive().default(60_000),
     maxOutputFiles: z.number().int().min(1).max(100).default(10),

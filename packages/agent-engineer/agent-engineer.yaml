@@ -1,4 +1,4 @@
-model: gpt-5.4-codex
+model: gpt-5.3-codex
 maxContextFileSizeBytes: 60000
 maxOutputFiles: 10
 ignore: [ ]
