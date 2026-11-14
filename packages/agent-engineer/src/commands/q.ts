@@ -1,36 +1,21 @@
-import {Argument, CliCommand, Command, type CommandContext} from '@epsilon-asi/command-line';
-import type {AgentEngineer} from '../cli.js';
-import {buildParseIntentGraph} from '../graphs/router.js';
+import {Command} from '@epsilon-asi/command-line';
+import {withWorkspace} from '../agents/workspace.js';
+import {buildAnswerQuestionGraph} from '../graphs/answer-question/index.js';
+import {config} from '../middleware/config.js';
+import {EngineerCommand} from './engineer.js';
 
 /**
- * `agent-engineer query <query...>`: runs the query through the parse-intent
- * graph and prints the intent it chose and why. The words of the query are
- * joined with spaces, so it does not need quoting.
+ * `agent-engineer query <question...>`: answers a question about the repository. The agent searches and reads a
+ * sandboxed snapshot of it and changes nothing. Use `do` to have the intent parsed and routed instead.
  */
 @Command({
     name: 'query',
-    description: 'Parse the intent of a query and print the chosen intent.',
+    description: 'Ask a question about the repository; the agent reads the code to answer it.',
     aliases: ['q'],
+    use: [config],
 })
-export class QueryCommand extends CliCommand<AgentEngineer> {
-    @Argument.list({required: true, description: 'the query to parse'})
-    query!: string[];
-
-    async run({io, logger}: CommandContext<AgentEngineer>): Promise<void> {
-        const query = this.query.join(' ').trim();
-        if (query === '') {
-            throw new Error('Missing query: agent-engineer query <query>');
-        }
-
-        logger.debug(`parsing intent of: ${query}`);
-        const {choice, reasoning} = await buildParseIntentGraph().invoke({
-            messages: [{role: 'user', content: query}],
-        });
-
-        if (this.format === 'json') {
-            io.stdout(this.render({query, intent: choice, reasoning}));
-            return;
-        }
-        io.stdout(`intent: ${choice}\nreasoning: ${reasoning}\n`);
+export class QueryCommand extends EngineerCommand {
+    protected graph() {
+        return withWorkspace(buildAnswerQuestionGraph());
     }
 }

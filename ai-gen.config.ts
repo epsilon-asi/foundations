@@ -29,7 +29,14 @@ export const config = {
     "*.p12",
     "*.pfx"
   ],
-  "defaultContext": [],
+  "defaultContext": [
+    {
+      "kind": "path",
+      "path": "docs/ARCHITECTURE_AND_PHILOSOPHY.md",
+      "description": "Repository design rules: minimal call sites, defaults over required inputs, one options object. New code follows them.",
+      "required": true
+    }
+  ],
   "defaultKeywordContexts": [],
   "openai": {
     "timeoutMs": 120000,

@@ -1,5 +1,16 @@
-import {AgenticMessagingState, createOptionSelectionNode} from "@epsilon-asi/langgraph";
-import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
+import {createOptionSelectionNode} from "@epsilon-asi/langgraph";
+import {END, type LangGraphRunnableConfig, START, StateGraph} from "@langchain/langgraph";
+import {engineerContext, withWorkspace} from "../agents/workspace.js";
+import type {createAgentGraph} from "./agent-graph.js";
+import {buildAnswerQuestionGraph} from "./answer-question/index.js";
+import {buildBugFixPlannerGraph} from "./bug-fix-planner/index.js";
+import {buildBugFixGraph} from "./bug-fix/index.js";
+import {buildComponentChangeGraph} from "./component-change/index.js";
+import {buildComponentPlannerGraph} from "./component-planner/index.js";
+import {buildFeatureChangeGraph} from "./feature-change/index.js";
+import {buildFeaturePlannerGraph} from "./feature-planner/index.js";
+import {buildMiniChangeGraph} from "./mini-change/index.js";
+import {EngineerState, type EngineerStateType} from "./state.js";
 
 // One option per graph folder in src/graphs. Each value tells the model when to choose that option.
 export const Intents = {
@@ -20,18 +31,41 @@ const parseIntentPrompt =
 
 export const ParseIntentNode = createOptionSelectionNode(parseIntentPrompt, Intents);
 
-const ParseIntentState = Annotation.Root({
-    ...AgenticMessagingState.spec,
-    choice: Annotation<Intent>,
-    reasoning: Annotation<string>,
-});
-
-/** A graph with only ParseIntentNode in it, for trying the intent parsing on its own. */
-export const buildParseIntentGraph = () => {
-    return new StateGraph(ParseIntentState)
-        .addNode("parseIntent", ParseIntentNode)
-        .addEdge(START, "parseIntent")
-        .addEdge("parseIntent", END)
-        .compile();
+/** ParseIntentNode, reporting the intent it chose as the run's progress. */
+const parseIntent = async (state: EngineerStateType, runtime?: LangGraphRunnableConfig) => {
+    engineerContext(runtime).progress?.("parsing the intent");
+    const result = await ParseIntentNode(state);
+    engineerContext(runtime).progress?.(`routing to ${result.choice}`);
+    return result;
 };
-    
+
+/** The graph each intent routes to. Typed by Intent, so adding an intent without its graph does not compile. */
+export const IntentGraphs: Record<Intent, () => ReturnType<typeof createAgentGraph>> = {
+    answer_question: buildAnswerQuestionGraph,
+    mini_change: buildMiniChangeGraph,
+    bug_fix: buildBugFixGraph,
+    bug_fix_planner: buildBugFixPlannerGraph,
+    component_change: buildComponentChangeGraph,
+    component_planner: buildComponentPlannerGraph,
+    feature_change: buildFeatureChangeGraph,
+    feature_planner: buildFeaturePlannerGraph,
+};
+
+/**
+ * The root graph: parses the intent of the user's request, then routes it to that intent's graph, whose agent
+ * answers it or changes the repository. Every run gets a repository sandbox, removed when the run ends.
+ *
+ * @example await buildRouterGraph().invoke({ messages: [{ role: "user", content: query }] }, { context: { config } });
+ */
+export const buildRouterGraph = () => {
+    const graph = new StateGraph(EngineerState).addNode("parseIntent", parseIntent);
+    for (const [intent, build] of Object.entries(IntentGraphs)) {
+        graph.addNode(intent, build());
+        graph.addEdge(intent as typeof START, END);
+    }
+    const intents = Object.keys(IntentGraphs) as Intent[];
+    return withWorkspace(graph
+        .addEdge(START, "parseIntent")
+        .addConditionalEdges("parseIntent", (state) => state.choice, intents as unknown as ["parseIntent"])
+        .compile({name: "router"}));
+};

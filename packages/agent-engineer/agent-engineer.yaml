@@ -3,5 +3,11 @@ maxContextFileSizeBytes: 60000
 maxOutputFiles: 10
 ignore: [ ]
 offLimits: [ ".dust" ]
-defaultContext: [ ]
+defaultContext:
+  - kind: path
+    path: ../../docs/ARCHITECTURE_AND_PHILOSOPHY.md
+    description: >-
+      Repository design rules: minimal call sites, defaults over required
+      inputs, one options object. New code follows them.
+    required: true
 defaultKeywordContexts: [ ]

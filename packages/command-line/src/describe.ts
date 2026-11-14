@@ -1,4 +1,5 @@
 import type { DecorationRecord, DecoratorRegistry } from '@epsilon-asi/foundation';
+import { Option as CommanderOption } from 'commander';
 import { CliDefinitionError } from './errors.js';
 import { isMiddleware } from './middleware/define.js';
 import type { AnyMiddleware } from './middleware/types.js';
@@ -12,6 +13,7 @@ import {
 } from './logging.js';
 import { commandNameFromClass, optionFlags, parseFlags, toKebabCase } from './naming.js';
 import { cliNameFromPackage, readPackageJson } from './package.js';
+import { DEFAULT_NO_INPUT_FLAGS, DEFAULT_YES_FLAGS, editorEnvName, noInputEnvName } from './prompt/shared.js';
 import type {
   ArgumentDefinition,
   ArgumentMetadata,
@@ -24,6 +26,8 @@ import type {
   OptionDefinition,
   OptionMetadata,
   PackageJson,
+  PromptsDefinition,
+  PromptsMetadata,
 } from './types.js';
 
 export type SubcommandLookup = Pick<WeakMap<Function, readonly CommandClass[]>, 'get'>;
@@ -49,7 +53,7 @@ export function createDescribeCommand(
     const metadata = ownRecord.metadata as CommandRecordMetadata;
 
     if (!isRoot) {
-      for (const key of ['package', 'logging'] as const) {
+      for (const key of ['package', 'logging', 'prompts'] as const) {
         if (metadata[key] !== undefined) {
           throw new CliDefinitionError(target, `"${key}" can only be set on the root command.`);
         }
@@ -89,6 +93,7 @@ export function createDescribeCommand(
       commands: Object.freeze(commands),
       package: packageJson,
       logging: isRoot ? describeLogging(target, name, metadata.logging, members.options) : undefined,
+      prompts: isRoot ? describePrompts(target, name, metadata.prompts, members.options) : undefined,
       use: describeUse(target, middleware.get(target) ?? []),
     });
   }
@@ -153,13 +158,65 @@ function describeLogging(
 
   const flags = spec.flags ?? DEFAULT_LOG_LEVEL_FLAGS;
   const env = spec.env === false ? undefined : (spec.env ?? logLevelEnvName(cliName));
-  assertNoFlagConflict(target, flags, options);
+  assertNoFlagConflict(target, flags, options, { name: 'log level', remedy: 'set logging: false' });
 
   return Object.freeze({ level, flags, env, description, hidden: spec.hidden ?? false });
 }
 
-function assertNoFlagConflict(target: CommandClass, flags: string, options: readonly OptionDefinition[]): void {
+function describePrompts(
+  target: CommandClass,
+  cliName: string,
+  metadata: PromptsMetadata | false | undefined,
+  options: readonly OptionDefinition[],
+): PromptsDefinition {
+  const spec: PromptsMetadata =
+    metadata === false ? { yes: false, noInput: false, noInputEnv: false, editorEnv: false } : (metadata ?? {});
+
+  const yes = spec.yes === false ? undefined : (spec.yes ?? DEFAULT_YES_FLAGS);
+  const noInput = spec.noInput === false ? undefined : (spec.noInput ?? DEFAULT_NO_INPUT_FLAGS);
+  if (noInput === undefined && typeof spec.noInputEnv === 'string') {
+    throw new CliDefinitionError(target, 'prompts.noInputEnv needs the no-input option; drop it or keep prompts.noInput.');
+  }
+
+  for (const [key, flags, name, example] of [
+    ['yes', yes, 'yes', DEFAULT_YES_FLAGS],
+    ['noInput', noInput, 'no-input', DEFAULT_NO_INPUT_FLAGS],
+  ] as const) {
+    if (flags === undefined) continue;
+    const option = new CommanderOption(flags);
+    if (option.required || option.optional) {
+      throw new CliDefinitionError(target, `prompts.${key} must be flags without a value, like "${example}", not "${flags}".`);
+    }
+    // `--no-input` is stored as "input", so an `--input` option would become its opposite.
+    assertNoFlagConflict(target, flags, options, { name, remedy: `set prompts.${key}: false`, attributes: true });
+  }
+
+  return Object.freeze({
+    yes,
+    noInput,
+    noInputEnv: noInput === undefined || spec.noInputEnv === false ? undefined : (spec.noInputEnv ?? noInputEnvName(cliName)),
+    editorEnv: spec.editorEnv === false ? undefined : (spec.editorEnv ?? editorEnvName(cliName)),
+  });
+}
+
+interface BuiltInOption {
+  /** How the option is named in the message: `the built-in <name> option`. */
+  readonly name: string;
+  /** What to do about a clash. */
+  readonly remedy: string;
+  /** Also reject an option commander would store under the same name. */
+  readonly attributes?: boolean;
+}
+
+function assertNoFlagConflict(
+  target: CommandClass,
+  flags: string,
+  options: readonly OptionDefinition[],
+  builtIn: BuiltInOption,
+): void {
   const reserved = parseFlags(flags);
+  const attribute = new CommanderOption(flags).attributeName();
+  const remedy = `${builtIn.remedy} or change the flags of one of them.`;
 
   for (const option of options) {
     const own = parseFlags(option.flags);
@@ -173,8 +230,14 @@ function assertNoFlagConflict(target: CommandClass, flags: string, options: read
     if (clash !== undefined) {
       throw new CliDefinitionError(
         target,
-        `option "${option.propertyName}" uses ${clash}, which the built-in log level option already uses; ` +
-          'set logging: false or change the flags of one of them.',
+        `option "${option.propertyName}" uses ${clash}, which the built-in ${builtIn.name} option already uses; ${remedy}`,
+      );
+    }
+    if (builtIn.attributes === true && new CommanderOption(option.flags).attributeName() === attribute) {
+      throw new CliDefinitionError(
+        target,
+        `option "${option.propertyName}" (${option.flags}) would be stored as "${attribute}", like the built-in ` +
+          `${builtIn.name} option (${flags}); ${remedy}`,
       );
     }
   }

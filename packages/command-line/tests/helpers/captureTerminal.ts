@@ -40,29 +40,40 @@ export function captureTerminal(terminal: CliTerminal = { columns: 80 }): Captur
 
 /**
  * Plays `output` on a pretend terminal and returns what it shows: `\r` goes to
- * the start of the row, `\n` to the start of the next, `ESC[K` erases to the
- * end of the row, other escape sequences are skipped and every other
+ * the start of the row, `\n` to the start of the next, `\b` back a cell,
+ * `ESC[<n>A` up n rows, `ESC[K` erases to the end of the row and `ESC[J` to
+ * the end of the screen. Other escape sequences are skipped and every other
  * character takes one cell.
  */
 export function renderScreen(output: string): string {
-  let cells: string[] = [];
-  const rows = [cells];
+  const rows: string[][] = [[]];
+  let row = 0;
   let column = 0;
 
   for (const token of output.match(/\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[^]/gu) ?? []) {
+    const cells = rows[row] ?? [];
+    const up = /^\x1b\[(\d*)A$/.exec(token);
+
     if (token === '\n') {
-      cells = [];
-      rows.push(cells);
+      row += 1;
+      rows[row] ??= [];
       column = 0;
     } else if (token === '\r') {
       column = 0;
+    } else if (token === '\b') {
+      column = Math.max(0, column - 1);
+    } else if (up !== null) {
+      row = Math.max(0, row - Number(up[1] === '' ? 1 : up[1]));
     } else if (token === '\x1b[K') {
       cells.length = Math.min(cells.length, column);
+    } else if (token === '\x1b[J') {
+      cells.length = Math.min(cells.length, column);
+      rows.length = row + 1;
     } else if (!token.startsWith('\x1b')) {
       cells[column] = token;
       column += 1;
     }
   }
 
-  return rows.map((row) => row.join('')).join('\n');
+  return rows.map((cells) => Array.from(cells, (cell) => cell ?? ' ').join('')).join('\n');
 }

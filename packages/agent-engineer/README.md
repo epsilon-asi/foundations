@@ -30,7 +30,21 @@ agent-engineer [--log-level <level>] <command>
 
 Commands:
   info [--format text|json] print CLI and runtime information
+  do <request...>           parse the request's intent and hand it to that intent's agent
+  query|q <question...>     answer a question about the repository
 ```
+
+`do` and `query` need `OPENAI_API_KEY`. Their agents work in a sandbox: a git worktree of the
+repository in a temporary directory, with your uncommitted and untracked files copied in, so they
+see the repository as it is and never touch your checkout. Agents read it through code-search
+tools from `@epsilon-asi/sandbox`; `offLimits` and `ignore` paths and files over
+`maxContextFileSizeBytes` stay out of reach.
+
+`do` routes the request to one of the intents in [router.ts](src/graphs/router.ts). Questions and
+the three planners only read. `mini_change`, `bug_fix`, `component_change` and `feature_change`
+also edit files, at most `maxOutputFiles` of them, and commit to a new branch
+`agent-engineer/<intent>-<id>`. Your working changes go in a commit of their own before the agent's,
+and `do` prints the branch and the files it changed. Review it with `git diff <branch>~1 <branch>`.
 
 ## Layout
 
@@ -39,6 +53,9 @@ Commands:
 | `src/cli.ts`          | The root `AgentEngineer` command: package metadata and the list of subcommands  |
 | `src/commands/*.ts`   | One `@Command` class per subcommand, with its options and `run()`               |
 | `src/main.ts`         | `bin` entrypoint: `runMain(AgentEngineer)`                                      |
+| `src/graphs/router.ts` | The root graph: intent parsing, then the graph of each intent                  |
+| `src/graphs/<intent>/` | One graph per intent, each a `createAgentGraph()` with its own instructions    |
+| `src/agents/`         | The repo agent node, its sandbox tools, and the per-run `RepoWorkspace`         |
 | `tests/`              | Runs the CLI through `runCli` with captured output; nothing touches the process |
 
 ## Adding a command

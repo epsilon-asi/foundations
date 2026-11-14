@@ -7,6 +7,7 @@ import {
   buildCli,
   readPackageJson,
   runCli,
+  scriptedPrompter,
   type RunnableCommand,
   type RuntimeInfo,
   type CommandContext,
@@ -145,6 +146,48 @@ describe('runCli with the agent-engineer example', () => {
 
     await expect(runCli(AgentEngineer, ['greet', 'World', '-n', value], { io })).resolves.toBe(1);
     expect(stderr()).toContain(message);
+  });
+
+  it('asks configure for its settings, taking the API key from the environment when set', async () => {
+    const prompter = scriptedPrompter([
+      { select: 'us-east-1', message: 'Region' },
+      { multiselect: ['worker', 'api'], message: 'Services to enable' },
+      { secret: 'sk-12345678' },
+      { confirm: true, message: 'Save settings for us-east-1?' },
+    ]);
+    const { io, stdout } = captureIO();
+
+    await expect(runCli(AgentEngineer, ['configure', '-f', 'json'], { io, prompter })).resolves.toBe(0);
+    expect(JSON.parse(stdout())).toEqual({ region: 'us-east-1', services: 'api, worker', apiKey: '…5678' });
+
+    vi.stubEnv('AGENT_ENGINEER_API_KEY', 'sk-from-env');
+    const quiet = captureIO();
+    const answers = scriptedPrompter([{ select: 'eu-west-1' }, { multiselect: ['scheduler'] }]);
+    await expect(runCli(AgentEngineer, ['configure', '--yes', '-f', 'json'], { io: quiet.io, prompter: answers })).resolves.toBe(0);
+    expect(JSON.parse(quiet.stdout())).toEqual({ region: 'eu-west-1', services: 'scheduler', apiKey: '…-env' });
+  });
+
+  it('stops configure when the settings are not confirmed', async () => {
+    const prompter = scriptedPrompter([{ select: 'eu-west-1' }, { multiselect: ['api'] }, { secret: 'sk-1' }, { confirm: false }]);
+    const { io, stdout } = captureIO();
+
+    await expect(runCli(AgentEngineer, ['configure'], { io, prompter })).resolves.toBe(1);
+    expect(stdout()).toBe('');
+  });
+
+  it('fails configure without a terminal, naming the question', async () => {
+    const { io, stderr } = captureIO();
+
+    await expect(runCli(AgentEngineer, ['configure'], { io })).resolves.toBe(1);
+    expect(stderr()).toBe('error: cannot ask "API key": there is no terminal to ask on.\n');
+  });
+
+  it('takes a note in the editor', async () => {
+    const prompter = scriptedPrompter([{ editor: 'Remember the milk.\n# Write your note above.\n' }]);
+    const { io, stdout } = captureIO();
+
+    await expect(runCli(AgentEngineer, ['note'], { io, prompter })).resolves.toBe(0);
+    expect(stdout()).toBe('note      Remember the milk.\n');
   });
 });
 
