@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/evals",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Evals for LLM agents on vitest: datasets, graders, repeated trials, confidence intervals, baselines and thresholds.",
   "type": "module",
   "exports": {
