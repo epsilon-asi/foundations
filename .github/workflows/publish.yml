@@ -20,7 +20,6 @@
 #   NPM_TOKEN         - npm registry auth token (all packages)
 #
 # Only publishable packages belong in PACKAGES / AUTOMATION_PACKAGES.
-# `sandbox` is `private: true` and is validated but never published.
 
 name: Publish
 
@@ -40,9 +39,13 @@ env:
   # Publishable packages, as directory names under packages/, space separated.
   # Standard packages build in the node image. Automation packages need the
   # puppeteer image.
-  PACKAGES: "apps agent-engineer command-line foundation langgraph sandbox slack system ui"
+  PACKAGES: "apps agent-engineer command-line foundation langgraph sandbox slack system type-bridge ui"
   AUTOMATION_PACKAGES: "actors"
   NODE_IMAGE: "node:22.17"
+  # Packages that need Node 24 (sandbox, and agent-engineer, which runs on it)
+  # build in this image instead, as validate.yml tests them.
+  NODE24_PACKAGES: "agent-engineer sandbox"
+  NODE24_IMAGE: "node:24.15"
   PUPPETEER_IMAGE: "ghcr.io/puppeteer/puppeteer:24.43.1"
 
 jobs:
@@ -80,6 +83,9 @@ jobs:
           IMAGE=""
           case " ${PACKAGES} " in
             *" ${PACKAGE} "*) IMAGE="${NODE_IMAGE}" ;;
+          esac
+          case " ${NODE24_PACKAGES} " in
+            *" ${PACKAGE} "*) IMAGE="${NODE24_IMAGE}" ;;
           esac
           case " ${AUTOMATION_PACKAGES} " in
             *" ${PACKAGE} "*) IMAGE="${PUPPETEER_IMAGE}" ;;
