@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 import {Annotation, Command, END, MemorySaver, START, StateGraph, interrupt, type LangGraphRunnableConfig} from "@langchain/langgraph";
-import {requireContext} from "../src/common/nodes/initializeContext";
-import {ContextualGraph} from "../src/common/wrappers/ContextualGraph";
+import {requireContext} from "../src/common/nodes/initializeContext.js";
+import {ContextualGraph} from "../src/common/wrappers/ContextualGraph.js";
 
 class FakeSandbox implements AsyncDisposable {
     disposed = false;

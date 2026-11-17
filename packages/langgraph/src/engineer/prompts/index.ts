@@ -1,4 +1,4 @@
-import {getSupervisorPrompt} from "./supervisor";
+import {getSupervisorPrompt} from "./supervisor.js";
 
 export default {
     supervisor: getSupervisorPrompt,

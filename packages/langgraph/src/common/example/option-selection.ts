@@ -1,4 +1,5 @@
-import { createOptionSelectionNode } from "../prebuilt/SelectFromOptions/OptionSelection";
+import { createOptionSelectionNode } from "../prebuilt/SelectFromOptions/OptionSelection.js";
+import {pathToFileURL} from "node:url";
 
 // Each key is an option the model can choose; each value tells the model when to choose it.
 const SupportTeams = {
@@ -16,7 +17,7 @@ export const routeSupportRequest = async (request: string) => {
 };
 
 // Run directly: npx tsx --env-file=.env src/common/example/option-selection.ts
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     const requests = [
         "I was charged twice for my last booking. Can one of the charges be refunded?",
         "The app crashes every time I open the messages tab.",

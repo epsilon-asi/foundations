@@ -69,7 +69,11 @@ export function resolveMiddleware(
   });
 
   const resolved = new Map<CommandDefinition, ResolvedCommand>();
-  const rootFlags = root.logging?.flags === undefined ? [] : [builtInLogLevel(root.logging.flags)];
+  const rootFlags = [
+    [root.logging?.flags, 'log level'],
+    [root.prompts?.yes, 'yes'],
+    [root.prompts?.noInput, 'no-input'],
+  ].flatMap(([flags, name]) => (flags === undefined || name === undefined ? [] : [builtInOption(flags, name)]));
 
   const visit = (
     definition: CommandDefinition,
@@ -175,12 +179,13 @@ function middlewareEntry(flag: MiddlewareFlag): FlagEntry {
   };
 }
 
-function builtInLogLevel(flags: string): FlagEntry {
+/** One of the options every root gets: log level, yes and no-input. */
+function builtInOption(flags: string, name: string): FlagEntry {
   return {
     kind: 'built-in',
     ...parseFlags(flags),
     attribute: attributeName(flags),
-    label: `the built-in log level option (${flags})`,
+    label: `the built-in ${name} option (${flags})`,
   };
 }
 

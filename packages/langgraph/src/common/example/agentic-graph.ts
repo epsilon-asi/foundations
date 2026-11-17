@@ -1,9 +1,10 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod/v4";
-import { AgenticMessagingState, AgenticMessagingStateZod } from "../../types/AgenticMessagingState";
-import { createOptionSelectionNode } from "../prebuilt/SelectFromOptions/OptionSelection";
-import { AgenticIntermediaryNode } from "../wrappers/AgenticIntermediaryNode";
+import { AgenticMessagingState, AgenticMessagingStateZod } from "../../types/AgenticMessagingState.js";
+import { createOptionSelectionNode } from "../prebuilt/SelectFromOptions/OptionSelection.js";
+import { AgenticIntermediaryNode } from "../wrappers/AgenticIntermediaryNode.js";
+import {pathToFileURL} from "node:url";
 
 const model = new ChatOpenAI({
     model: "gpt-5.5",
@@ -64,7 +65,7 @@ export const buildGraph = () => {
 };
 
 // Run directly: npx tsx --env-file=.env src/common/example/agentic-graph.ts
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     const graph = buildGraph();
     const requests = [
         "How long should I boil an egg if I want a runny yolk?",

@@ -38,10 +38,12 @@ jobs:
       fail-fast: false
       matrix:
         # Mirrors the `.packages` anchor, plus the packages added since the
-        # GitLab migration (apps, command-line, sandbox).
+        # GitLab migration (agent-engineer, apps, command-line, evals, sandbox).
         name:
+          - agent-engineer
           - apps
           - command-line
+          - evals
           - foundation
           - langgraph
           - sandbox
@@ -56,6 +58,11 @@ jobs:
           # sandbox declares engines.node >=24 with engine-strict, so npm ci
           # refuses to run on 22. Matches its .nvmrc.
           - name: sandbox
+            node: "24.15"
+          # agent-engineer runs its agents in @epsilon-asi/sandbox, so its
+          # tests need what sandbox needs. They also need git, which the
+          # node image has.
+          - name: agent-engineer
             node: "24.15"
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -100,6 +107,12 @@ jobs:
       - name: Install package dependencies
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm ci
+
+      # Builds compile src only and vitest does not type-check *.test.ts, so
+      # this is the only step that type-checks the tests.
+      - name: Typecheck
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run typecheck
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}

@@ -12,6 +12,7 @@ import {
   type CommandContext,
   type Logger,
   type LogLevel,
+  type Prompter,
 } from '../src/index.js';
 
 // The decorators check the type of the field they are applied to. These tests
@@ -193,5 +194,24 @@ describe('@Command contract', () => {
     }
 
     expectTypeOf<Child>().toHaveProperty('run');
+  });
+});
+
+describe('list prompts', () => {
+  it('resolve to the values of their choices', () => {
+    const prompt = {} as Prompter;
+
+    expectTypeOf(prompt.select('Region', { choices: ['us-east-1', 'eu-west-1'] })).toEqualTypeOf<
+      Promise<'us-east-1' | 'eu-west-1'>
+    >();
+    expectTypeOf(
+      prompt.multiselect('Checks', { choices: [{ value: 'lint', label: 'Lint' }, 'test'], default: ['test'] }),
+    ).toEqualTypeOf<Promise<('lint' | 'test')[]>>();
+    expectTypeOf(prompt.select('Name', { choices: [] as string[] })).toEqualTypeOf<Promise<string>>();
+
+    // @ts-expect-error the default must be one of the choices
+    void prompt.select('Region', { choices: ['us-east-1'], default: 'mars' });
+    // @ts-expect-error so must every default
+    void prompt.multiselect('Checks', { choices: ['lint'], default: ['lint', 'nope'] });
   });
 });

@@ -1,8 +1,8 @@
 import {describe, expect, it} from "vitest";
 import {z} from "zod/v4";
-import {ProtectedStructuredNode} from "../../src/common/wrappers/ProtectedNode";
-import {AgenticIntermediaryNode} from "../../src/common/wrappers/AgenticIntermediaryNode";
-import {AgenticMessagingState, AgenticMessagingStateZod} from "../../src/types/AgenticMessagingState";
+import {ProtectedStructuredNode} from "../../src/common/wrappers/ProtectedNode.js";
+import {AgenticIntermediaryNode} from "../../src/common/wrappers/AgenticIntermediaryNode.js";
+import {AgenticMessagingState, AgenticMessagingStateZod} from "../../src/types/AgenticMessagingState.js";
 
 describe("ProtectedStructuredNode", () => {
     const double = ProtectedStructuredNode({
@@ -21,6 +21,12 @@ describe("ProtectedStructuredNode", () => {
     it("rejects invalid output", async () => {
         await expect(double({value: 6})).rejects.toThrow();
     });
+
+    it("hands the runtime on to the node", async () => {
+        const node = ProtectedStructuredNode({input: z.object({}), output: z.object({key: z.unknown()})},
+            (_state, runtime) => ({key: (runtime?.context as { key?: unknown } | undefined)?.key}));
+        await expect(node({}, {context: {key: "value"}})).resolves.toEqual({key: "value"});
+    });
 });
 
 describe("AgenticIntermediaryNode", () => {
@@ -33,6 +39,15 @@ describe("AgenticIntermediaryNode", () => {
         }));
         await expect(reply({messages: [{role: "user", content: "hi"}]})).resolves.toEqual({
             messages: [{role: "assistant", content: "echo: hi"}],
+        });
+    });
+
+    it("hands the runtime on to the node", async () => {
+        const reply = AgenticIntermediaryNode<Conversation, Conversation>({input: Conversation, output: Conversation}, (_state, runtime) => ({
+            messages: [{role: "assistant", content: String((runtime?.context as { who?: string } | undefined)?.who)}],
+        }));
+        await expect(reply({messages: []}, {context: {who: "runtime"}})).resolves.toEqual({
+            messages: [{role: "assistant", content: "runtime"}],
         });
     });
 

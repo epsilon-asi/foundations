@@ -9,15 +9,15 @@ import { useConfigSandbox } from './helpers/configSandbox.js';
 
 const sandbox = useConfigSandbox();
 
-async function query(...flags: string[]): Promise<{ exitCode: number; config: unknown; stderr: string }> {
+async function printConfig(...flags: string[]): Promise<{ exitCode: number; config: unknown; stderr: string }> {
   const { io, stdout, stderr } = captureIO();
-  const exitCode = await runCli(AgentEngineer, ['query', ...flags], { io });
+  const exitCode = await runCli(AgentEngineer, ['answer', ...flags], { io });
   return { exitCode, config: exitCode === 0 ? JSON.parse(stdout()) : undefined, stderr: stderr() };
 }
 
 describe('config middleware', () => {
   it('provides the schema defaults when no config file exists', async () => {
-    const result = await query('-l', 'debug');
+    const result = await printConfig('-l', 'debug');
 
     expect(result.exitCode).toBe(0);
     expect(result.config).toEqual(GlobalConfigSchema.parse({}));
@@ -32,7 +32,7 @@ describe('config middleware', () => {
       'model: user\nmaxToolRounds: 9\nmaxOutputFiles: 3\n',
     );
 
-    const result = await query('-l', 'debug');
+    const result = await printConfig('-l', 'debug');
 
     expect(result.exitCode).toBe(0);
     expect(result.config).toMatchObject({ model: 'local', maxToolRounds: 5, maxOutputFiles: 3 });

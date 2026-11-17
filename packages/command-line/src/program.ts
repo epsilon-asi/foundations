@@ -10,8 +10,13 @@ import { DEFAULT_LOG_LEVEL, LOG_LEVELS, defaultLoggerFactory, isLogLevel } from 
 import { runChain } from './middleware/compose.js';
 import { resolveMiddleware, type ResolvedCommand } from './middleware/resolve.js';
 import type { AnyMiddleware } from './middleware/types.js';
-import { argumentSyntax } from './naming.js';
+import { PromptCancelledError } from './errors.js';
+import { argumentSyntax, parseFlags } from './naming.js';
 import { numberParser } from './parsers.js';
+import { guardPrompter } from './prompt/guard.js';
+import { finishScript } from './prompt/scripted.js';
+import { DEFAULT_NO_INPUT_DESCRIPTION, DEFAULT_YES_DESCRIPTION } from './prompt/shared.js';
+import { terminalPrompter } from './prompt/terminal.js';
 import type {
   ArgumentDefinition,
   BuildCliOptions,
@@ -25,8 +30,18 @@ import type {
   LoggingDefinition,
   LogLevel,
   OptionDefinition,
+  Prompter,
+  PromptsDefinition,
   RunMethod,
 } from './types.js';
+
+/** What the root's prompt options were set to on this run. */
+interface PromptFlags {
+  readonly yes: boolean;
+  readonly noInput: boolean;
+}
+
+const NO_PROMPT_FLAGS: PromptFlags = Object.freeze({ yes: false, noInput: false });
 
 interface RunState {
   argv: readonly string[];
@@ -64,6 +79,11 @@ export function createBuildCli(
     const { io } = live;
     const definition = describeCommand(target);
     const resolved = resolveMiddleware(definition, options.use ?? []);
+    const yesFlags = definition.prompts?.yes;
+    // A custom io is usually a test capturing output, which must never wait on the real stdin.
+    const asker =
+      options.prompter ??
+      (options.io === undefined ? terminalPrompter({ editorEnv: definition.prompts?.editorEnv }) : undefined);
     const state: RunState = { argv: [], exitCode: undefined, started: false };
 
     // exitOverride and configureOutput are set before subcommands exist so they inherit them.
@@ -83,12 +103,16 @@ export function createBuildCli(
       }),
       loggerFactory: options.logger ?? defaultLoggerFactory,
       logLevel: () => DEFAULT_LOG_LEVEL,
+      promptFlags: () => NO_PROMPT_FLAGS,
+      asker,
+      yesFlag: yesFlags === undefined ? undefined : flagName(yesFlags),
       resolved,
     };
 
     configure(program, definition, [], new Map(), env);
-    // Added last so the built-in option follows the root's own options in help.
+    // Added last so the built-in options follow the root's own options in help.
     env.logLevel = attachLogging(program, definition.logging);
+    env.promptFlags = attachPrompts(program, definition.prompts);
 
     return Object.freeze({
       definition,
@@ -100,22 +124,39 @@ export function createBuildCli(
         state.started = true;
         state.argv = argv;
 
+        let exitCode: number;
+        let failure: unknown;
         try {
           await program.parseAsync(argv, { from: 'user' });
-          return state.exitCode ?? 0;
+          exitCode = state.exitCode ?? 0;
         } catch (error: unknown) {
-          // Commander has already written its own message, or the help/version text.
-          if (error instanceof CommanderError) return error.exitCode;
-
-          io.stderr(`error: ${error instanceof Error ? error.message : String(error)}\n`);
-          return 1;
+          failure = error;
+          exitCode = reportFailure(io, error);
         }
+
+        // A test's script of the conversation: answers left over mean the command stopped asking.
+        if (options.prompter !== undefined) finishScript(options.prompter, { exitCode, error: failure });
+        return exitCode;
       },
       middleware(path: readonly string[] = []): readonly AnyMiddleware[] {
         return resolvedAt(definition, path, resolved).chain;
       },
     });
   };
+}
+
+/** Writes what ended a run, unless commander already did, and returns the run's exit code. */
+function reportFailure(io: CliIO, error: unknown): number {
+  // Commander has already written its own message, or the help/version text.
+  if (error instanceof CommanderError) return error.exitCode;
+  // The person chose to stop, so there is nothing to report beyond saying so.
+  if (error instanceof PromptCancelledError) {
+    io.stderr(`${error.message}\n`);
+    return 130;
+  }
+
+  io.stderr(`error: ${error instanceof Error ? error.message : String(error)}\n`);
+  return 1;
 }
 
 interface BuildEnvironment {
@@ -126,6 +167,12 @@ interface BuildEnvironment {
   readonly loggerFactory: LoggerFactory;
   /** Reads the log level once the root command has been parsed. */
   logLevel: () => LogLevel;
+  /** Reads `--yes` and `--no-input` once the root command has been parsed. */
+  promptFlags: () => PromptFlags;
+  /** Who answers prompts when they are on: the given prompter, or the terminal when there is one. */
+  readonly asker: Prompter | undefined;
+  /** The flag that answers yes, as suggested in errors: `--yes`. */
+  readonly yesFlag: string | undefined;
   readonly resolved: ReadonlyMap<CommandDefinition, ResolvedCommand>;
 }
 
@@ -164,6 +211,34 @@ function attachLogging(program: CommanderCommand, logging: LoggingDefinition | u
     const value: unknown = program.opts()[option.attributeName()];
     return isLogLevel(value) ? value : logging.level;
   };
+}
+
+/** Adds the root's `--yes` and `--no-input` options to the program and returns a reader for them. */
+function attachPrompts(program: CommanderCommand, prompts: PromptsDefinition | undefined): () => PromptFlags {
+  if (prompts === undefined) return () => NO_PROMPT_FLAGS;
+
+  const yes = prompts.yes === undefined ? undefined : new CommanderOption(prompts.yes, DEFAULT_YES_DESCRIPTION);
+  const noInput =
+    prompts.noInput === undefined ? undefined : new CommanderOption(prompts.noInput, DEFAULT_NO_INPUT_DESCRIPTION);
+  if (noInput !== undefined && prompts.noInputEnv !== undefined) noInput.env(prompts.noInputEnv);
+  if (yes !== undefined) program.addOption(yes);
+  if (noInput !== undefined) program.addOption(noInput);
+
+  return () => {
+    const values = program.opts();
+    const noInputValue: unknown = noInput === undefined ? undefined : values[noInput.attributeName()];
+    return {
+      yes: yes !== undefined && values[yes.attributeName()] === true,
+      // `--no-input` stores false under "input"; flags like `--offline` store true.
+      noInput: noInput !== undefined && noInputValue === !noInput.negate,
+    };
+  };
+}
+
+/** The long form of `flags`, else the short one: `-y, --yes` → `--yes`. */
+function flagName(flags: string): string {
+  const { long, short } = parseFlags(flags);
+  return long !== undefined ? `--${long}` : short !== undefined ? `-${short}` : flags;
 }
 
 function configure(
@@ -219,6 +294,15 @@ function configure(
     const root = ancestors[0] ?? instance;
     const logLevel = env.logLevel();
     const logger = env.loggerFactory({ level: logLevel, io: env.io, name: env.cli.name });
+    const promptFlags = env.promptFlags();
+    const prompt = guardPrompter({
+      asker: promptFlags.noInput ? undefined : env.asker,
+      reason: promptFlags.noInput ? 'disabled' : 'no-terminal',
+      yes: promptFlags.yes,
+      yesFlag: env.yesFlag,
+      live: env.live,
+      logger,
+    });
 
     try {
       env.state.exitCode = await runChain({
@@ -233,6 +317,7 @@ function configure(
           logLevel,
           logger,
           liveLine: env.live.liveLine,
+          prompt,
         },
         instance,
         definition,

@@ -1,6 +1,7 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod/v4";
-import { ProtectedStructuredNode } from "../wrappers/ProtectedNode";
+import { ProtectedStructuredNode } from "../wrappers/ProtectedNode.js";
+import {pathToFileURL} from "node:url";
 
 const LineItemSchema = z.object({
     name: z.string(),
@@ -50,7 +51,7 @@ export const buildGraph = () => {
 };
 
 // Run directly: npx tsx src/common/example/structured-graph.ts
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     buildGraph()
         .invoke({
             items: [

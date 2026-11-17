@@ -7,7 +7,7 @@ type AnswerContext = CommandContext<AgentEngineer, Provided<typeof config>>;
 /** `agent-engineer answer`: prints the merged config the `config` middleware loaded. */
 @Command({
     name: "answer",
-    description: 'Query the agent for an answer.',
+    description: 'Print the merged config.',
     commands: [],
     aliases: ["a"],
     use: [config],

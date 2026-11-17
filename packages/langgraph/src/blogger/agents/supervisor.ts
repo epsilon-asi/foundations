@@ -1,7 +1,7 @@
 import {tools as openAITools} from "@langchain/openai";
 import {createAgent, ReactAgent} from "langchain"
-import {addNumbersTool} from "../tools/addNumbers";
-import {model} from "../model";
+import {addNumbersTool} from "../tools/addNumbers.js";
+import {model} from "../model.js";
 import type {BaseMessage} from "@langchain/core/messages";
 import type {RunnableConfig} from "@langchain/core/runnables";
 

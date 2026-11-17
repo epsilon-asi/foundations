@@ -74,3 +74,6 @@ coverage
 .env
 .npmrc
 .env
+
+# Eval reports (@epsilon-asi/evals); baselines in evals/baselines are committed.
+eval-results/

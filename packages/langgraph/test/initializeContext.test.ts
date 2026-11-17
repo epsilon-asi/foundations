@@ -6,7 +6,7 @@ import {
     createInitializeContextNode,
     disposeContext,
     requireContext,
-} from "../src/common/nodes/initializeContext";
+} from "../src/common/nodes/initializeContext.js";
 
 class FakeSandbox implements AsyncDisposable {
     disposed = false;

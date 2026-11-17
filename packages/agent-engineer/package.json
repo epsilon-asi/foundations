@@ -18,26 +18,36 @@
     "dev": "tsx src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:live": "AGENT_ENGINEER_LIVE_TESTS=1 vitest run tests/live",
+    "test:container": "AGENT_ENGINEER_CONTAINER_TESTS=1 vitest run tests/container",
+    "eval": "vitest run --config vitest.evals.config.ts",
     "test:coverage": "vitest run --coverage",
     "templates:validate": "tsx scripts/validate-templates.ts",
     "verify": "npm run typecheck && npm run test && npm run build"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.0.0"
   },
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@epsilon-asi/command-line": "^0.0.11",
     "@epsilon-asi/foundation": "^0.0.13",
-    "@epsilon-asi/langgraph": "^0.2.8",
-    "@langchain/langgraph": "^1.7.2"
+    "@epsilon-asi/langgraph": "^0.3.0",
+    "@epsilon-asi/sandbox": "^0.0.7",
+    "@langchain/core": "^1.4.1",
+    "@langchain/langgraph": "^1.7.2",
+    "@langchain/openai": "^1.8.4",
+    "langchain": "^1.6.6",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@epsilon-asi/evals": "^0.1.0",
     "@types/node": "^22.20.5",
     "@vitest/coverage-v8": "^5.0.5",
     "esbuild": "^0.28.2",
+    "fast-check": "^4.10.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

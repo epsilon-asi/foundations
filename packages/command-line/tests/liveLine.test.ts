@@ -430,3 +430,81 @@ describe('context.liveLine', () => {
     expect(terminal.screen()).toBe('error: gave up\nHalfway\n');
   });
 });
+
+describe('suspending live output', () => {
+  it('takes the line off the screen, holds writes, then prints them and draws the line again', async () => {
+    const terminal = captureTerminal();
+    const live = createLiveOutput(terminal.io);
+    live.liveLine('Working');
+
+    let shownDuring: string | undefined;
+    const result = await live.suspend(() => {
+      shownDuring = terminal.screen();
+      live.io.stdout('out\n');
+      live.io.stderr('err\n');
+      expect(terminal.screen()).toBe('');
+      return 42;
+    });
+
+    expect(result).toBe(42);
+    expect(shownDuring).toBe('');
+    expect(terminal.screen()).toBe('out\nerr\nWorking');
+  });
+
+  it('draws again after an async callback, and after one that throws', async () => {
+    const terminal = captureTerminal();
+    const live = createLiveOutput(terminal.io);
+    live.liveLine('Working');
+
+    await live.suspend(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      live.io.stderr('later\n');
+    });
+    expect(terminal.screen()).toBe('later\nWorking');
+
+    await expect(
+      live.suspend(() => {
+        throw new Error('nope');
+      }),
+    ).rejects.toThrow('nope');
+    expect(terminal.screen()).toBe('later\nWorking');
+  });
+
+  it('starts what is shown meanwhile on a row of its own after an unfinished row', async () => {
+    const terminal = captureTerminal();
+    const live = createLiveOutput(terminal.io);
+    live.io.stderr('Progress: ');
+
+    await live.suspend(() => terminal.io.stderr('Go? [y/n] y\n'));
+
+    expect(terminal.screen()).toBe('Progress: \nGo? [y/n] y\n');
+  });
+
+  it('holds what a line ended meanwhile leaves behind, and a line started meanwhile waits to be drawn', async () => {
+    const terminal = captureTerminal();
+    const live = createLiveOutput(terminal.io);
+    const first = live.liveLine('First');
+
+    await live.suspend(() => {
+      first.done('First done');
+      live.liveLine('Second');
+      expect(terminal.screen()).toBe('');
+    });
+
+    expect(terminal.screen()).toBe('First done\nSecond');
+  });
+
+  it('runs nested suspensions and anything off a terminal as they are', async () => {
+    const terminal = captureTerminal();
+    const live = createLiveOutput(terminal.io);
+    live.liveLine('Working');
+
+    await live.suspend(() => live.suspend(() => live.io.stderr('inner\n')));
+    expect(terminal.screen()).toBe('inner\nWorking');
+
+    const { io, stderr } = captureIO();
+    const plain = createLiveOutput(io);
+    await expect(plain.suspend(() => 'done')).resolves.toBe('done');
+    expect(stderr()).toBe('');
+  });
+});

@@ -1,0 +1,643 @@
+# Requests a user might give `agent-engineer do`, each labeled with the intent that should handle it.
+# The labels are a first draft: review them before recording the first baseline, since the eval can
+# only be as right as they are.
+#
+#   id       unique; the prefix is the expected intent (aq = answer_question, mc = mini_change, ...)
+#   request  what the user typed
+#   intent   the intent that should handle it (Intents in src/graphs/router.ts)
+#   also     other intents that are as good, for requests that are genuinely ambiguous
+#   tags     clear or boundary; a boundary case also names the pair it sits between, as pair:a/b
+
+- id: aq-01
+  request: "How does the config middleware find agent-engineer.yaml files?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-02
+  request: "what does RepoWorkspace.dispose do with the branch?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-03
+  request: "Where is the --log-level option defined, and what values does it take?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-04
+  request: "Explain how ContextualGraph cleans up the sandbox when a node throws."
+  intent: answer_question
+  tags: [clear]
+- id: aq-05
+  request: "Which packages depend on @epsilon-asi/sandbox?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-06
+  request: "Is there anywhere we still use experimentalDecorators?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-07
+  request: "what's the difference between createLayeredFile and createSchemaFile in foundation"
+  intent: answer_question
+  tags: [clear]
+- id: aq-08
+  request: "How do I add a new subcommand to agent-engineer? Walk me through it."
+  intent: answer_question
+  tags: [clear]
+- id: aq-09
+  request: "Why does the router's message reducer only append the last message of an update?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-10
+  request: "What does maxToolRounds control, and what happens when an agent hits it?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-11
+  request: "Does the sandbox's code search respect .gitignore?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-12
+  request: "Which Node version does CI run the sandbox tests on?"
+  intent: answer_question
+  tags: [clear]
+- id: aq-13
+  request: "Why does `query` print \"not a git repository\" when I run it in /tmp?"
+  intent: answer_question
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: aq-14
+  request: "How would I go about adding a Python repo runner to the sandbox? Just explain, don't change anything."
+  intent: answer_question
+  also: [component_planner]
+  tags: [boundary, pair:answer_question/component_planner]
+- id: aq-15
+  request: "Is the off-limits check case sensitive? I think `.Dust` might slip through."
+  intent: answer_question
+  also: [bug_fix_planner]
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: aq-16
+  request: "What would break if we switched langgraph back to CommonJS?"
+  intent: answer_question
+  tags: [boundary, pair:answer_question/feature_planner]
+- id: aq-17
+  request: "Can you check whether every command has a test?"
+  intent: answer_question
+  tags: [boundary, pair:answer_question/feature_change]
+- id: aq-18
+  request: "Before I touch anything: how is run_task wired to the container's executor?"
+  intent: answer_question
+  tags: [boundary, pair:answer_question/component_planner]
+- id: aq-19
+  request: "Is it a bug that list_directory shows files the agent can't read, or is that on purpose?"
+  intent: answer_question
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: mc-01
+  request: "Rename DEFAULT_PREVIEW_LINES to PREVIEW_LINE_LIMIT."
+  intent: mini_change
+  tags: [clear]
+- id: mc-02
+  request: "Fix the typo \"recieve\" in the sandbox README."
+  intent: mini_change
+  tags: [clear]
+- id: mc-03
+  request: "Change the default maxToolRounds from 60 to 40."
+  intent: mini_change
+  tags: [clear]
+- id: mc-04
+  request: "bump the default container image to node:24.16"
+  intent: mini_change
+  tags: [clear]
+- id: mc-05
+  request: "The query command's description should say \"Ask about the repository\" instead."
+  intent: mini_change
+  tags: [clear]
+- id: mc-06
+  request: "Make DEFAULT_TASK_TIMEOUT_SECONDS 900."
+  intent: mini_change
+  tags: [clear]
+- id: mc-07
+  request: "Add the missing period at the end of the init command's description."
+  intent: mini_change
+  tags: [clear]
+- id: mc-08
+  request: "Change the --container short flag from -C to -k."
+  intent: mini_change
+  tags: [clear]
+- id: mc-09
+  request: "Rename the `request` argument of EngineerCommand to `words`."
+  intent: mini_change
+  tags: [clear]
+- id: mc-10
+  request: "Make maxOutputFiles default to 20 in the config schema."
+  intent: mini_change
+  tags: [clear]
+- id: mc-11
+  request: "Export UNREADABLE from the agents index too."
+  intent: mini_change
+  tags: [clear]
+- id: mc-12
+  request: "Change the branch prefix for change agents from agent-engineer to ae."
+  intent: mini_change
+  tags: [clear]
+- id: mc-13
+  request: "Rename RepoToolkit to RepoTools everywhere it's used."
+  intent: mini_change
+  tags: [boundary, pair:component_change/mini_change]
+- id: mc-14
+  request: "The progress line says \"preparing the repository sandbox\" twice in a row. Drop the duplicate."
+  intent: mini_change
+  also: [bug_fix]
+  tags: [boundary, pair:bug_fix/mini_change]
+- id: mc-15
+  request: "read_file says \"1 more lines\". Fix the grammar."
+  intent: mini_change
+  also: [bug_fix]
+  tags: [boundary, pair:bug_fix/mini_change]
+- id: mc-16
+  request: "Make the answer command's description match what it does; it prints the config."
+  intent: mini_change
+  tags: [boundary, pair:bug_fix/mini_change]
+- id: mc-17
+  request: "Add readonly to the fields of RepoWorkspaceOptions."
+  intent: mini_change
+  tags: [boundary, pair:component_change/mini_change]
+- id: mc-18
+  request: "Change the default of container.network to false and update the README table to match."
+  intent: mini_change
+  tags: [boundary, pair:feature_change/mini_change]
+- id: mc-19
+  request: "Swap the order of the do and query commands in the help output."
+  intent: mini_change
+  tags: [boundary, pair:component_change/mini_change]
+- id: mc-20
+  request: "Rename the do command to run everywhere: code, tests, docs and help."
+  intent: mini_change
+  also: [feature_change]
+  tags: [boundary, pair:feature_change/mini_change]
+- id: bf-01
+  request: "`agent-engineer query` crashes with \"Cannot read properties of undefined (reading 'text')\" when the model returns no messages. Guard against an empty result in createRepoAgentNode."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-02
+  request: "edit_file replaces only the first match even when replaceAll is true. Fix it."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-03
+  request: "find_files lowercases the query but compares it with paths as they are, so \"README\" never matches unreadable files. Fix the comparison."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-04
+  request: "Commit messages from change agents get cut mid-word at 72 characters; cut at a word boundary instead."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-05
+  request: "run_task reports \"exit code null\" when a task is killed by a signal. It should name the signal."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-06
+  request: "TypeError: Cannot read properties of undefined (reading 'repoRoot') in RepoWorkspace.cwdIn when open() failed. Make it fail with a clear message instead."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-07
+  request: "`agent-engineer do -f json` prints the reasoning twice. Remove the duplicate."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-08
+  request: "Off-limits patterns with a trailing slash, like secrets/, don't block secrets itself. Fix globToRegExp."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-09
+  request: "The worktree cleanup test fails on Linux because git prints the branch list with different spacing. Fix the assertion."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-10
+  request: "Windows-style backslashes in offLimits patterns aren't normalized, so they never match. Normalize them."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-11
+  request: "Running do without OPENAI_API_KEY leaves the \"parsing the intent\" spinner on screen after the error. Clear it."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-12
+  request: "When the agent deletes a file, list_directory keeps showing it until the next write. Invalidate the file list on delete too."
+  intent: bug_fix
+  tags: [clear]
+- id: bf-13
+  request: "The progress line flickers when two tools run at once, because they both call update. Serialize the updates."
+  intent: bug_fix
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bf-14
+  request: "tests/agents/task.test.ts is flaky on CI; it's the shared npm cache. Point NPM_CONFIG_CACHE at a temp dir in that test."
+  intent: bug_fix
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bf-15
+  request: "Fix the failing promptTerminal test \"cancels when the editor is killed by a signal\": on Linux it gets a plain Error instead of PromptCancelledError."
+  intent: bug_fix
+  also: [bug_fix_planner]
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bf-16
+  request: "`query -C` hangs forever when Docker isn't running. Make it fail fast with a useful message."
+  intent: bug_fix
+  tags: [boundary, pair:bug_fix/component_change]
+- id: bf-17
+  request: "The JSON output of do leaves out changes when nothing was committed. It should be null, not missing."
+  intent: bug_fix
+  also: [mini_change]
+  tags: [boundary, pair:bug_fix/mini_change]
+- id: bf-18
+  request: "run_task cuts off the start of long error output, so the first error is lost. Keep the first 2,000 characters as well as the end."
+  intent: bug_fix
+  also: [component_change]
+  tags: [boundary, pair:bug_fix/component_change]
+- id: bf-19
+  request: "The info command shows the wrong version: it reads package.json from the working directory instead of the package's own."
+  intent: bug_fix
+  tags: [boundary, pair:answer_question/bug_fix]
+- id: bp-01
+  request: "Some change runs still leave a branch behind and I can't tell why. Investigate before changing anything."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-02
+  request: "The intent eval got about three times slower this week. Figure out where the time goes."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-03
+  request: "Agents sometimes say they edited a file but the commit has no changes. Diagnose it and tell me how you'd fix it."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-04
+  request: "Random ENOENT errors in the snapshot tests, only on CI. No idea what's going on; can you dig in?"
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-05
+  request: "Memory use of `do` climbs to several GB on the monorepo. Find out why and propose a fix."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-06
+  request: "Since the ESM switch, LangSmith traces stop at the router and never show the agent's tool calls. Investigate."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-07
+  request: "Before fixing anything: why does npm ci fail in the actors CI job but work locally?"
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-08
+  request: "The container tests pass on my Mac, but on my Linux box every run fails with permission denied in the worktree. Work out the cause."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-09
+  request: "Users say long requests get routed to the wrong intent. Diagnose where the routing goes wrong."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-10
+  request: "Something in the config merge drops defaultContext entries from ~/.easi. Plan a fix, but don't apply it yet."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-11
+  request: "Worktree cleanup sometimes leaves directories in /tmp. Trace every path that can leak one."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-12
+  request: "We get intermittent \"Recursion limit reached\" errors on simple questions. Work out whether the limit math or the agent is at fault."
+  intent: bug_fix_planner
+  tags: [clear]
+- id: bp-13
+  request: "query crashed with \"fatal: bad object HEAD\" in a brand-new repo. What's going on?"
+  intent: bug_fix_planner
+  also: [answer_question]
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: bp-14
+  request: "Tool results sometimes come back out of order. Can you look into it?"
+  intent: bug_fix_planner
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bp-15
+  request: "`agent-engineer do` exits 0 even when the agent fails. I think it's in EngineerCommand, but I'm not sure. Investigate first."
+  intent: bug_fix_planner
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bp-16
+  request: "Why does the off-limits check let .GIT through on case-insensitive filesystems? Plan the fix."
+  intent: bug_fix_planner
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: bp-17
+  request: "There's a race somewhere between the write queue and the search index refresh. Find it and fix it."
+  intent: bug_fix_planner
+  also: [bug_fix]
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: bp-18
+  request: "sandbox and langgraph each bring their own copy of zod and the schema checks break; work out which copy is used where."
+  intent: bug_fix_planner
+  tags: [boundary, pair:answer_question/bug_fix_planner]
+- id: bp-19
+  request: "Fix whatever makes the evals CI job time out."
+  intent: bug_fix_planner
+  also: [bug_fix]
+  tags: [boundary, pair:bug_fix/bug_fix_planner]
+- id: cc-01
+  request: "Add a run_command tool next to run_task that runs any command in the container, with the same output formatting."
+  intent: component_change
+  tags: [clear]
+- id: cc-02
+  request: "Make RepoWorkspace accept a directory for its worktrees instead of always using the OS temp dir."
+  intent: component_change
+  tags: [clear]
+- id: cc-03
+  request: "Add retries with exponential backoff to the chat models createChatModel builds."
+  intent: component_change
+  tags: [clear]
+- id: cc-04
+  request: "Give RunRecorder a toolCallsFor(name) method that returns the calls of one tool."
+  intent: component_change
+  tags: [clear]
+- id: cc-05
+  request: "Let the search_code tool take exclude globs as well as include globs."
+  intent: component_change
+  tags: [clear]
+- id: cc-06
+  request: "Rewrite formatTaskResult so it keeps the first 2,000 and the last 10,000 characters of long output."
+  intent: component_change
+  tags: [clear]
+- id: cc-07
+  request: "Add a --model option to the query command that overrides config.model for that run."
+  intent: component_change
+  tags: [clear]
+- id: cc-08
+  request: "Implement a git_diff read tool that shows the agent its own uncommitted changes."
+  intent: component_change
+  tags: [clear]
+- id: cc-09
+  request: "Change classify() in the evals package so it also returns macro-averaged precision and recall."
+  intent: component_change
+  tags: [clear]
+- id: cc-10
+  request: "Add a limit option to loadDataset that loads only the first N records."
+  intent: component_change
+  tags: [clear]
+- id: cc-11
+  request: "Make the models middleware read AGENT_ENGINEER_MODEL and build the agent model from it."
+  intent: component_change
+  tags: [clear]
+- id: cc-12
+  request: "Change the ScriptedChatModel test helper so a reply can be a function of the messages it gets."
+  intent: component_change
+  tags: [clear]
+- id: cc-13
+  request: "Split RepoToolkit into a PathGuard class and the toolkit itself, and give the guard its own tests."
+  intent: component_change
+  tags: [boundary, pair:component_change/component_planner]
+- id: cc-14
+  request: "Cache the sandbox's search index so it isn't rebuilt between agent runs in the same process."
+  intent: component_change
+  also: [component_planner]
+  tags: [boundary, pair:component_change/component_planner]
+- id: cc-15
+  request: "defineEval should support a beforeAll hook for setup."
+  intent: component_change
+  tags: [boundary, pair:component_change/mini_change]
+- id: cc-16
+  request: "Replace the hand-written glob matcher in tools/shared.ts with Node's path.matchesGlob."
+  intent: component_change
+  tags: [boundary, pair:component_change/mini_change]
+- id: cc-17
+  request: "Make the write tools refuse to write files larger than maxContextFileSizeBytes."
+  intent: component_change
+  tags: [boundary, pair:bug_fix/component_change]
+- id: cc-18
+  request: "Add a --dry-run flag to do that prints the intent without running any agent."
+  intent: component_change
+  also: [feature_change]
+  tags: [boundary, pair:component_change/feature_change]
+- id: cc-19
+  request: "Turn the eval summary formatter into a class with pluggable sections."
+  intent: component_change
+  tags: [boundary, pair:component_change/component_planner]
+- id: cp-01
+  request: "Design a PathGuard component that both the tools and the workspace can use. Give me the interface first; don't write it yet."
+  intent: component_planner
+  tags: [clear]
+- id: cp-02
+  request: "I want an LLM-judge grader for the evals package. Propose its API before we build it."
+  intent: component_planner
+  tags: [clear]
+- id: cp-03
+  request: "Plan how a repo runner for Python and Go repositories should plug into run_task."
+  intent: component_planner
+  tags: [clear]
+- id: cp-04
+  request: "Sketch the interface of a reusable approval-gate node that pauses a graph for a human yes or no."
+  intent: component_planner
+  tags: [clear]
+- id: cp-05
+  request: "How should a cache of repo-search indexes keyed by commit be structured? Write up a design."
+  intent: component_planner
+  tags: [clear]
+- id: cp-06
+  request: "Before building it, design the token-budget tracker that RunRecorder and the eval harness would share."
+  intent: component_planner
+  tags: [clear]
+- id: cp-07
+  request: "Propose an API for showing a diff in the CLI output: what it takes, what it prints, how it's tested."
+  intent: component_planner
+  tags: [clear]
+- id: cp-08
+  request: "We need a retry policy object for model calls. Draft the design and the alternatives."
+  intent: component_planner
+  tags: [clear]
+- id: cp-09
+  request: "Design how the config's container section should grow to support Podman."
+  intent: component_planner
+  tags: [clear]
+- id: cp-10
+  request: "Plan a rework of the models middleware so each intent can use a different model."
+  intent: component_planner
+  tags: [clear]
+- id: cp-11
+  request: "Write a design for a streaming progress reporter to replace the progress callback."
+  intent: component_planner
+  tags: [clear]
+- id: cp-12
+  request: "Plan the structure of a judge module for the evals package. What goes where?"
+  intent: component_planner
+  tags: [clear]
+- id: cp-13
+  request: "RepoToolkit is getting big. What should it be split into?"
+  intent: component_planner
+  also: [answer_question]
+  tags: [boundary, pair:answer_question/component_planner]
+- id: cp-14
+  request: "Build a plugin system for repo tools. It's big, so start with a plan."
+  intent: component_planner
+  tags: [boundary, pair:component_change/component_planner]
+- id: cp-15
+  request: "Rework the summary formatter. I'm not sure yet what shape it should take."
+  intent: component_planner
+  tags: [boundary, pair:component_change/component_planner]
+- id: cp-16
+  request: "Should the classification helpers live in evals or in a package of their own? Lay out the options."
+  intent: component_planner
+  also: [answer_question]
+  tags: [boundary, pair:answer_question/component_planner]
+- id: cp-17
+  request: "Redesign RepoWorkspace so one run can hold several sandboxes."
+  intent: component_planner
+  tags: [boundary, pair:component_change/component_planner]
+- id: cp-18
+  request: "Think through how ScriptedChatModel should support streaming before anyone changes it."
+  intent: component_planner
+  tags: [boundary, pair:component_change/component_planner]
+- id: cp-19
+  request: "Give the recorder a proper event model. It touches every callback, so plan it out."
+  intent: component_planner
+  tags: [boundary, pair:component_change/component_planner]
+- id: fc-01
+  request: "Add a --json-log flag to every command that switches the logger to JSON lines."
+  intent: feature_change
+  tags: [clear]
+- id: fc-02
+  request: "Let change agents open a pull request after committing: add a --pr flag to do that pushes the branch and opens the PR with gh."
+  intent: feature_change
+  tags: [clear]
+- id: fc-03
+  request: "Add the answer eval suite: a dataset, graders for citations and facts, thresholds, and a CI input to run it."
+  intent: feature_change
+  tags: [clear]
+- id: fc-04
+  request: "Support a .agent-engineerignore file that adds to ignore, read by the config middleware and honored by every tool."
+  intent: feature_change
+  tags: [clear]
+- id: fc-05
+  request: "Add cost reporting: record tokens per run, price them from a table in the config, and print the total after each command."
+  intent: feature_change
+  tags: [clear]
+- id: fc-06
+  request: "Make every command accept --cwd to run against another directory, config lookup and sandbox included."
+  intent: feature_change
+  tags: [clear]
+- id: fc-07
+  request: "Run every eval suite nightly in CI, with the summary in the job and the reports kept as artifacts."
+  intent: feature_change
+  tags: [clear]
+- id: fc-08
+  request: "Support Anthropic models: a provider setting in the config, model creation in the agents and the intent node, and docs."
+  intent: feature_change
+  tags: [clear]
+- id: fc-09
+  request: "Add a history command that lists the branches change agents made, with their intent and request, read from commit trailers the commit node writes."
+  intent: feature_change
+  tags: [clear]
+- id: fc-10
+  request: "Let users add their own intents in agent-engineer.yaml, each with a description and instructions, routed like the built-in ones."
+  intent: feature_change
+  tags: [clear]
+- id: fc-11
+  request: "Add resumable runs: checkpoint the graph state, and add do --resume <id> to continue an interrupted run."
+  intent: feature_change
+  tags: [clear]
+- id: fc-12
+  request: "Stream the agent's answer to the terminal as it's generated, for both query and do."
+  intent: feature_change
+  tags: [clear]
+- id: fc-13
+  request: "Run tasks in Podman as well as Docker."
+  intent: feature_change
+  also: [component_change]
+  tags: [boundary, pair:component_change/feature_change]
+- id: fc-14
+  request: "Ask for confirmation before a change agent commits, with a diff preview, and add --yes to skip it."
+  intent: feature_change
+  tags: [boundary, pair:component_change/feature_change]
+- id: fc-15
+  request: "Run the intent eval on PRs that touch the prompts or the router."
+  intent: feature_change
+  also: [component_change]
+  tags: [boundary, pair:component_change/feature_change]
+- id: fc-16
+  request: "Add per-tool timeouts, set in agent-engineer.yaml and enforced by every tool."
+  intent: feature_change
+  tags: [boundary, pair:component_change/feature_change]
+- id: fc-17
+  request: "Post to Slack when a change agent finishes, using our slack package."
+  intent: feature_change
+  also: [feature_planner]
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fc-18
+  request: "Translate all CLI output. We know the strings; English and Spanish to start."
+  intent: feature_change
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fc-19
+  request: "Add a --watch mode to query that answers again when files change."
+  intent: feature_change
+  also: [component_change]
+  tags: [boundary, pair:component_change/feature_change]
+- id: fp-01
+  request: "Plan how we'd add a web UI on top of agent-engineer. Scope only, no code."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-02
+  request: "I want multi-agent runs where a planner hands work to change agents. Scope it and give me phases."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-03
+  request: "Plan the change eval suite: fixture repos, hidden tests, grading in the container."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-04
+  request: "Design the feature that lets agents ask the user clarifying questions mid-run. What's in v1?"
+  intent: feature_planner
+  tags: [clear]
+- id: fp-05
+  request: "Write a plan for supporting directories that aren't git repositories in the sandbox."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-06
+  request: "Scope a memory feature so agents remember past runs in the same repository."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-07
+  request: "How should we roll out cost limits across the CLI, the agents and CI? Give me a plan with milestones."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-08
+  request: "Before we build it: plan a VS Code extension that drives agent-engineer."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-09
+  request: "Plan the move of all packages to a single pnpm workspace."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-10
+  request: "Lay out what it would take to run agent-engineer as a GitHub App that answers issues."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-11
+  request: "Plan how intents could be learned from usage instead of fixed in router.ts."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-12
+  request: "Scope letting change agents work on several repositories at once."
+  intent: feature_planner
+  tags: [clear]
+- id: fp-13
+  request: "Add a web UI."
+  intent: feature_planner
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fp-14
+  request: "We should support running agents on a remote machine over SSH. Thoughts on how?"
+  intent: feature_planner
+  also: [answer_question]
+  tags: [boundary, pair:answer_question/feature_planner]
+- id: fp-15
+  request: "Make agent-engineer work offline with a local model. It's a big change, so plan it first."
+  intent: feature_planner
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fp-16
+  request: "What would a review mode for agent branches look like? Sketch the feature."
+  intent: feature_planner
+  tags: [boundary, pair:answer_question/feature_planner]
+- id: fp-17
+  request: "Add GitLab support next to GitHub for the --pr flag. Not sure how big it is; scope it before starting."
+  intent: feature_planner
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fp-18
+  request: "Build the full eval dashboard with history charts."
+  intent: feature_planner
+  also: [feature_change]
+  tags: [boundary, pair:feature_change/feature_planner]
+- id: fp-19
+  request: "Let's support Windows."
+  intent: feature_planner
+  tags: [boundary, pair:feature_change/feature_planner]

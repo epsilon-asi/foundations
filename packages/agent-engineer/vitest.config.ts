@@ -1,5 +1,11 @@
 import { standardDecorators } from '@epsilon-asi/command-line/vitest';
 import { defineConfig } from 'vitest/config';
+import { loadRepoEnv } from './scripts/repo-env.js';
+
+// Only the live tests (npm run test:live) get the repository's .env, so nothing else can reach OpenAI.
+if (process.env['AGENT_ENGINEER_LIVE_TESTS'] === '1') {
+  loadRepoEnv();
+}
 
 export default defineConfig({
   // Vite 8 only implements legacy decorators; this plugin transforms
@@ -23,10 +29,10 @@ export default defineConfig({
       exclude: ['src/main.ts'],
       reporter: ['text', 'lcov'],
       thresholds: {
-        statements: 80,
-        branches: 80,
-        functions: 80,
-        lines: 80,
+        statements: 90,
+        branches: 90,
+        functions: 90,
+        lines: 90,
       },
     },
   },

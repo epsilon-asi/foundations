@@ -5,7 +5,7 @@ import {
     START,
     StateGraph,
 } from "@langchain/langgraph";
-import {supervisor} from "./agents/supervisor";
+import {supervisor} from "./agents/supervisor.js";
 
 type StandardMessage = {
     role: "system" | "user" | "assistant";

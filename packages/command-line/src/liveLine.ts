@@ -29,9 +29,11 @@ export function createLiveOutput(io: CliIO): LiveOutput {
   let current: Current | undefined;
   let drawn = '';
   let midRow = false;
+  // Writes kept back while the line is suspended, or undefined when it is not.
+  let held: { readonly write: Writer; readonly text: string }[] | undefined;
 
   const draw = (): void => {
-    if (terminal === undefined || current === undefined || midRow) return;
+    if (terminal === undefined || current === undefined || midRow || held !== undefined) return;
     const content = fitLine(current.content(), terminal.columns);
     if (content === drawn) return;
     io.stderr(`${ERASE}${content}`);
@@ -47,6 +49,11 @@ export function createLiveOutput(io: CliIO): LiveOutput {
   /** Ends the current line, leaving `text` in its place as an ordinary line, or nothing when it is empty. */
   const leave = (text: string): void => {
     current = undefined;
+    if (held !== undefined) {
+      // Nothing is on screen; what the line leaves behind waits like any other write.
+      if (text !== '') held.push({ write: io.stderr, text: `${text}\n` });
+      return;
+    }
     if (text === '') {
       erase();
       return;
@@ -61,6 +68,10 @@ export function createLiveOutput(io: CliIO): LiveOutput {
     (write: Writer): Writer =>
     (text) => {
       if (text === '') return;
+      if (held !== undefined) {
+        held.push({ write, text });
+        return;
+      }
       erase();
       write(text);
       midRow = !text.endsWith('\n');
@@ -115,6 +126,28 @@ export function createLiveOutput(io: CliIO): LiveOutput {
     return line;
   };
 
+  const suspend = async <T>(during: () => T | Promise<T>): Promise<T> => {
+    // Off a terminal nothing is drawn, and a nested suspension is already clear.
+    if (terminal === undefined || held !== undefined) return during();
+
+    erase();
+    // Whatever is shown meanwhile starts on a row of its own.
+    if (midRow) {
+      io.stderr('\n');
+      midRow = false;
+    }
+    held = [];
+
+    try {
+      return await during();
+    } finally {
+      const pending = held;
+      held = undefined;
+      for (const { write, text } of pending) above(write)(text);
+      draw();
+    }
+  };
+
   return Object.freeze({
     io:
       terminal === undefined
@@ -126,6 +159,7 @@ export function createLiveOutput(io: CliIO): LiveOutput {
           }),
     liveLine,
     end: (): void => current?.line.done(),
+    suspend,
   });
 }
 
@@ -172,7 +206,7 @@ interface Piece {
  * too wide is cut with an ellipsis one column short of the edge, since filling
  * the last column makes some terminals wrap. Widths are approximate.
  */
-function fitLine(text: string, columns: number | undefined): string {
+export function fitLine(text: string, columns: number | undefined): string {
   const pieces = text.split(ESCAPE_SEQUENCES).flatMap((part, index): Piece[] =>
     // `split` puts the captured escape sequences at the odd indexes.
     index % 2 === 1

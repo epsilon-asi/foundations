@@ -1,5 +1,5 @@
 import {isCommand, type CommandInstance, type LangGraphRunnableConfig} from "@langchain/langgraph";
-import {addToContext, disposeContext} from "../nodes/initializeContext";
+import {addToContext, disposeContext} from "../nodes/initializeContext.js";
 
 type InvokableGraph = {
     invoke: (input: any, options?: any) => Promise<any>;

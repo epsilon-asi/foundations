@@ -3,6 +3,14 @@
 All notable changes to `@epsilon-asi/sandbox` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.0.7] - 2026-11-13
+
+### Fixed
+
+- Code search no longer counts the end of a file's last line as one more, empty line. A file ending in a line break
+  (as nearly every file does) has as many lines as editors and `wc -l` count: `openFile` reports that `totalLines`,
+  never returns a blank line past the end, and BM25 chunks no longer end with one.
+
 ## [0.1.0] - 2026-10-31
 
 The four packages `@epsilon-asi/container-runtime`, `@epsilon-asi/git-manager`, `@epsilon-asi/repo-runner` and

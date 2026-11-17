@@ -13,21 +13,10 @@ npm install -D typescript vitest @vitest/coverage-v8 @types/node
 
 ## Compatibility
 
-This package is written for a strict CommonJS project style:
-
-```json
-{
-  "compilerOptions": {
-    "target": "es2016",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "outDir": "./build"
-  }
-}
-```
+The package is ESM only (`"type": "module"`), built with `"module": "nodenext"`. Import it from ESM;
+Node 22.12 and later can also `require()` it. Its types resolve `@langchain/core` through the same
+`import` condition as an ESM consumer's, so LangChain objects (runnable configs, chat models, callback
+handlers such as `RunRecorder`) pass between the two without type conflicts.
 
 ## Core idea
 
@@ -138,6 +127,35 @@ Resume an interrupted graph with:
 
 ```ts
 await graph.resume(true, { threadId: "example-thread" });
+```
+
+## Option selection
+
+`createOptionSelectionNode(prompt, options, { model })` asks a model to choose one of `options` and
+writes `choice` and `reasoning` to the state. Without `model` it uses `DEFAULT_OPTION_SELECTION_MODEL`
+through the OpenAI Responses API. `model` is any LangChain chat model, or a function that picks one
+for each run from the node's runtime and returns `undefined` for the default:
+
+```ts
+const route = createOptionSelectionNode("Which team?", Teams, {
+    model: (runtime) => (runtime?.context as { model?: StructuredOutputModel })?.model,
+});
+```
+
+The node passes its runtime's callbacks and abort signal on to the model call. `model` is typed by
+shape (`StructuredOutputModel`), so models built against either the ESM or the CommonJS types of
+`@langchain/core` fit.
+
+## Recording runs
+
+`RunRecorder` is a callback handler that records every tool call (input, output, duration) and model
+call (token usage, duration) of a run, nested agents included, as long as each node passes its
+runtime's callbacks on. `summary()` gives the totals.
+
+```ts
+const recorder = new RunRecorder();
+await graph.invoke(input, { callbacks: [recorder] });
+recorder.toolCalls; // [{ name: "read_file", input: { path: "src/a.ts" }, output: "...", durationMs: 4 }]
 ```
 
 ## Testing helpers

@@ -3,7 +3,7 @@ import {randomUUID} from "node:crypto";
 import {mkdtempSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {EngineerConfig} from "../config";
+import {EngineerConfig} from "../config/index.js";
 
 export type EngineeringContext = {
     sandbox: Sandbox
