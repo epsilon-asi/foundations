@@ -8,7 +8,8 @@ export const uiThemeOptions: ThemeOptions = {
     dark: true
   },
   shape: {
-    borderRadius: 14
+    borderRadius: 10,
+    
   },
   palette: {
     primary: {
@@ -83,6 +84,7 @@ export const uiThemeOptions: ThemeOptions = {
     MuiButton: {
       defaultProps: {
         disableElevation: true,
+        size: "small"
         // variant: 'contained'
       },
       styleOverrides: {
