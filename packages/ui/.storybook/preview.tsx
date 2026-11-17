@@ -5,7 +5,7 @@ import { UiProvider } from '../src/theme';
 
 const preview: Preview = {
   parameters: {
-    layout: 'centered',
+    layout: 'fullscreen',
     controls: {
       expanded: true
     }
@@ -13,7 +13,7 @@ const preview: Preview = {
   decorators: [
     (Story) => (
       <UiProvider>
-        <Box sx={{ minWidth: 320, p: 2 }}>
+        <Box sx={{ width: '100%', minWidth: 0, p: 2 }}>
           <Story />
         </Box>
       </UiProvider>

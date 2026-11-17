@@ -1,3 +1,5 @@
+import { checkStoryLayout } from '../../../.storybook/layoutAssertions';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Box, Grid, Typography } from '@mui/material';
 import { ActionButton } from '../ActionButton';
@@ -5,6 +7,7 @@ import { PageSection } from './PageSection';
 import { StatCard } from '../StatCard';
 
 const meta = {
+  play: checkStoryLayout,
   title: 'Components/PageSection',
   component: PageSection,
   args: {
@@ -51,3 +54,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Minimal: Story = { args: { subtitle: undefined, action: undefined } };
+export const Narrow: Story = { args: { sx: { width: 280, maxWidth: '100%' } } };
+export const LongContent: Story = { args: { title: 'Workspace collaboration and research across distributed teams', subtitle: 'workspace_abcdefghijklmnopqrstuvwxyz_0123456789_abcdefghijklmnopqrstuvwxyz', action: <ActionButton>Manage workspace settings</ActionButton>, sx: { width: 280, maxWidth: '100%' } } };
+export const Dark: Story = { decorators: [withDarkUi] };

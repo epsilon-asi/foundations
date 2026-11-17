@@ -20,7 +20,9 @@ export function PageSection({
       sx={[
         {
           overflow: 'hidden',
-          width: '100%'
+          width: '100%',
+          minWidth: 0,
+          overflowWrap: 'anywhere'
         },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : [])
       ]}
@@ -31,9 +33,11 @@ export function PageSection({
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
         spacing={2}
+        useFlexGap
+        flexWrap="wrap"
         sx={{ px: 3, py: 2.5 }}
       >
-        <Box>
+        <Box sx={{ minWidth: 0, flex: { sm: '1 1 180px' } }}>
           <Typography component="h2" variant="h6">
             {title}
           </Typography>

@@ -35,7 +35,7 @@ export const ActionButton = React.forwardRef<HTMLButtonElement, ActionButtonProp
         ref={ref}
         disabled={disabled || loading}
         startIcon={loading ? undefined : startIcon}
-        sx={[responsiveSx, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
+        sx={[{ minWidth: 0, overflowWrap: 'anywhere' }, responsiveSx, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}
         {...props}
       >
         {loading ? (

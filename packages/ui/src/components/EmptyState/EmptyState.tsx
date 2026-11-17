@@ -25,6 +25,8 @@ export function EmptyState({
       sx={[
         {
           borderStyle: 'dashed',
+          minWidth: 0,
+          overflowWrap: 'anywhere',
           p: compact ? 3 : 5,
           textAlign: 'center'
         },

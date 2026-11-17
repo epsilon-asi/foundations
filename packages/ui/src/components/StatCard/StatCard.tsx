@@ -19,22 +19,22 @@ const toneSx = (tone: StatTone) => (theme: Theme) => {
     case 'positive':
       return {
         bgcolor: alpha(theme.palette.success.main, 0.12),
-        color: theme.palette.success.dark
+        color: theme.palette.success[theme.palette.mode === 'dark' ? 'light' : 'dark']
       };
     case 'warning':
       return {
         bgcolor: alpha(theme.palette.warning.main, 0.12),
-        color: theme.palette.warning.dark
+        color: theme.palette.warning[theme.palette.mode === 'dark' ? 'light' : 'dark']
       };
     case 'danger':
       return {
         bgcolor: alpha(theme.palette.error.main, 0.12),
-        color: theme.palette.error.dark
+        color: theme.palette.error[theme.palette.mode === 'dark' ? 'light' : 'dark']
       };
     default:
       return {
         bgcolor: alpha(theme.palette.primary.main, 0.1),
-        color: theme.palette.primary.dark
+        color: theme.palette.primary[theme.palette.mode === 'dark' ? 'light' : 'dark']
       };
   }
 };
@@ -54,7 +54,9 @@ export function StatCard({
     <Card
       sx={[
         {
-          minWidth: 260
+          minWidth: 0,
+          containerType: 'inline-size',
+          overflowWrap: 'anywhere'
         },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : [])
       ]}
@@ -62,7 +64,7 @@ export function StatCard({
     >
       <CardContent sx={{ p: 3 }}>
         <Stack direction="row" justifyContent="space-between" spacing={2}>
-          <Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             {eyebrow ? (
               <Typography color="text.secondary" sx={{ display: 'block', mb: 1 }} variant="caption">
                 {eyebrow}
@@ -73,15 +75,6 @@ export function StatCard({
               {title}
             </Typography>
 
-            <Typography sx={{ mt: 1, fontWeight: 800 }} variant="h4">
-              {value}
-            </Typography>
-
-            {description ? (
-              <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-                {description}
-              </Typography>
-            ) : null}
           </Box>
 
           {icon ? (
@@ -94,6 +87,7 @@ export function StatCard({
                 display: 'inline-flex',
                 fontSize: 28,
                 height: 56,
+                flexShrink: 0,
                 justifyContent: 'center',
                 width: 56
               })}
@@ -103,13 +97,21 @@ export function StatCard({
           ) : null}
         </Stack>
 
+        <Typography sx={{ mt: 1, fontWeight: 800, fontSize: 'clamp(1.5rem, 8cqi, 2.125rem)' }} variant="h4">
+          {value}
+        </Typography>
+        {description ? <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">{description}</Typography> : null}
+
         {trendLabel ? (
           <Chip
             label={trendLabel}
             size="small"
             sx={[
               {
-                mt: 2
+                mt: 2,
+                maxWidth: '100%',
+                height: 'auto',
+                '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5, overflowWrap: 'anywhere' }
               },
               toneSx(tone)
             ]}
