@@ -31,6 +31,7 @@ enum Status {
 
 const countOptions = { default: 0 } satisfies NumberPropOptions;
 const labelOptions = { default: '' } satisfies StringPropOptions;
+const optionalLabelOptions: StringPropOptions = { min: 1 };
 
 // --- field type must agree exactly with the schema output ---
 
@@ -46,6 +47,9 @@ class Good {
 
   @Prop.string(labelOptions)
   label!: string;
+
+  @Prop.string({ ...optionalLabelOptions, optional: true })
+  optionalLabel?: string;
 
   @Prop(z.string().email())
   email!: string;

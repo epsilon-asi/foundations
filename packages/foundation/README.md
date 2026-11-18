@@ -58,6 +58,8 @@ offering.safeParse({ status: 'active', audience: 'unknown' }).success; // false
 
 A shorthand's `default` supplies the value when input is missing or `undefined`. The default passes through the field's validators, including format, range and nested-field checks. Declare a defaulted field as required in the parsed type. An explicit value, including `false`, `0` or `''`, takes precedence whenever the field accepts it.
 
+Each parse gets fresh copies of dates, arrays and plain objects in the default. Nested custom class instances keep their identity.
+
 ## Naming
 
 Use the package-root helpers to derive consistent names from a resource or field. They recognize word boundaries in camelCase and PascalCase, split acronyms such as `HTTPServer` into words, and accept separators such as hyphens and underscores.

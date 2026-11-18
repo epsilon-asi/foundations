@@ -124,18 +124,18 @@ export type NumberPropOptions<TExt extends ExtensionMap = {}> = PropOptions<TExt
   default?: number;
 };
 
-type OptionalField = { optional: true; default?: never };
+type OptionalField<TDefault> = { optional: true; default?: TDefault };
+type RequiredField<TDefault> = { optional?: false; default?: TDefault };
 /** A supplied default fills undefined inputs, even when optional is also set. */
-type RequiredField<TDefault> =
-  | { optional?: false; default?: TDefault }
-  | { optional?: boolean; default: TDefault };
+type DefaultedField<TDefault> = { optional?: boolean; default: TDefault };
 
 type EnumSource = readonly string[] | z.util.EnumLike;
 type EnumValue<T extends EnumSource> = T extends readonly string[] ? T[number] : T[keyof T];
 
 interface Shorthand<TValue, TOptions> {
-  (options: TOptions & OptionalField): FieldDecorator<TValue | undefined>;
-  <const TDefault extends TValue = TValue>(options?: TOptions & RequiredField<TDefault>): FieldDecorator<TValue>;
+  <const TDefault extends TValue>(options: TOptions & DefaultedField<TDefault>): FieldDecorator<TValue>;
+  (options: TOptions & OptionalField<TValue>): FieldDecorator<TValue | undefined>;
+  (options?: TOptions & RequiredField<TValue>): FieldDecorator<TValue>;
 }
 
 export interface PropDecorator<TExt extends ExtensionMap = {}> {
@@ -149,13 +149,17 @@ export interface PropDecorator<TExt extends ExtensionMap = {}> {
   url: Shorthand<string, StringPropOptions<TExt>>;
 
   /** Accepts a TypeScript enum, an enum-like object, or a list of string literals. */
-  enum<const T extends EnumSource>(
-    values: T,
-    options: PropOptions<TExt> & OptionalField,
-  ): FieldDecorator<EnumValue<T> | undefined>;
   enum<const T extends EnumSource, const TDefault extends EnumValue<T> = EnumValue<T>>(
     values: T,
-    options?: PropOptions<TExt> & RequiredField<TDefault>,
+    options: PropOptions<TExt> & DefaultedField<TDefault>,
+  ): FieldDecorator<EnumValue<T>>;
+  enum<const T extends EnumSource>(
+    values: T,
+    options: PropOptions<TExt> & OptionalField<EnumValue<T>>,
+  ): FieldDecorator<EnumValue<T> | undefined>;
+  enum<const T extends EnumSource>(
+    values: T,
+    options?: PropOptions<TExt> & RequiredField<EnumValue<T>>,
   ): FieldDecorator<EnumValue<T>>;
 
   number: Shorthand<number, NumberPropOptions<TExt>>;
@@ -163,16 +167,20 @@ export interface PropDecorator<TExt extends ExtensionMap = {}> {
   date: Shorthand<Date, PropOptions<TExt>>;
 
   /** Sugar for `Prop(registry.ref(target), options)`. */
-  nested<TClass extends Constructor>(
-    target: () => TClass,
-    options: PropOptions<TExt> & OptionalField,
-  ): FieldDecorator<TypeShape<InstanceType<TClass>> | undefined>;
   nested<
     TClass extends Constructor,
     const TDefault extends TypeShape<InstanceType<TClass>> = TypeShape<InstanceType<TClass>>,
   >(
     target: () => TClass,
-    options?: PropOptions<TExt> & RequiredField<TDefault>,
+    options: PropOptions<TExt> & DefaultedField<TDefault>,
+  ): FieldDecorator<TypeShape<InstanceType<TClass>>>;
+  nested<TClass extends Constructor>(
+    target: () => TClass,
+    options: PropOptions<TExt> & OptionalField<TypeShape<InstanceType<TClass>>>,
+  ): FieldDecorator<TypeShape<InstanceType<TClass>> | undefined>;
+  nested<TClass extends Constructor>(
+    target: () => TClass,
+    options?: PropOptions<TExt> & RequiredField<TypeShape<InstanceType<TClass>>>,
   ): FieldDecorator<TypeShape<InstanceType<TClass>>>;
 }
 

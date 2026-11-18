@@ -395,7 +395,7 @@ Definition-time checks keep the naming honest. Each throws an error that names t
 
 ## Phase 0 — Toolchain and foundation prep
 
-**Implementation is in progress.** On 2026-11-18, the first changes in 0.2, 0.4 and 0.5 passed local verification. Foundation passed its runtime and type tests, examples and build. The CLI naming tests passed, and `apps` passed its typecheck, test and clean build.
+**Phase 0.4 is complete.** On 2026-11-18, foundation passed its three remaining type-test files, 361 runtime tests, examples and a clean build. The foundation README examples compiled and ran against the built package with TypeScript 5.9.3 and 7.0.2. After the dependency cleanup in 0.5, `apps` passed its typecheck, test and clean build from an isolated lockfile install.
 
 ### 0.0 Toolchain
 - **pnpm workspaces:**
@@ -405,7 +405,8 @@ Definition-time checks keep the naming honest. Each throws an error that names t
 - **Root scripts:** `build`, `test` and `typecheck` run through `pnpm -r`, in dependency order. That replaces `scripts/run_for_packages.sh`. `release.sh` and `bump_version.sh` stay; `release.sh` publishes with pnpm, which rewrites `workspace:` ranges to real versions.
 - **CI (`validate.yml`):** one `pnpm install`, then typecheck, test and build in dependency order, so `apps` builds against foundation's source (M1).
 - **foundation's tsconfig:** ESM with `module`/`moduleResolution: nodenext`. It compiles on TS 5.9 and TS 7; TS 7 rejects the current `moduleResolution: node`.
-- **Type tests run in CI:** type tests (`*.type-test.ts`, `*.test-d.ts`) are part of `typecheck` in every package (M2).
+- [x] Foundation's `typecheck` command, which CI already calls, compiles source and every `*.type-test.ts` file. Local verification runs this check once.
+- [ ] Verify coverage of `*.type-test.ts` and `*.test-d.ts` in the other packages' `typecheck` commands as part of the workspace migration (M2).
 - **zod:** one version across the workspace. foundation's peer floor rises to the first zod release with `z.codec`.
 - **Done when:** `pnpm -r typecheck test build` passes on TS 5.9 and TS 7, with no npm release in between.
 
@@ -450,8 +451,10 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
 ### 0.4 Additions to foundation's `@Prop`
 
 - [x] Implement `Prop.uuid()`, `Prop.email()` and `Prop.url()` with runtime and type tests for string fields. [Usage example](../../packages/foundation/README.md#validated-string-fields)
-- [ ] Add `Prop.enum(E | values)` and a `default` option on the shorthands, with type tests in the `typeRegistry.type-test.ts` style. Add `default` to `SHORTHAND_KEYS` in `typeRegistry.ts` so the registry recognizes it as a built-in option.
-- **Retire the old prototypes:** `decorators/requests/mapping.ts` and `decorators/validation/validatable.ts`. The `aiTool` intent in `validatable.ts` is carried forward as agent tools (1.12).
+- [x] Add `Prop.enum()` for TypeScript enums and string literal lists. Runtime tests cover accepted and rejected values. Type tests check field types and optionality. [Enum usage example](../../packages/foundation/README.md#enum-fields)
+- [x] Implement typed `default` values on all foundation `Prop` shorthands and reserve the option name. Missing or `undefined` input uses the default and runs the field's validators. An explicit value takes precedence. The field schema exposes a Zod prefault wrapper that the Phase 1 update-schema builder can unwrap (1.1). [Usage example](../../packages/foundation/README.md#enum-fields)
+- [x] Retire the unused `decorators/validation/` prototype. A clean build confirms its removal. Section 1.12 carries forward its `aiTool` intent through opt-in endpoint tools.
+- [x] Retire the request-mapping prototype and its two private test fixtures. The three remaining type-test files cover the decorator factory, type registry and file helpers.
 
 ### 0.5 Re-tool `@epsilon-asi/apps`
 - **ESM build:** `"type": "module"` and `tsconfig.build.json`, matching command-line's TS and vitest versions.
@@ -463,7 +466,7 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
 - **Dependencies:**
   - `@epsilon-asi/foundation` (`workspace:^`) and `zod`.
   - Optional peers: `express`, `@mikro-orm/core`, `@mikro-orm/migrations`, `redis`, `stripe`, and the cloud SDK each provider subpath uses (`@google-cloud/pubsub`).
-  - Drop `openai`, `dotenv`, `uuid`, `ts-deepmerge` and `@mikro-orm/decorators`.
+  - [x] Remove the direct dependencies `openai`, `dotenv`, `uuid`, `ts-deepmerge` and `@mikro-orm/decorators` from the `apps` manifest and lockfile. A clean install from that lockfile passed the package checks.
   - devDependencies: vitest, @types/express, @mikro-orm/sqlite, @mikro-orm/postgresql, esbuild.
 - [x] Remove `src/{api,consumer,daemon,producer}/index.ts` and their scaffolding in `src/common/`. A clean build produced only `index.js`, `index.d.ts` and `package.json`.
 - **Scripts:** `build`, `typecheck` (including type tests), `test`, `check:browser`, `verify`, `bump`, `pub`.

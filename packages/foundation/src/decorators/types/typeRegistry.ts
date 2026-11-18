@@ -151,10 +151,11 @@ function withMeta(schema: z.ZodType, description: string | undefined, meta: Opti
 }
 
 /** Copy default data per parse. Opaque values may rely on identity or private class state. */
-function copyDefault(value: unknown, copies = new WeakMap<object, object>()): unknown {
+function copyDefault(value: unknown, copies?: WeakMap<object, object>): unknown {
   if (value instanceof Date) return new Date(value.getTime());
   if (!Array.isArray(value) && !z.util.isPlainObject(value)) return value;
 
+  copies ??= new WeakMap();
   const existing = copies.get(value);
   if (existing) return existing;
   const copy = z.util.shallowClone(value);
