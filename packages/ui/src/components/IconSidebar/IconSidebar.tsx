@@ -53,7 +53,7 @@ const NO_FOOTER_ITEMS: readonly IconSidebarItem[] = [];
 export const IconSidebar = React.forwardRef<HTMLDivElement, IconSidebarProps>(function IconSidebar(
   { items, footerItems = NO_FOOTER_ITEMS, value, defaultValue = null, onChange,
     expanded, defaultExpanded = false, onExpandedChange, side = 'right', panelMode = 'overlay', panelWidth = 320,
-    density = 'comfortable', keepMounted = false, dismissOnClickAway = true,
+    density = 'compact', keepMounted = false, dismissOnClickAway = true,
     expandLabel = 'Expand sidebar', collapseLabel = 'Collapse sidebar', closeLabel = 'Close panel',
     sx, dir, onKeyDown, 'aria-label': label = 'Panels', ...props }, ref
 ) {
@@ -158,7 +158,7 @@ export const IconSidebar = React.forwardRef<HTMLDivElement, IconSidebarProps>(fu
           sx={{ position: 'relative', width: '100%', justifyContent: showLabels ? 'flex-start' : 'center',
             flexDirection: (side === 'right') !== (direction === 'rtl') ? 'row-reverse' : 'row',
             px: showLabels ? 1.25 : 0, gap: 1.5, borderRadius: '6px',
-            color: active?.id === item.id ? 'primary.main' : 'text.secondary',
+            color: active?.id === item.id ? 'text.primary' : 'text.secondary',
             bgcolor: active?.id === item.id ? 'action.selected' : 'transparent',
             '&:hover': { bgcolor: active?.id === item.id ? 'action.selected' : 'action.hover' },
             '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },

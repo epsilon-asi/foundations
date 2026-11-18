@@ -15,7 +15,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Compact: Story = { args: { density: 'compact' } };
-export const Vertical: Story = { args: { orientation: 'vertical' }, decorators: [(Story) => <Box sx={{ width: 160 }}><Story /></Box>] };
+export const Vertical: Story = { args: { orientation: 'vertical' }, decorators: [(Story) => <Box sx={{ width: 160, maxWidth: '100%' }}><Story /></Box>] };
 export const Groups: Story = { args: { children: <>
   <ToolbarGroup aria-label="History"><Button>Undo</Button><Button disabled>Redo</Button></ToolbarGroup>
   <ToolbarGroup aria-label="Zoom" divided><Button>Fit</Button><Button>100%</Button></ToolbarGroup>
@@ -50,3 +50,5 @@ export const Keyboard: Story = { play: async ({ canvasElement }) => {
   await expect(canvas.getByRole('button', { name: 'Undo' })).toHaveFocus();
   await checkStoryLayout({ canvasElement });
 } };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

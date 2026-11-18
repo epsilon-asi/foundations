@@ -206,14 +206,21 @@ function createRoot(namespace: string): Root {
   const Prop = ((schema: z.ZodType, options: Options = {}) =>
     field(() => schema, options)) as unknown as PropDecorator<any>;
 
-  Prop.string = ((options: Options = {}) => {
-    const { optional, min, max, ...rest } = options;
-    let schema = z.string();
-    if (typeof min === 'number') schema = schema.min(min);
-    if (typeof max === 'number') schema = schema.max(max);
-    const built = withOptional(schema, optional);
-    return field(() => built, rest);
-  }) as PropDecorator<any>['string'];
+  function stringShorthand(createSchema: () => z.ZodString | z.ZodStringFormat): PropDecorator<any>['string'] {
+    return (options: Options = {}) => {
+      const { optional, min, max, ...rest } = options;
+      let schema = createSchema();
+      if (typeof min === 'number') schema = schema.min(min);
+      if (typeof max === 'number') schema = schema.max(max);
+      const built = withOptional(schema, optional);
+      return field(() => built, rest);
+    };
+  }
+
+  Prop.string = stringShorthand(z.string);
+  Prop.uuid = stringShorthand(z.uuid);
+  Prop.email = stringShorthand(z.email);
+  Prop.url = stringShorthand(z.url);
 
   Prop.number = ((options: Options = {}) => {
     const { optional, integer, min, max, ...rest } = options;

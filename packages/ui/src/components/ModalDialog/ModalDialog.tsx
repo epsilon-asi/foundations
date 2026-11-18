@@ -34,7 +34,7 @@ export const ModalDialog = React.forwardRef<HTMLDivElement, ModalDialogProps>(fu
         {description != null ? <Box id={`${id}-description`} sx={{ color: 'text.secondary', mb: children != null ? 2 : 0 }}>{description}</Box> : null}
         {children}
       </DialogContent>
-      {actions != null ? <DialogActions sx={{ px: 3, pb: 3, flexWrap: 'wrap', gap: 1, '& > :not(style) ~ :not(style)': { ml: 0 } }}>{actions}</DialogActions> : null}
+      {actions != null ? <DialogActions sx={{ px: 4, pb: 3, pt: 2, flexWrap: 'wrap', gap: 1, '& > :not(style) ~ :not(style)': { ml: 0 } }}>{actions}</DialogActions> : null}
     </Dialog>
   );
 });

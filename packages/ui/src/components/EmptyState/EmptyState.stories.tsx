@@ -11,7 +11,7 @@ const meta = {
   title: 'Components/EmptyState',
   component: EmptyState,
   args: {
-    sx: { width: 'min(560px, calc(100vw - 32px))' },
+    sx: { width: '100%', maxWidth: 560 },
     title: 'No invoices yet',
     description: 'Create your first invoice to see recent activity in this view.',
     icon: <InboxRounded fontSize="inherit" />,
@@ -37,3 +37,5 @@ export const WithContent: Story = { args: { children: <Typography variant="capti
 export const Narrow: Story = { args: { sx: { width: 280, maxWidth: '100%' } } };
 export const LongContent: Story = { args: { title: 'There are no shared workspaces available to review yet', description: 'workspace_abcdefghijklmnopqrstuvwxyz_0123456789_abcdefghijklmnopqrstuvwxyz', sx: { width: 280, maxWidth: '100%' } } };
 export const Dark: Story = { decorators: [withDarkUi] };
+
+export const Comfortable: Story = { args: { compact: false } };

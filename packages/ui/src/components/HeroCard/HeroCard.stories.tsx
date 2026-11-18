@@ -15,7 +15,7 @@ const meta = {
     content: 'Collect research, share insights, and explore new possibilities with your team.',
     action: <ActionButton variant="contained">Explore workspace</ActionButton>,
     visual: <Box aria-hidden="true" sx={{ width: '100%', p: 4, bgcolor: 'action.hover', color: 'primary.main', fontSize: 120, textAlign: 'center' }}>✦</Box>,
-    sx: { width: 'min(960px, calc(100vw - 32px))' }
+    sx: { width: '100%', maxWidth: 960 }
   }
 } satisfies Meta<typeof HeroCard>;
 
@@ -25,7 +25,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Flipped: Story = { args: { flip: true } };
 export const TextOnly: Story = { args: { visual: undefined, action: undefined } };
-export const Narrow: Story = { args: { sx: { width: 280 } } };
+export const Narrow: Story = { args: { sx: { width: 280, maxWidth: '100%' } } };
 export const Dark: Story = { decorators: [withDarkUi] };
 
 export const WithoutAction: Story = { args: { action: undefined } };

@@ -1,6 +1,7 @@
 import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
 
 export const uiThemeOptions: ThemeOptions = {
+  spacing: 4,
   cssVariables: {
     cssVarPrefix: 'ui'
   },
@@ -12,6 +13,7 @@ export const uiThemeOptions: ThemeOptions = {
     
   },
   palette: {
+    contrastThreshold: 4.5,
     primary: {
       main: '#325DFF',
       light: '#6E8BFF',
@@ -54,27 +56,37 @@ export const uiThemeOptions: ThemeOptions = {
       'sans-serif'
     ].join(', '),
     h1: {
+      fontSize: '2rem',
       fontWeight: 800,
       letterSpacing: '-0.04em'
     },
     h2: {
+      fontSize: '1.75rem',
       fontWeight: 800,
       letterSpacing: '-0.03em'
     },
     h3: {
+      fontSize: '1.5rem',
       fontWeight: 700,
       letterSpacing: '-0.02em'
     },
     h4: {
+      fontSize: '1.25rem',
       fontWeight: 700,
       letterSpacing: '-0.02em'
     },
     h5: {
+      fontSize: '1.125rem',
       fontWeight: 700
     },
     h6: {
+      fontSize: '1rem',
       fontWeight: 700
     },
+    body1: { fontSize: '0.875rem', lineHeight: 1.5 },
+    body2: { fontSize: '0.8125rem', lineHeight: 1.5 },
+    subtitle1: { fontSize: '0.875rem', lineHeight: 1.5 },
+    subtitle2: { fontSize: '0.8125rem', lineHeight: 1.5 },
     button: {
       fontWeight: 700,
       textTransform: 'none'
@@ -89,11 +101,31 @@ export const uiThemeOptions: ThemeOptions = {
       },
       styleOverrides: {
         root: {
-          // borderRadius: 999,
-          paddingInline: 18
+          minHeight: 28,
+          paddingInline: 10
         }
       }
     },
+    MuiIconButton: { defaultProps: { size: 'small' } },
+    MuiTextField: { defaultProps: { size: 'small', margin: 'none' } },
+    MuiFormControl: { defaultProps: { size: 'small', margin: 'none' } },
+    MuiCheckbox: { defaultProps: { size: 'small' } },
+    MuiRadio: { defaultProps: { size: 'small' } },
+    MuiSwitch: { defaultProps: { size: 'small' } },
+    MuiList: { defaultProps: { dense: true } },
+    MuiListItemText: { styleOverrides: { root: { minWidth: 0, overflowWrap: 'anywhere' } } },
+    MuiButtonGroup: { defaultProps: { size: 'small' }, styleOverrides: { root: { maxWidth: '100%' }, grouped: { minWidth: 0 } } },
+    MuiToggleButtonGroup: { defaultProps: { size: 'small' }, styleOverrides: { root: { maxWidth: '100%' } } },
+    MuiToggleButton: { styleOverrides: { root: { minWidth: 0, minHeight: 28, padding: '4px 8px', whiteSpace: 'normal', overflowWrap: 'anywhere' } } },
+    MuiTab: { styleOverrides: { root: { padding: '6px 10px', minHeight: 32 } } },
+    MuiMenuList: { defaultProps: { dense: true } },
+    MuiMenuItem: { defaultProps: { dense: true }, styleOverrides: { root: { minHeight: 28 } } },
+    MuiCardContent: { styleOverrides: { root: { padding: 12, '&:last-child': { paddingBottom: 12 } } } },
+    MuiCardHeader: { styleOverrides: { root: { padding: 12 }, action: { margin: 0 } } },
+    MuiCardActions: { styleOverrides: { root: { padding: '8px 12px' } } },
+    MuiDialogTitle: { styleOverrides: { root: { padding: '12px 16px' } } },
+    MuiDialogContent: { styleOverrides: { root: { padding: '8px 16px 12px' } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '8px 16px 12px', gap: 4 } } },
     MuiPaper: {
       styleOverrides: {
         rounded: {
@@ -103,11 +135,13 @@ export const uiThemeOptions: ThemeOptions = {
     },
     MuiCard: {
       styleOverrides: {
-        root: {
+        root: ({ ownerState }) => ({
           borderRadius: 18,
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+          ...(ownerState.variant === 'outlined' ? { boxShadow: 'none' }
+            : !ownerState.raised && (ownerState.elevation === undefined || ownerState.elevation === 1)
+              ? { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)' } : {}),
           border: '1px solid rgba(15, 23, 42, 0.08)'
-        }
+        })
       }
     },
     MuiChip: {

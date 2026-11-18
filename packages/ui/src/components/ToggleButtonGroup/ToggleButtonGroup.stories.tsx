@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { checkStoryLayout } from '../../../.storybook/layoutAssertions';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
 import { ToggleButton, ToggleButtonGroup, type ToggleButtonGroupProps } from './index';
 
 function BrushMode({ required, ...props }: ToggleButtonGroupProps & { required: boolean }) {
@@ -44,3 +45,9 @@ export const ClearableSingleChoice: Story = { render: (args) => <BrushMode {...a
 
 /** Multiple selection returns an array of the original option values, including numeric zero. */
 export const MultipleNumericChoices: Story = { render: (args) => <ViewingAngles {...args} /> };
+export const Disabled: Story = { args: { disabled: true }, render: (args) => <BrushMode {...args} required /> };
+export const Vertical: Story = { args: { orientation: 'vertical' }, render: (args) => <BrushMode {...args} required /> };
+export const Dark: Story = { render: (args) => <ViewingAngles {...args} />, decorators: [withDarkUi] };
+export const LongLabels: Story = { render: () => <ToggleButtonGroup exclusive value="paint" aria-label="Editing tools" sx={{ width: 280, maxWidth: '100%' }}>
+  <ToggleButton value="paint">Paint production details</ToggleButton><ToggleButton value="erase">Erase selected elements</ToggleButton>
+</ToggleButtonGroup> };

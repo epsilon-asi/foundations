@@ -14,10 +14,10 @@ export interface PanelProps extends Omit<PaperProps, 'title'> {
 }
 
 export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(function Panel(
-  { title, subtitle, headerAction, footer, density = 'comfortable', headingLevel = 'h2', children, headerSx, contentSx,
+  { title, subtitle, headerAction, footer, density = 'compact', headingLevel = 'h2', children, headerSx, contentSx,
     sx, variant = 'outlined', ...props }, ref
 ) {
-  const padding = density === 'compact' ? 1.5 : 2;
+  const padding = density === 'compact' ? 2 : 3;
   const headingId = React.useId();
   return <Paper ref={ref} component="section" aria-labelledby={title != null ? headingId : undefined} variant={variant}
     sx={[{ minWidth: 0, minHeight: 0, overflowWrap: 'anywhere', overflow: 'hidden' },

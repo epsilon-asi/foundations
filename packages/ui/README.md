@@ -28,6 +28,11 @@ A publish-ready component library starter for React 19 and Material UI 7 with:
 - `InsightCard`, `DateDisplay`, `StatusBadge`, and `VerticalTimeline` for insights and activity
 - `PageHeader` and `Breadcrumbs` for content headings and location trails
 - `NavigationList` and `NavigationSidebar` for router-independent application navigation
+- `SingleSelect`, `MultiSelect`, and `EnumSelect` for searchable selections with rich option content
+- `Accordion` and `AccordionGroup` for accessible standalone and grouped disclosures
+- `Switch`, `Checkbox`, `RadioGroup`, `ChoiceCardGroup`, `Slider`, and `RangeSlider` for independent settings controls
+- `Alert` and `Toast` for application feedback
+- `FileDropzone`, `SelectedFileList`, and `UploadDialog` for local file selection and caller-owned submission
 - `createSettingsContext()` for a typed, localStorage-backed settings provider
 - `createVariableThemeContext()` for a persisted, user-adjustable MUI theme driven by a config object
 
@@ -637,3 +642,326 @@ screens; nesting consumes inline space.
 
 Each new component has unit tests, dark and narrow-layout stories, and browser
 layout assertions; navigation stories also exercise keyboard selection/dismissal.
+
+## Custom selects
+
+`SingleSelect`, `MultiSelect` and `EnumSelect` share a custom MUI Autocomplete
+combobox. They carry over core-ui's searchable selection, chips and option icons,
+with richer descriptions, metadata and grouping. They reuse our `IconButton`,
+`ListSubheader` and internal glyphs. No router, form library, schema or API client
+is required. `SelectField` remains available for native option/optgroup use cases.
+
+```tsx
+import { SingleSelect, MultiSelect, EnumSelect, StatusBadge } from '@epsilon-asi/ui';
+
+const models = [
+  { value: 'fast', label: 'Fast concept', description: 'Quick exploration for early ideas.',
+    meta: <StatusBadge label="Fast" tone="info" />, keywords: ['draft'] },
+  { value: 'quality', label: 'Production quality', description: 'Detailed final artwork.',
+    group: 'Production' },
+  { value: 'legacy', label: 'Legacy model', disabled: true,
+    disabledReason: 'Unavailable for new projects' }
+];
+
+<SingleSelect label="Model" options={models} value={model}
+  onChange={(next) => setModel(next)} helperText="Search by name or description." />;
+
+<MultiSelect label="Models to compare" options={models} value={modelsToCompare}
+  onChange={(next) => setModelsToCompare(next)} limitTags={2} />;
+
+const Stage = { Draft: 'draft', InReview: 'in_review', Approved: 'approved' } as const;
+<EnumSelect label="Stage" enumValues={Stage} value={stage}
+  onChange={(next) => setStage(next)}
+  getOptionDetails={(value) => ({ description: value === 'approved' ? 'Ready for production.' : 'Still in progress.' })} />;
+```
+
+Each option has a unique `value` (string or number) and a plain-text `label`.
+Optional `description`, `icon`, `meta`, `group`, `keywords`, `disabled` and
+`disabledReason` supply context. Text wraps in the popup instead of being truncated.
+`renderOptionContent(option, { selected, inputValue })` can replace the row content;
+keep it noninteractive so the component can own the option's keyboard and selection
+semantics. Do not put buttons, links or focusable badges inside options. The label
+remains the accessible option name and selected display text.
+
+Search matches labels, string descriptions and keywords, ignoring case/diacritics.
+Provide keywords for rich descriptions. Use `filterOptions(options, query)` for a
+custom filter, or `searchable={false}` for a choice-only popup. Groups keep their
+first-appearance order and collect matching options together; ungrouped entries
+appear under `ungroupedLabel` (default `Other`). No input accepts free-form values.
+
+Selection supports controlled `value`/`onChange` or uncontrolled `defaultValue`.
+Single values use `null` for no selection; multi values use arrays. Callbacks receive
+`(nextValue, event, reason)`, with `selectOption`, `removeOption`, `clear` or `blur`.
+Numeric `0` and the empty string are valid keys, distinct from `null`. Missing saved
+values remain visible using their key until matching options arrive. New option
+objects and callback updates do not require memoization or erase the active search.
+Keep a component controlled or uncontrolled throughout its lifetime.
+
+Single selection closes the popup. Multi selection stays open by default; opt into
+`closeOnSelect` if needed. Chips can be removed by pointer or Backspace/Delete;
+`limitTags` limits visible chips while unfocused. Disabled options cannot be selected
+from the list, but a previously selected unavailable value can still be removed.
+`disabled` blocks the entire control; `readOnly` preserves focusability and prevents
+editing, clearing and chip removal. `clearable={false}` removes the clear button;
+`required` identifies a required field without preventing the caller from clearing it.
+
+Labels, helper/error text and required state are associated with the input. Use
+`inputRef` to focus the actual input and `ref` for the root div. Native attributes
+and events apply to the root; `aria-label` and `aria-describedby` apply to the input.
+An optional `name` serializes selected keys through hidden inputs (multi repeats the
+name); the search query is never submitted. Disabled controls are omitted. Caller
+validation supplies `error`/`helperText`. `sx` supports objects, arrays and functions.
+
+The popup uses a portal by default to escape clipping containers; `disablePortal`
+keeps it local if needed. `open`/`onOpen`/`onClose` control its visibility, while
+`defaultOpen` initializes it. `inputValue`/`onInputChange` control the search text;
+the search callback receives `(text, event, reason)` and includes selection/reset
+notifications. Callers can supply `options`, `loading`, `loadingText` and
+`noOptionsText` without embedding fetching behaviour in the component. Loading
+shows an indicator and reports busy state; existing options remain usable.
+
+Arrow keys, Home/End and Enter navigate/select while focus remains on the input.
+Disabled options are skipped. Escape dismisses the popup before a containing dialog;
+Tab/outside focus dismiss without committing a highlighted choice. The stories
+exercise this inside our `ModalDialog`, including focus restoration to its opener.
+
+`EnumSelect` accepts TypeScript string/numeric enums, const objects, and readonly
+literal arrays. It filters numeric reverse mappings and deduplicates aliases. Values
+retain their original type; numeric zero is preserved. Default labels humanize member
+names (or array values). `getOptionDetails(value, memberName)` supplies labels,
+descriptions, icons, metadata, grouping, keywords or availability. It is a pure adapter
+around `SingleSelect`; schema normalization and form registration stay with the caller.
+
+## Accordion
+
+`Accordion` reuses our `InspectorSection` and `Panel`. It starts collapsed, with
+compact spacing. Supply `title`, optional `subtitle`, body children and an
+independent `headerAction`; the optional `footer` collapses with the body.
+Use `headingLevel` (`h2`, `h3`, `h4`, default `h3`) to fit the surrounding document.
+Keep title content noninteractive and put buttons/menus in `headerAction`.
+
+```tsx
+<Accordion title="Asset details" subtitle="Dimensions and ownership"
+  headerAction={<IconMenu aria-label="Asset options" items={assetActions} />}
+  footer={<ActionButton>Apply changes</ActionButton>}>
+  <PropertiesDisplayCard title="Metadata" properties={properties} />
+</Accordion>;
+
+<AccordionGroup aria-label="Asset information" mode="single"
+  defaultExpandedIds={['details']}
+  items={[
+    { id: 'details', title: 'Asset details', content: <AssetDetails /> },
+    { id: 'history', title: 'Revision history', content: <RevisionHistory /> },
+    { id: 'settings', title: 'Generation settings', disabled: true,
+      subtitle: 'Requires owner access', content: <GenerationSettings /> }
+  ]} />;
+```
+
+Standalone expansion supports `expanded`/`onExpandedChange(boolean)` or
+`defaultExpanded`. Bodies unmount when collapsed; `keepMounted` retains their state
+while hiding them from assistive technology and keyboard navigation. A parent-driven
+collapse returns focus from body content to the header (or the section if its
+header is disabled). It does not steal focus
+from controls outside the body. Disabled headers cannot toggle; already-open content
+remains readable and interactive. Disable custom body/header actions separately
+when necessary. The existing InspectorSection also gains disabled disclosure and
+focus recovery, preserving its expanded/compact defaults.
+
+`AccordionGroup` supports `mode="single"` (default, at most one open) or `"multiple"`.
+All sections may be closed. Use controlled `expandedIds`/`onExpandedChange(ids, itemId)`
+or uncontrolled `defaultExpandedIds`. IDs must be unique. Unknown/duplicate expansion
+IDs are ignored; single mode uses the first valid ID. Prop/item changes do not emit
+synthetic change callbacks. Group `density`, `headingLevel` and `keepMounted` provide
+shared defaults that individual items can override. Group `disabled` blocks every
+header, while item `disabled` blocks one. Reordering uses stable IDs; removing an
+open item hides it without silently opening another.
+
+Enter/Space toggle the focused header. Up/Down and Home/End move between enabled
+group headers without changing expansion. Tab retains the natural order of headers,
+actions and visible content. Nested disclosures, nested groups, menus and input
+editing keep their own keys. When a focused item disappears or becomes unavailable,
+focus recovers to an available header (or the group if none remain). The group itself
+is only programmatically focusable. Root/header/content styling follows Panel's
+`sx`, `headerSx` and `contentSx` conventions. Use a descriptive group `aria-label`.
+
+Stories cover controlled and uncontrolled use, single/multiple open sections,
+compact spacing, nested content, disabled states, retained state, independent actions,
+long labels, dark mode and keyboard/focus interactions.
+
+## Settings controls and choice cards
+
+`Switch` and `Checkbox` wrap MUI controls with associated `label`, `helperText`,
+`error`, and `required` presentation. They support `checked`/`onChange(event, checked)`
+or `defaultChecked`, native names/values, sizes, colours, `sx`, input refs and MUI
+slot props. `disabled` removes interaction; `readOnly` keeps the control focusable
+without changing its value. Checkbox `indeterminate` exposes the mixed state to
+assistive technology. Without a visible label, supply a native input accessible
+name through `slotProps.input`. Root refs follow MUI's control ref types; use
+`inputRef` or the input slot ref for the actual checkbox input.
+
+```tsx
+<Switch label="Live preview" checked={live} onChange={(_, next) => setLive(next)}
+  helperText="Refresh the preview when settings change." />;
+<Checkbox label="Include metadata" defaultChecked name="metadata" value="include" />;
+```
+
+`RadioGroup` and `ChoiceCardGroup` share the same native radio implementation. The
+card version adapts core-ui's OptionList with proper radio semantics and stable
+primitive values instead of object-reference comparison or index-based React keys.
+An option has `value` (string/number), `label`, and optional `description`, `icon`,
+`meta` and `disabled`. Keep rich content noninteractive. Use `label`, `helperText`,
+`required`, `error`, `disabled`, `readOnly`, `value`/`onChange(value, event)` or
+`defaultValue`. Numeric zero is preserved. Native `name` submission uses actual
+values. Group refs target the radiogroup; colours and spacing follow our theme.
+
+```tsx
+<ChoiceCardGroup label="Quality preset" value={quality}
+  onChange={(next) => setQuality(next)} columns={2}
+  options={[
+    { value: 'draft', label: 'Draft', description: 'Quick concept exploration.' },
+    { value: 'production', label: 'Production', description: 'Detailed final artwork.',
+      meta: <StatusBadge label="High detail" tone="info" /> },
+    { value: 'legacy', label: 'Legacy', disabled: true }
+  ]} />;
+```
+
+Arrow keys and Home/End focus and select enabled options, mirrored in RTL. Tab uses
+native radio-group behaviour. Read-only groups allow focus movement without changing
+selection. Removed/disabled focused options recover focus to an available choice
+(or the group if none remain). Missing saved values do not silently select a new
+option. Card columns collapse to one on narrow screens; `columns` accepts 1, 2 or 3.
+`RadioGroup row` provides a wrapping horizontal layout for simple choices.
+
+`Slider` and `RangeSlider` adapt core-ui's slider without its fixed minimum width.
+Both have a visible `label`, associated helper/error text and MUI's marks, step,
+value labels, colour, orientation, slots and style overrides. Use finite values,
+valid min/max bounds and a positive step (or MUI's marked-value mode). Range values
+are ascending `[minimum, maximum]` tuples; thumbs cannot swap by default. Endpoint
+names default to `Label: Minimum` and `Label: Maximum`, customizable with
+`getAriaLabel`. Native keyboard movement, bounds and step handling remain intact.
+Endpoint mark labels stay within the track edges, including RTL layouts.
+
+```tsx
+<Slider label="Opacity" min={0} max={100} step={5} value={opacity}
+  onChange={(next) => setOpacity(next)} onChangeCommitted={(next) => persistOpacity(next)} />;
+<RangeSlider label="Frame range" defaultValue={[20, 80]} valueLabelDisplay="auto" />;
+```
+
+Slider callbacks are `(value, event, activeThumb)` and committed callbacks are
+`(value, event)`. Refs target the MUI slider root. These controls have no form
+registration, schema validation, persistence or API dependencies.
+
+## Feedback
+
+`Alert` supports semantic severity, standard/outlined/filled variants, a `title`,
+body, action slot and independent close action using our `IconButton`. Informational
+and success feedback defaults to `role="status"`; warnings/errors use `role="alert"`.
+Override `role` when a different announcement policy is appropriate. Text and actions
+wrap on narrow screens.
+
+`Toast` composes `Alert` with MUI Snackbar. `open` is caller-controlled. It defaults
+to a six-second auto-hide timer, paused by focus/hover/window blur through Snackbar;
+use `autoHideDuration={null}` for a persistent notification. Change `messageId` to
+restart timing for a new message. `onClose(event, reason)` reports `timeout`,
+`escapeKeyDown`, `closeButtonClick`, or optional `clickaway`. Outside clicks do not
+dismiss by default; use `dismissOnClickAway` to opt in. `anchorOrigin`, Snackbar
+native props and `sx` remain available. There is no global queue or API/promise
+watcher; the application owns notification state and message content.
+
+```tsx
+<Alert severity="warning" title="Review required" onClose={() => setWarning(false)}>
+  Some assets need approval before publishing.
+</Alert>;
+<Toast open={noticeOpen} messageId={noticeId} message="Asset saved" severity="success"
+  onClose={() => setNoticeOpen(false)} action={<ActionButton color="inherit">Undo</ActionButton>} />;
+```
+
+## File selection and upload dialog
+
+`FileDropzone` uses a native file input and HTML drag/drop, composed with our
+`ActionButton`, `Alert` and `SelectedFileList`. It supports controlled `files` or
+`defaultFiles`, `onFilesChange(files, reason)` (`add`/`remove`), `onDrop(accepted,
+rejected)` and `onReject(rejected)`. `accept` accepts a comma-separated string or
+array of extensions/MIME patterns; `minSize`/`maxSize` are bytes and `maxFiles` caps
+the total selection. Multiple selection defaults to true. Single-file selection
+replaces the previous file only when a valid replacement is accepted.
+
+Valid files from a batch are retained while invalid/excess files are reported with
+per-file errors. Duplicates are identified by name, size, type and last-modified
+metadata. Type matching is case-insensitive; extension rules work when a file's
+reported MIME type is empty. A MIME-only rule needs a matching reported type.
+The picker input resets after each selection so rejected files can be selected
+again. Canceling the native picker never leaves the component busy.
+
+```tsx
+<FileDropzone label="Project files" accept={['image/*', '.png', '.jpg']}
+  maxSize={5 * 1024 * 1024} maxFiles={8} files={files}
+  onFilesChange={(next) => setFiles(next)} />;
+```
+
+`disabled`, `readOnly` and `busy` block adding/removing files; read-only mode omits
+remove actions. `chooseLabel`, `helperText`, `showPreviews`, input/root refs and `sx`
+customize presentation. `SelectedFileList` can also be used independently with
+`files`, `onRemove(index)`, `disabled` and `showPreviews`. Image previews use local
+object URLs, revoked on replacement/unmount; failures fall back to a file icon.
+Other file types show metadata without loading external content.
+
+`UploadDialog` composes our `ModalDialog`, `FileDropzone`, actions and error Alert.
+It accepts controlled `open` and `onSubmit(files)` returning void or a promise. It
+blocks duplicate submissions, mutation and dismissal while submitting (or externally
+`busy`), retains files after failure and restores an enabled retry action. Customize
+errors with `getErrorMessage`; observe `onSubmitSuccess`/`onSubmitError`. Completion
+from an old closed dialog session cannot update a newly opened session.
+
+```tsx
+<UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)}
+  dropzoneProps={{ accept: ['image/*', '.png'], maxFiles: 8 }}
+  onSubmit={(selectedFiles) => uploadFilesInApplication(selectedFiles)}
+  onSubmitSuccess={() => setUploadOpen(false)} />;
+```
+
+The caller decides when to close after success. Uncontrolled files reset after a
+caller-driven close by default; use `resetOnClose={false}` to retain them. Controlled
+file state remains caller-owned. `onFilesChange` supports controlled selection;
+`dropzoneProps` supplies file policies/presentation. Cancel reports
+`cancelButtonClick` through the shared dialog close callback. Submission does not
+include storage clients, endpoint selection or network requests in this package.
+
+All components include interaction tests and stories for disabled/read-only states,
+long text, narrow layouts and dark mode. File stories use local fixture files only.
+
+
+## Compact visual standards
+
+The default theme uses a **4px spacing grid**, small controls, 13–14px body text,
+and a compact heading scale. Panels, tabs, toolbars, navigation, accordions, icon
+sidebars and timelines default to compact density. Typical surface padding is
+8–12px, tab rows are 32px, icon buttons are 32px, and action buttons retain a
+28px minimum height. File drop areas are 88px rather than large empty blocks.
+Card content and dialogs use the same compact spacing rhythm.
+
+Use `density="comfortable"` on components that expose it, explicit control sizes,
+`sx`, or `createUiTheme({ spacing: 8 })` when a particular screen needs more room.
+EmptyState supports `compact={false}`. Compact spacing does not change application
+state, keyboard navigation, focus indicators, or controlled component contracts.
+
+Storybook's **Foundations/Density** page compares compact and comfortable variants.
+Every component group has dark-mode examples and layout checks; long-content and
+interaction cases cover menus, scrolling surfaces, overlays and native controls.
+Automatic API documentation is enabled for each group. Story layout markers include
+the story ID so browser checks cannot accidentally accept a previous story's result.
+
+The visual audit also tightened fallback-avatar and semantic-colour contrast,
+selected navigation labels, disclosure typography, and responsive story fixtures.
+The palette's contrast threshold is 4.5 for generated foreground colours.
+
+The review covered all 602 stories across 56 groups at 320px, 768px and 1280px
+viewport widths. Story interaction/layout checks passed at each width; additional
+DOM checks found no horizontal overflow, clipped visible text or low-contrast text
+in the states measured. Representative light/dark surfaces and overlays were also
+inspected visually. This is a review baseline, not a pixel-diff regression suite;
+the contrast check excludes gradients, images, placeholders and disabled content.
+
+Further coverage should include broader RTL/localization examples, system contrast
+and reduced-motion settings, and larger compositions that combine these primitives
+into workbench flows. These complement the existing component-level stories.

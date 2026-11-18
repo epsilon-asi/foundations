@@ -10,7 +10,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const AllTonesAndVariants: Story = { render: () => <Box sx={{ display: 'grid', gap: 2 }}>{(['neutral', 'info', 'success', 'warning', 'error'] as const).map((tone) =>
-  <Box key={tone} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}><Typography sx={{ width: 64 }}>{tone}</Typography>{(['soft', 'outlined', 'solid'] as const).map((variant) =>
+  <Box key={tone} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}><Typography sx={{ width: 64, maxWidth: '100%' }}>{tone}</Typography>{(['soft', 'outlined', 'solid'] as const).map((variant) =>
     <StatusBadge key={variant} label={variant} tone={tone} variant={variant} />)}<StatusBadge label={tone} tone={tone} display="dot" /></Box>)}</Box> };
 export const Sizes: Story = { render: (args) => <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}><StatusBadge {...args} /><StatusBadge {...args} size="medium" /><StatusBadge {...args} display="dot" /><StatusBadge {...args} display="dot" size="medium" /></Box> };
 export const WithoutIndicator: Story = { args: { indicator: false } };

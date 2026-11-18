@@ -367,6 +367,8 @@ Definition-time checks keep the naming honest. Each throws an error that names t
 
 ## Phase 0 — Toolchain and foundation prep
 
+**Implementation is in progress.** On 2026-11-18, the first changes in 0.2, 0.4 and 0.5 passed local verification. Foundation passed its runtime and type tests, examples and build. The CLI naming tests passed, and `apps` passed its typecheck, test and clean build.
+
 ### 0.0 Toolchain
 - **pnpm workspaces:**
   - A root `pnpm-workspace.yaml` with `packages/*`.
@@ -396,7 +398,8 @@ Definition-time checks keep the naming honest. Each throws an error that names t
   - Fields are redacted by key name, and through a redaction hook. `apps` fills the hook with every server-only field (1.1), because foundation doesn't know about flavors.
   - A JSON writer takes its field names from a format preset: generic (`level`, the default) or `gcp` (`severity`).
   - The CLI keeps its text writer.
-- **Casing:** `toCamelCase`, `toPascalCase` and `toSnakeCase` ship now, with round-trip tests across all five. Phase 1 derives item params, list keys and message keys from them.
+- [x] Export `toCamelCase`, `toPascalCase` and `toSnakeCase` from the foundation package root. Tests exercise all five input spellings for each of these three outputs. [Usage examples](../../packages/foundation/README.md#naming)
+- [ ] Move the two existing CLI helpers listed above, preserve their CLI exports, and complete round-trip tests across all five outputs. Phase 1 uses these conversions for item params, list keys and message keys.
 - **Stays in command-line:** the CLI-specific pieces (`logLevelEnvName`, `commandNameFromClass`, `optionFlags`, `parseFlags`, `argumentSyntax`, the `DEFAULT_LOG_LEVEL_*` flag constants).
 - command-line re-exports the moved names, so its public API and tests stay unchanged.
 
@@ -416,7 +419,9 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
 - **Acceptance:** command-line's existing middleware tests and examples pass unchanged.
 
 ### 0.4 Additions to foundation's `@Prop`
-- **New shorthands:** `Prop.uuid()`, `Prop.enum(E | values)`, `Prop.email()`, `Prop.url()`, and a `default` option on the shorthands. `default` joins `SHORTHAND_KEYS` (`typeRegistry.ts:71`); otherwise it resolves as an unknown extension and throws. They get type tests in the `typeRegistry.type-test.ts` style.
+
+- [x] Implement `Prop.uuid()`, `Prop.email()` and `Prop.url()` with runtime and type tests for string fields. [Usage example](../../packages/foundation/README.md#validated-string-fields)
+- [ ] Add `Prop.enum(E | values)` and a `default` option on the shorthands, with type tests in the `typeRegistry.type-test.ts` style. Add `default` to `SHORTHAND_KEYS` in `typeRegistry.ts` so the registry recognizes it as a built-in option.
 - **Retire the old prototypes:** `decorators/requests/mapping.ts` and `decorators/validation/validatable.ts`. The `aiTool` intent in `validatable.ts` is carried forward as agent tools (1.12).
 
 ### 0.5 Re-tool `@epsilon-asi/apps`
@@ -431,7 +436,7 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
   - Optional peers: `express`, `@mikro-orm/core`, `@mikro-orm/migrations`, `redis`, `stripe`, and the cloud SDK each provider subpath uses (`@google-cloud/pubsub`).
   - Drop `openai`, `dotenv`, `uuid`, `ts-deepmerge` and `@mikro-orm/decorators`.
   - devDependencies: vitest, @types/express, @mikro-orm/sqlite, @mikro-orm/postgresql, esbuild.
-- **Remove the placeholders:** `src/{api,consumer,daemon,producer}/index.ts` and `src/common/*`.
+- [x] Remove `src/{api,consumer,daemon,producer}/index.ts` and their scaffolding in `src/common/`. A clean build produced only `index.js`, `index.d.ts` and `package.json`.
 - **Scripts:** `build`, `typecheck` (including type tests), `test`, `check:browser`, `verify`, `bump`, `pub`.
 
 **Phase 0 is done when** `typecheck`, `test` and `build` pass in foundation, command-line, apps, system and langgraph, and `check:browser` passes on foundation's and `apps`' browser-safe entries, all on TS 5.9 and TS 7.

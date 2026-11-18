@@ -45,3 +45,5 @@ export const KeyboardAndSelection: Story = { args: { value: 'home', defaultExpan
   await userEvent.keyboard('{End}'); await expect(canvas.getByRole('button', { name: 'Settings' })).toHaveFocus();
   await checkStoryLayout({ canvasElement });
 } };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

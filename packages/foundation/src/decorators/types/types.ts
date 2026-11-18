@@ -123,13 +123,20 @@ export type NumberPropOptions<TExt extends ExtensionMap = {}> = PropOptions<TExt
 type OptionalField = { optional: true };
 type RequiredField = { optional?: false };
 
+interface StringShorthand<TExt extends ExtensionMap> {
+  (options: StringPropOptions<TExt> & OptionalField): FieldDecorator<string | undefined>;
+  (options?: StringPropOptions<TExt> & RequiredField): FieldDecorator<string>;
+}
+
 export interface PropDecorator<TExt extends ExtensionMap = {}> {
   <TSchema extends z.ZodType>(schema: TSchema, options?: PropOptions<TExt>): FieldDecorator<
     z.output<TSchema>
   >;
 
-  string(options: StringPropOptions<TExt> & OptionalField): FieldDecorator<string | undefined>;
-  string(options?: StringPropOptions<TExt> & RequiredField): FieldDecorator<string>;
+  string: StringShorthand<TExt>;
+  uuid: StringShorthand<TExt>;
+  email: StringShorthand<TExt>;
+  url: StringShorthand<TExt>;
 
   number(options: NumberPropOptions<TExt> & OptionalField): FieldDecorator<number | undefined>;
   number(options?: NumberPropOptions<TExt> & RequiredField): FieldDecorator<number>;

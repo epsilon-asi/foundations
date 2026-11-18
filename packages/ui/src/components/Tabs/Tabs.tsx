@@ -27,7 +27,7 @@ export interface TabsProps extends Omit<BoxProps, 'children' | 'onChange'> {
 /** Controlled navigation; URL state and decisions about unsaved work belong to the application. */
 export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   { tabs, value, onChange, orientation = 'horizontal', variant = 'scrollable', selectionFollowsFocus = false,
-    keepMounted = false, density = 'comfortable', tabsSx, panelSx, sx, 'aria-label': label,
+    keepMounted = false, density = 'compact', tabsSx, panelSx, sx, 'aria-label': label,
     'aria-labelledby': labelledBy, ...props }, ref
 ) {
   const baseId = React.useId();
@@ -41,8 +41,8 @@ export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(function Tabs(
         sx={[{ minWidth: 0, flexShrink: 0,
           ...(orientation === 'vertical' ? { width: '35%', maxWidth: 240, borderRight: 1, borderColor: 'divider' }
             : { maxWidth: '100%', borderBottom: 1, borderColor: 'divider' }),
-          '& .MuiTab-root': { minHeight: density === 'compact' ? 36 : 48, minWidth: 0, overflowWrap: 'anywhere' },
-          minHeight: density === 'compact' ? 36 : 48 }, ...(Array.isArray(tabsSx) ? tabsSx : tabsSx ? [tabsSx] : [])]}>
+          '& .MuiTab-root': { minHeight: density === 'compact' ? 32 : 44, minWidth: 0, overflowWrap: 'anywhere' },
+          minHeight: density === 'compact' ? 32 : 44 }, ...(Array.isArray(tabsSx) ? tabsSx : tabsSx ? [tabsSx] : [])]}>
         {tabs.map((tab) => {
           const id = `${baseId}-${encodeURIComponent(tab.id)}`;
           return <Tab key={tab.id} value={tab.id} id={`${id}-tab`} aria-controls={`${id}-panel`}
@@ -56,7 +56,7 @@ export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(function Tabs(
           const active = current === tab.id;
           return <Box key={tab.id} id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab`}
             hidden={!active} tabIndex={0}
-            sx={[{ p: density === 'compact' ? 1.5 : 2, minWidth: 0, overflowWrap: 'anywhere' },
+            sx={[{ p: density === 'compact' ? 2 : 3, minWidth: 0, overflowWrap: 'anywhere' },
               ...(Array.isArray(panelSx) ? panelSx : panelSx ? [panelSx] : [])]}>
             {active || keepMounted ? tab.content : null}
           </Box>;

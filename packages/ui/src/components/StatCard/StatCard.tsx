@@ -85,11 +85,11 @@ export function StatCard({
                 borderRadius: 3,
                 color: theme.palette.primary.main,
                 display: 'inline-flex',
-                fontSize: 28,
-                height: 56,
+                fontSize: 22,
+                height: 40,
                 flexShrink: 0,
                 justifyContent: 'center',
-                width: 56
+                width: 40
               })}
             >
               {icon}
@@ -97,7 +97,7 @@ export function StatCard({
           ) : null}
         </Stack>
 
-        <Typography sx={{ mt: 1, fontWeight: 800, fontSize: 'clamp(1.5rem, 8cqi, 2.125rem)' }} variant="h4">
+        <Typography sx={{ mt: 1, fontWeight: 800, fontSize: 'clamp(1.25rem, 7cqi, 1.75rem)' }} variant="h4">
           {value}
         </Typography>
         {description ? <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">{description}</Typography> : null}

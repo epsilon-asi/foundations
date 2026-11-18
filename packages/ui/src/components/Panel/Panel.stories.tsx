@@ -28,3 +28,5 @@ export const LongContent: Story = { args: { title: 'Generation settings for the 
   headerAction: <ActionButton size="small">Refresh all properties</ActionButton>,
   children: 'asset_abcdefghijklmnopqrstuvwxyz_0123456789_abcdefghijklmnopqrstuvwxyz' } };
 export const Dark: Story = { decorators: [withDarkUi] };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

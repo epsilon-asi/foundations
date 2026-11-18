@@ -1,4 +1,15 @@
 export * from './components/ActionButton';
+export * from './components/Accordion';
+export * from './components/Switch';
+export * from './components/Checkbox';
+export * from './components/RadioGroup';
+export * from './components/Slider';
+export * from './components/RangeSlider';
+export * from './components/ChoiceCardGroup';
+export * from './components/Alert';
+export * from './components/Toast';
+export * from './components/FileDropzone';
+export * from './components/UploadDialog';
 export * from './components/ButtonGroup';
 export * from './components/ChipMenu';
 export * from './components/ContactCard';
@@ -17,6 +28,9 @@ export * from './components/PageSection';
 export * from './components/PropertiesDisplayCard';
 export * from './components/StatCard';
 export * from './components/SelectField';
+export * from './components/SingleSelect';
+export * from './components/MultiSelect';
+export * from './components/EnumSelect';
 export * from './components/ToggleButtonGroup';
 export * from './providers/SettingsProvider';
 

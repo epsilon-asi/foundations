@@ -33,7 +33,7 @@ export const DialogCard = React.forwardRef<HTMLDivElement, DialogCardProps>(
             m: 0,
             borderColor: theme.palette.divider,
             p: 2,
-            pt: 4
+            pt: 2
           }),
           ...(Array.isArray(sx) ? sx : sx ? [sx] : [])
         ]}
@@ -63,7 +63,7 @@ export const DialogCard = React.forwardRef<HTMLDivElement, DialogCardProps>(
         ) : null}
         {children}
         {actions ? (
-          <CardActions disableSpacing sx={{ mt: 4, p: 0, justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <CardActions disableSpacing sx={{ mt: 2, p: 0, justifyContent: 'flex-end', flexWrap: 'wrap', gap: 1 }}>
             {actions}
           </CardActions>
         ) : null}

@@ -11,7 +11,7 @@ export interface IconButtonProps extends MuiIconButtonProps {
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
-  function IconButton({ tooltip, outlined = true, filled = false, grow = false, variant = 'square', size = 'medium', sx, ...props }, ref) {
+  function IconButton({ tooltip, outlined = true, filled = false, grow = false, variant = 'square', size = 'small', sx, ...props }, ref) {
     const dimension = size === 'small' ? 32 : size === 'large' ? 48 : 40;
     const button = (
       <MuiIconButton

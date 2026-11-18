@@ -29,7 +29,7 @@ export interface VerticalTimelineProps extends Omit<BoxProps<'ol'>, 'children' |
 
 export const VerticalTimeline = React.forwardRef<HTMLOListElement, VerticalTimelineProps>(function VerticalTimeline(
   { items, position = 'right', dateFormat = 'absolute', locale = 'en-US', timeZone = 'UTC', formatOptions, now = Date.now(),
-    density = 'comfortable', emptyState = <EmptyState compact title="No activity yet" />, sx, 'aria-label': label = 'Activity', ...props }, ref
+    density = 'compact', emptyState = <EmptyState compact title="No activity yet" />, sx, 'aria-label': label = 'Activity', ...props }, ref
 ) {
   const reference = timestamp(now);
   const formatter = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...formatOptions, timeZone });

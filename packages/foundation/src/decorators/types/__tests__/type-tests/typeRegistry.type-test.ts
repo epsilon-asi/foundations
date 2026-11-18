@@ -54,6 +54,15 @@ class Good {
   @Prop.string({ optional: true })
   note?: string;
 
+  @Prop.uuid()
+  id!: string;
+
+  @Prop.email({ http: { in: 'query' } })
+  contact!: string;
+
+  @Prop.url({ optional: true })
+  website?: string;
+
   @Prop.number({ integer: true })
   rank!: number;
 
@@ -74,6 +83,22 @@ class Good {
 }
 
 class Bad {
+  // @ts-expect-error a UUID is a string
+  @Prop.uuid()
+  id!: number;
+
+  // @ts-expect-error an email address is a string
+  @Prop.email()
+  contact!: number;
+
+  // @ts-expect-error a URL is a string
+  @Prop.url()
+  website!: number;
+
+  // @ts-expect-error an optional URL may be undefined
+  @Prop.url({ optional: true })
+  requiredUrl!: string;
+
   // @ts-expect-error schema output is number, field is string
   @Prop(z.number())
   mismatch!: string;

@@ -11,7 +11,7 @@ const meta = {
   title: 'Components/StatCard',
   component: StatCard,
   args: {
-    sx: { width: 'min(380px, calc(100vw - 32px))' },
+    sx: { width: '100%', maxWidth: 380 },
     title: 'Monthly recurring revenue',
     value: '$128,400',
     description: 'Compared to the previous 30 days',

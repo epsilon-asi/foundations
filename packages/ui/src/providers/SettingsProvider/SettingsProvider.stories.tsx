@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Stack, Switch, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { ActionButton } from '../../components/ActionButton';
+import { Switch } from '../../components/Switch';
+import { checkStoryLayout } from '../../../.storybook/layoutAssertions';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
 import { createSettingsContext } from './SettingsProvider';
 
 interface DemoSettings {
@@ -20,6 +23,7 @@ function SettingsDemo() {
     <Stack spacing={2}>
       <Stack alignItems="center" direction="row" spacing={1}>
         <Switch
+          label="Dark appearance preference"
           checked={settings.dark}
           onChange={(event) => settings.update({ dark: event.target.checked })}
         />
@@ -48,6 +52,7 @@ function SettingsDemo() {
 const meta = {
   title: 'Providers/SettingsProvider',
   component: SettingsProvider,
+  play: checkStoryLayout,
   args: {
     storageKey: 'storybook.settings',
     defaults: {
@@ -66,3 +71,4 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+export const Dark: Story = { decorators: [withDarkUi] };

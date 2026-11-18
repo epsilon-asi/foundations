@@ -10,7 +10,7 @@ const meta = {
   title: 'Components/HorizontalCard',
   component: HorizontalCard,
   parameters: { layout: 'fullscreen' },
-  decorators: [(Story) => <Box sx={{ width: 'min(960px, calc(100vw - 32px))' }}><Story /></Box>],
+  decorators: [(Story) => <Box sx={{ width: '100%', maxWidth: 960 }}><Story /></Box>],
   args: {
     title: 'Workspace',
     subtitle: 'An overview of your shared workspace.',

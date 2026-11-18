@@ -213,3 +213,5 @@ export const NestedMenu: Story = { play: async ({ canvasElement }) => {
   await expect(body.getByRole('region', { name: 'Layers' })).toBeVisible();
   await checkSidebarLayout({ canvasElement });
 } };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

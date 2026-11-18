@@ -12,7 +12,7 @@ export interface EmptyStateProps extends Omit<PaperProps, 'title'> {
 export function EmptyState({
   action,
   children,
-  compact = false,
+  compact = true,
   description,
   icon,
   sx,
@@ -43,10 +43,10 @@ export function EmptyState({
               borderRadius: '50%',
               color: theme.palette.primary.main,
               display: 'inline-flex',
-              fontSize: 32,
-              height: 72,
+              fontSize: compact ? 24 : 32,
+              height: compact ? 48 : 72,
               justifyContent: 'center',
-              width: 72
+              width: compact ? 48 : 72
             })}
           >
             {icon}

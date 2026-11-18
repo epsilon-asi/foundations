@@ -14,7 +14,7 @@ const meta = {
   args: {
     name: 'Alex Rivera', jobTitle: 'Research lead', skills: ['Analysis', 'Design', 'Strategy'],
     actions: <ActionButton variant="outlined">View profile</ActionButton>,
-    sx: { width: 'min(380px, calc(100vw - 32px))' }
+    sx: { width: '100%', maxWidth: 380 }
   }
 } satisfies Meta<typeof ContactCard>;
 
@@ -25,7 +25,7 @@ export const Default: Story = {};
 export const WithPhoto: Story = { args: { photo } };
 export const Minimal: Story = { args: { jobTitle: undefined, skills: undefined, actions: undefined } };
 export const StartAligned: Story = { args: { align: 'start' } };
-export const Narrow: Story = { args: { sx: { width: 280 }, skills: ['Research', 'Cross-functional collaboration', 'Design'] } };
+export const Narrow: Story = { args: { sx: { width: 280, maxWidth: '100%' }, skills: ['Research', 'Cross-functional collaboration', 'Design'] } };
 export const Dark: Story = { decorators: [withDarkUi] };
 
 export const EndAligned: Story = { args: { align: 'end' } };

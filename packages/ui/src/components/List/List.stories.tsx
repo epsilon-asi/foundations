@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { checkStoryLayout } from '../../../.storybook/layoutAssertions';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
 import { IconButton } from '../IconButton';
 import { List, ListItem, ListItemButton, ListItemText, ListSubheader } from './index';
 
@@ -22,6 +23,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const Compact: Story = { args: { dense: true, disablePadding: true } };
+export const Comfortable: Story = { args: { dense: false } };
+export const Dark: Story = { decorators: [withDarkUi] };
+export const LongContent: Story = { args: { sx: { width: 280, maxWidth: '100%' }, children: <ListItem><ListItemText primary="Character production review and rendering progress"
+  secondary="asset_abcdefghijklmnopqrstuvwxyz_0123456789_abcdefghijklmnopqrstuvwxyz" /></ListItem> } };
 
 export const Ordered: Story = {
   render: () => (

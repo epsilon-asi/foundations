@@ -4,6 +4,7 @@ import { Box } from '@mui/material';
 import { UiProvider } from '../src/theme';
 
 const preview: Preview = {
+  tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',
     controls: {

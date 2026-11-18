@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Box, Chip, Tooltip, type ChipProps } from '@mui/material';
-import { alpha, getContrastRatio, useTheme } from '@mui/material/styles';
+import { alpha, darken, lighten, getContrastRatio, useTheme } from '@mui/material/styles';
 
 export type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
 export interface StatusBadgeProps extends Omit<ChipProps, 'label' | 'color' | 'icon' | 'variant' | 'onDelete' | 'onClick' | 'clickable' | 'component' | 'children' | 'ref'> {
@@ -21,7 +21,7 @@ export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(f
   const theme = useTheme();
   const palette = tone === 'neutral' ? null : theme.palette[tone];
   const main = palette?.main ?? theme.palette.text.secondary;
-  const foreground = palette ? palette[theme.palette.mode === 'dark' ? 'light' : 'dark'] : theme.palette.text.secondary;
+  const foreground = palette ? theme.palette.mode === 'dark' ? lighten(palette.light, 0.15) : darken(palette.dark, 0.15) : theme.palette.text.primary;
   const solidText = getContrastRatio(main, theme.palette.common.white) >= getContrastRatio(main, theme.palette.common.black)
     ? theme.palette.common.white : theme.palette.common.black;
   const dot = <Box component="span" aria-hidden="true" sx={{ display: 'inline-block', flexShrink: 0, width: 7, height: 7,

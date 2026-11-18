@@ -17,7 +17,7 @@ const meta = { title: 'Components/NavigationSidebar', component: NavigationSideb
     useEffect(() => setOpen(args.open), [args.open]);
     return <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {args.variant === 'temporary' ? <ActionButton sx={{ alignSelf: 'flex-start' }} onClick={() => setOpen(true)}>Open navigation</ActionButton> : null}
-      <Box sx={{ height: 480, display: 'flex', minWidth: 0 }}><NavigationSidebar {...args} open={open} value={value}
+      <Box sx={{ height: 480, display: 'flex', justifyContent: args.anchor === 'right' ? 'flex-end' : 'flex-start', minWidth: 0 }}><NavigationSidebar {...args} open={open} value={value}
         onSelect={(item, event) => { event.preventDefault(); args.onSelect?.(item, event); setValue(item.id); }}
         onClose={(event, why) => { args.onClose?.(event, why); setOpen(false); setReason(`Closed: ${why}`); }} /></Box>
       <Typography role="status">{reason || `Selected: ${value}`}</Typography>

@@ -14,7 +14,7 @@ const meta = {
   args: {
     title: 'New possibilities',
     children: <Typography>Collect ideas, compare approaches, and share your next discovery.</Typography>,
-    sx: { width: 'min(420px, calc(100vw - 32px))' }
+    sx: { width: '100%', maxWidth: 420 }
   }
 } satisfies Meta<typeof DecoratedCard>;
 
@@ -47,7 +47,7 @@ export const ContentOnly: Story = {
 };
 
 export const Narrow: Story = {
-  args: { sx: { width: 280 }, actions: <ActionButton fullWidth>Explore ideas</ActionButton> }
+  args: { sx: { width: 280, maxWidth: '100%' }, actions: <ActionButton fullWidth>Explore ideas</ActionButton> }
 };
 
 export const Dark: Story = {

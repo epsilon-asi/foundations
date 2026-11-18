@@ -49,7 +49,7 @@ export const BusyAction: Story = {
 };
 
 export const Narrow: Story = {
-  decorators: [(Story) => <Box sx={{ width: 280 }}><Story /></Box>]
+  decorators: [(Story) => <Box sx={{ width: 280, maxWidth: '100%' }}><Story /></Box>]
 };
 
 export const Dark: Story = {

@@ -18,7 +18,7 @@ const meta = {
       { id: 'owner', label: 'Owner', value: 'Chris' },
       { id: 'status', label: 'Status', value: <Chip label="Active" color="success" size="small" /> }
     ],
-    sx: { width: 'min(560px, calc(100vw - 32px))' }
+    sx: { width: '100%', maxWidth: 560 }
   }
 } satisfies Meta<typeof PropertiesDisplayCard>;
 
@@ -57,8 +57,8 @@ export const Empty: Story = {
 };
 
 export const Narrow: Story = {
-  args: { sx: { width: 280 } },
-  decorators: [(Story) => <Box sx={{ width: 280 }}><Story /></Box>]
+  args: { sx: { width: 280, maxWidth: '100%' } },
+  decorators: [(Story) => <Box sx={{ width: 280, maxWidth: '100%' }}><Story /></Box>]
 };
 
 export const Dark: Story = {

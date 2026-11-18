@@ -14,7 +14,7 @@ const meta = {
   args: {
     steps: [{ id: 'gather', title: 'Gather ideas' }, { id: 'review', title: 'Review' }, { id: 'share', title: 'Share' }],
     activeStep: 1, 'aria-label': 'Research progress',
-    sx: { width: 'min(640px, calc(100vw - 32px))' }
+    sx: { width: '100%', maxWidth: 640 }
   }
 } satisfies Meta<typeof GradientStepper>;
 
@@ -35,7 +35,7 @@ export const Completed: Story = { args: { activeStep: 3 } };
 export const WithIcons: Story = { args: { steps: meta.args.steps.map((step) => ({ ...step, icon: <span>✦</span> })) } };
 export const Vertical: Story = { args: { orientation: 'vertical' } };
 export const Interactive: Story = { render: (args) => <InteractiveExample {...args} /> };
-export const Narrow: Story = { decorators: [(Story) => <Box sx={{ width: 280 }}><Story /></Box>], args: { sx: { width: '100%' } } };
+export const Narrow: Story = { decorators: [(Story) => <Box sx={{ width: 280, maxWidth: '100%' }}><Story /></Box>], args: { sx: { width: '100%' } } };
 export const Empty: Story = { args: { steps: [] } };
 export const Dark: Story = { decorators: [withDarkUi] };
 

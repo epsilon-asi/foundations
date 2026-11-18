@@ -17,12 +17,12 @@ export const ContactCard = React.forwardRef<HTMLDivElement, ContactCardProps>(
 
     return (
       <Card ref={ref} sx={[{ height: '100%', minWidth: 0, overflowWrap: 'anywhere' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]} {...props}>
-        <CardMedia aria-hidden="true" image={graphic} sx={{ height: 100, bgcolor: 'primary.dark' }} />
-        <Box sx={{ display: 'flex', justifyContent: align, mt: '-50px', px: 3 }}>
+        <CardMedia aria-hidden="true" image={graphic} sx={{ height: 72, bgcolor: 'primary.dark' }} />
+        <Box sx={{ display: 'flex', justifyContent: align, mt: '-32px', px: 3 }}>
           <Avatar
             alt={name}
             src={photo}
-            sx={(theme) => ({ width: 100, height: 100, border: `3px solid ${theme.palette.background.paper}` })}
+            sx={(theme) => ({ width: 64, height: 64, bgcolor: 'primary.main', color: 'primary.contrastText', border: `3px solid ${theme.palette.background.paper}` })}
           >
             {initials || '?'}
           </Avatar>

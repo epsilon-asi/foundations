@@ -7,6 +7,10 @@ export async function checkStoryLayout({ canvasElement, markChecked = true }: { 
   await document.fonts.ready;
   // MUI measures scrollable tabs and animates portal surfaces after their first paint.
   await waitFor(async () => {
+    // A target opacity of 1 can still be mid-transition when the first layout settles.
+    for (const surface of document.querySelectorAll<HTMLElement>('.MuiDialog-container, .MuiPopover-paper, .MuiSnackbar-root > *, .MuiTooltip-tooltip')) {
+      if (surface.style.opacity === '1') await expect(Number(window.getComputedStyle(surface).opacity)).toBeGreaterThanOrEqual(0.99);
+    }
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth + 2);
   
     const walker = document.createTreeWalker(canvasElement, NodeFilter.SHOW_TEXT);
@@ -40,5 +44,8 @@ export async function checkStoryLayout({ canvasElement, markChecked = true }: { 
       }
     }
   });
-  if (markChecked) canvasElement.dataset.layoutChecked = 'true';
+  if (markChecked) {
+    canvasElement.dataset.layoutChecked = 'true';
+    canvasElement.dataset.layoutStory = new URL(window.location.href).searchParams.get('id') ?? '';
+  }
 }

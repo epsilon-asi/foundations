@@ -61,3 +61,5 @@ export const Keyboard: Story = { play: async ({ canvasElement }) => {
   await expect(canvas.getByRole('tabpanel', { name: 'Edit' })).toBeVisible();
   await checkStoryLayout({ canvasElement });
 } };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

@@ -138,6 +138,34 @@ describe('createTypeRegistry', () => {
   });
 
   it.each([
+    ['uuid', '019305d4-ff69-7a9e-b66d-93d661ea8e2f', 'uuid'],
+    ['email', 'ray@example.com', 'email'],
+    ['url', 'https://example.com/docs', 'uri'],
+  ] as const)('validates %s fields and publishes their JSON Schema format', (name, valid, format) => {
+    const { Prop, resolve } = createTypeRegistry();
+    const shorthand = Prop[name];
+
+    class Input {
+      @shorthand({ description: 'Primary value' })
+      primary!: string;
+
+      @shorthand({ optional: true })
+      secondary?: string;
+    }
+
+    const type = resolve(Input);
+    expect(type.parse({ primary: valid })).toEqual({ primary: valid });
+    expect(type.parse({ primary: valid, secondary: valid })).toEqual({ primary: valid, secondary: valid });
+    expect(type.safeParse({}).success).toBe(false);
+    expect(type.safeParse({ primary: 'invalid' }).success).toBe(false);
+    expect(type.safeParse({ primary: valid, secondary: 'invalid' }).success).toBe(false);
+    expect(type.jsonSchema()).toMatchObject({
+      properties: { primary: { type: 'string', format, description: 'Primary value' }, secondary: { format } },
+      required: ['primary'],
+    });
+  });
+
+  it.each([
     ['strip', { a: 'x' }, true],
     ['strict', undefined, false],
     ['loose', { a: 'x', extra: 1 }, true],

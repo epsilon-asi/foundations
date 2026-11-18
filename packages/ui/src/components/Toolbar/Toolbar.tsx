@@ -24,7 +24,7 @@ function isVisible(element: HTMLElement, root: HTMLElement | null) {
 
 /** Arrow navigation is scoped to this toolbar; text fields and nested toolbars keep their own keys. */
 export const Toolbar = React.forwardRef<HTMLDivElement, ToolbarProps>(function Toolbar(
-  { children, endActions, orientation = 'horizontal', density = 'comfortable', wrap = true, rovingFocus = true,
+  { children, endActions, orientation = 'horizontal', density = 'compact', wrap = true, rovingFocus = true,
     sx, onKeyDown, onFocus, 'aria-label': label, 'aria-labelledby': labelledBy, dir, ...props }, ref
 ) {
   const root = React.useRef<HTMLDivElement>(null);

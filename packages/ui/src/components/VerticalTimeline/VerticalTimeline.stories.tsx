@@ -28,3 +28,5 @@ export const Empty: Story = { args: { items: [] } };
 export const LongContent: Story = { args: { position: 'alternate', items: [{ id: 'a', title: 'A detailed production review with multiple outstanding requests', date: '2026-11-17T12:00Z',
   content: 'asset_abcdefghijklmnopqrstuvwxyz_0123456789_abcdefghijklmnopqrstuvwxyz', actions: <ActionButton>Review all requested changes</ActionButton> }, { id: 'b', title: 'Timestamp unavailable', date: 'invalid', content: 'Content is still available when the date is missing or invalid.' }] } };
 export const Dark: Story = { args: { position: 'alternate' }, decorators: [withDarkUi] };
+
+export const Comfortable: Story = { args: { density: 'comfortable' } };

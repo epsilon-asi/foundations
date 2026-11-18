@@ -49,7 +49,7 @@ const EMPTY_IDS: readonly string[] = [];
 /** Native navigation and disclosure semantics; routing and selected-page state are application-owned. */
 export const NavigationList = React.forwardRef<HTMLElement, NavigationListProps>(function NavigationList(
   { items, value = null, onSelect, expandedIds, defaultExpandedIds = EMPTY_IDS, onExpandedChange, renderLink,
-    density = 'comfortable', disabled = false, title, emptyState = 'No navigation items', sx, dir,
+    density = 'compact', disabled = false, title, emptyState = 'No navigation items', sx, dir,
     onKeyDown, onFocusCapture, onBlurCapture, 'aria-label': label = 'Navigation', ...props }, ref
 ) {
   const id = React.useId();
@@ -129,7 +129,7 @@ export const NavigationList = React.forwardRef<HTMLElement, NavigationListProps>
         gap: 10, padding, textDecoration: 'none', color: 'inherit', borderRadius: 'inherit' } } : null;
     return <Box component="li" key={item.id} sx={{ listStyle: 'none', minWidth: 0, my: 0.25 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, borderRadius: 1,
-        color: unavailable ? 'text.disabled' : active ? 'primary.main' : 'text.primary',
+        color: unavailable ? 'text.disabled' : 'text.primary',
         bgcolor: active ? 'action.selected' : undefined,
         '&:hover': { bgcolor: unavailable ? undefined : 'action.hover' },
         '& [data-navigation-primary]:focus-visible, & [data-navigation-primary].Mui-focusVisible': {

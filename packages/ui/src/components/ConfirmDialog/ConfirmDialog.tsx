@@ -20,7 +20,7 @@ export const ConfirmDialog = React.forwardRef<HTMLDivElement, ConfirmDialogProps
     confirmDisabled = false, destructive = false, busy = false, error, children, ...props }, ref
 ) {
   return <ModalDialog ref={ref} role="alertdialog" {...props} busy={busy} onClose={onClose} actions={<>
-    <ActionButton autoFocus variant="text" disabled={busy} onClick={(event) => onClose(event, 'cancelButtonClick')}>{cancelLabel}</ActionButton>
+    <ActionButton autoFocus variant="text" color="inherit" disabled={busy} onClick={(event) => onClose(event, 'cancelButtonClick')}>{cancelLabel}</ActionButton>
     <ActionButton variant="contained" color={destructive ? 'error' : 'primary'} disabled={confirmDisabled}
       loading={busy} loadingLabel={busyLabel} onClick={onConfirm}>{confirmLabel}</ActionButton>
   </>}>
