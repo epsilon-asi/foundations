@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -76,6 +77,6 @@ describe('DialogCard', () => {
     );
 
     expect(ref.current).toBe(screen.getByLabelText('Confirmation card'));
-    expect(ref.current).toHaveStyle({ padding: '14px' });
+    expect(ref.current).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
   });
 });

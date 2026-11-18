@@ -25,6 +25,9 @@ A publish-ready component library starter for React 19 and Material UI 7 with:
 - `ContactCard` and `HeroCard` for profile and promotional content
 - `GradientStepper` for controlled step progress displays
 - `IconButton`, `Menu`, `DropdownMenu`, `IconMenu`, and `ChipMenu` for accessible actions
+- `InsightCard`, `DateDisplay`, `StatusBadge`, and `VerticalTimeline` for insights and activity
+- `PageHeader` and `Breadcrumbs` for content headings and location trails
+- `NavigationList` and `NavigationSidebar` for router-independent application navigation
 - `createSettingsContext()` for a typed, localStorage-backed settings provider
 - `createVariableThemeContext()` for a persisted, user-adjustable MUI theme driven by a config object
 
@@ -536,3 +539,101 @@ text direction. No icon package is required at runtime.
 The stories include a composed editor example, light/dark themes, labelled and
 icon-only rails, both docking edges, both panel modes, narrow layouts, scrolling,
 disabled items, nested menus, and keyboard interaction.
+
+## Insights, dates, status and activity
+
+`InsightCard` composes `DecoratedCard` with an icon, heading, `headerAction` slot,
+body and inherited `actions`. Use `emphasis="solid"` or `"soft"` and any of the six
+semantic palette tones. Graphics are decorative and have no shared SVG IDs;
+replace `graphic` or pass `null` to remove it. Supply action elements such as our
+`ActionButton` and `IconMenu`, including their callbacks and inherited colours.
+
+`StatusBadge` is presentation only. Map domain states to a `label` and `tone`
+(`neutral`, `info`, `success`, `warning`, `error`) in your application. It supports
+soft, outlined and solid variants, two sizes, an optional indicator, and `pulse`
+that respects reduced motion. `display="dot"` retains the accessible label and a
+keyboard-focusable tooltip. Use application live regions for status announcements.
+
+`DateDisplay` renders a semantic `<time>` from a Date, ISO string or epoch
+milliseconds. `start` enables exact calendar-day progress, clamped to 0–100;
+reversed or invalid ranges omit progress. Same-day ranges are complete on their
+due date. Missing/invalid values use `emptyValue` (default `—`). `showRelative`
+shows the day difference; otherwise it appears in a tooltip. Locale defaults to
+`en-US` and time zone to `UTC`; `formatOptions` customizes Intl formatting. Pass
+valid Intl locale/zone identifiers and ISO strings with an explicit offset.
+`now` is caller-controlled for deterministic rendering; no background timer runs.
+Pass the same `now`, locale and zone on server and client when hydrating dates.
+
+`VerticalTimeline` uses an ordered list and container queries, so narrow panels
+keep a single readable column even on wide screens. Use `position` (`right`,
+`left`, `alternate`, `alternate-reverse`), compact/comfortable density, absolute or
+relative dates, and `status`, `content`, `icon`, `actions` slots per item. DOM order
+always matches the supplied item order. Date formatting follows the same Intl
+conventions; relative activity uses elapsed time. Empty lists use our `EmptyState`
+or a supplied `emptyState`. No chart, Moment or MUI Lab dependency is required.
+
+## Page headings and navigation
+
+`PageHeader` composes `Breadcrumbs`, an h1 (or `headingLevel="h2"`), eyebrow,
+subtitle and wrapping actions. It owns neither document metadata nor application
+layout. Supply the complete breadcrumb trail, including the current page. The
+last breadcrumb is always noninteractive with `aria-current="page"`; disabled
+crumbs cannot navigate. Other crumbs support native `href` or action callbacks.
+MUI breadcrumb collapsing and separators remain available.
+
+`NavigationList` replaces the legacy router-bound MenuList with a native nav/list
+and disclosure buttons. `NavigationSidebar` composes it with our `Drawer`, adding
+header/footer slots and a scrollable body. Neither imports a router or API client.
+
+```tsx
+const [page, setPage] = useState('assets');
+
+<Box sx={{ height: 480, display: 'flex' }}>
+  <NavigationSidebar title="Studio" value={page}
+    items={[
+      { id: 'library', label: 'Library', children: [
+        { id: 'assets', label: 'Assets', href: '/assets' },
+        { id: 'collections', label: 'Collections', href: '/collections' }
+      ] },
+      { id: 'settings', label: 'Settings', onClick: () => openSettings() }
+    ]}
+    onSelect={(item, event) => {
+      event.preventDefault();
+      setPage(item.id);
+      // Application performs routing when appropriate.
+    }} />
+</Box>;
+```
+
+IDs must be globally unique within a navigation list. `value` is application-owned;
+selection never silently changes it. Item callbacks run first; `preventDefault()`
+cancels selection. `onSelect` can prevent native link navigation for SPA routing.
+Use `renderLink(props)` for a router adapter and forward **all** supplied props,
+including `id`, style, accessibility/data attributes and `onClick`, to its anchor.
+Breadcrumbs accept the same adapter contract.
+
+Branches without a destination/action are disclosure buttons. Branches with their
+own destination/action get a separate expansion button. Sections (`kind="section"`)
+group children under headings. Disabled branches disable all descendants. Optional
+icons, descriptions, badges, `textValue` (for rich labels) and disabled reasons are
+supported. Selection reveals ancestors in uncontrolled expansion; use
+`expandedIds`/`onExpandedChange` for complete control or `defaultExpandedIds` for
+initial expansion. Manual collapse remains available.
+
+Tab follows native links/buttons. Up/Down, Home/End and typeahead move among visible,
+enabled primary rows; horizontal arrows open/close branches or move between parent
+and child, mirrored in RTL. Removed, disabled or hidden focused items recover focus
+to an available parent/row. Routing callbacks and expansion are independent.
+
+The sidebar defaults to a left permanent drawer, 264px wide, fitting its parent's
+height. Persistent/permanent variants are nonmodal; temporary mode provides the
+shared Drawer's focus trap, restoration, Escape/backdrop dismissal and close button.
+`open` remains controlled. Temporary selection reports `onClose(event, 'itemSelect')`
+by default; change `closeOnSelect` as needed. A prevented item callback suppresses
+selection and closing; preventing native routing in `onSelect` still allows closing.
+`busy` disables navigation and dismissal. Custom header/footer controls should
+receive their own busy/disabled state. Keep very deep navigation concise on small
+screens; nesting consumes inline space.
+
+Each new component has unit tests, dark and narrow-layout stories, and browser
+layout assertions; navigation stories also exercise keyboard selection/dismissal.

@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -38,6 +39,6 @@ describe('ContactCard', () => {
     renderWithUi(<ContactCard ref={ref} name="Chris" role="article" align="start"
       sx={[{ padding: '1px' }, (theme) => ({ padding: `${theme.shape.borderRadius}px` })]} />);
     expect(ref.current).toBe(screen.getByRole('article'));
-    expect(ref.current).toHaveStyle({ padding: '14px' });
+    expect(ref.current).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
   });
 });

@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -67,7 +68,7 @@ describe('DecoratedCard', () => {
 
     const card = screen.getByLabelText('Research card');
     expect(ref.current).toBe(card);
-    expect(card).toHaveStyle({ padding: '14px' });
+    expect(card).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
     expect(screen.getByRole('img', { hidden: true }).parentElement).toHaveStyle({ opacity: '0.2', width: '60px' });
   });
 });

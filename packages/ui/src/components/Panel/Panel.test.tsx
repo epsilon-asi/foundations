@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -31,5 +32,5 @@ it('forwards refs, native attributes and composed body and surface styles', () =
   expect(ref.current).toBe(screen.getByTestId('panel'));
   expect(ref.current).toHaveStyle({ padding: '7px' });
   expect(screen.getByRole('heading').parentElement?.parentElement).toHaveStyle({ padding: '8px' });
-  expect(screen.getByText('Body').parentElement).toHaveStyle({ padding: '14px' });
+  expect(screen.getByText('Body').parentElement).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
 });

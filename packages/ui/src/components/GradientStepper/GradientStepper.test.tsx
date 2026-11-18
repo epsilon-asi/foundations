@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { screen, within } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -40,7 +41,7 @@ describe('GradientStepper', () => {
     renderWithUi(<GradientStepper ref={ref} steps={steps} orientation="vertical" aria-label="Progress"
       sx={(theme) => ({ padding: `${theme.shape.borderRadius}px` })} />);
     expect(ref.current).toBe(screen.getByRole('list', { name: 'Progress' }));
-    expect(ref.current).toHaveStyle({ padding: '14px' });
+    expect(ref.current).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
   });
 
   it('does not announce earlier steps as completed in non-linear mode', () => {

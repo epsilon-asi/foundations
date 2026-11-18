@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -68,6 +69,6 @@ describe('HorizontalCard', () => {
 
     const card = screen.getByLabelText('Project summary');
     expect(ref.current).toBe(card);
-    expect(card).toHaveStyle({ padding: '14px' });
+    expect(card).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px` });
   });
 });

@@ -1,3 +1,4 @@
+import { defaultUiTheme } from '../../theme';
 import { createRef } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithUi } from '../../test/renderWithUi';
@@ -40,6 +41,6 @@ describe('IconButton', () => {
     expect(onKeyDown).toHaveBeenCalledTimes(1);
     expect(ref.current).toBe(button);
     expect(button).toHaveFocus();
-    expect(button).toHaveStyle({ padding: '14px', borderRadius: '50%' });
+    expect(button).toHaveStyle({ padding: `${defaultUiTheme.shape.borderRadius}px`, borderRadius: '50%' });
   });
 });
