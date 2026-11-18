@@ -1,7 +1,7 @@
 # Resource framework: plan review, next steps and open questions
 
 - **Subject:** the plan now at [`docs/plans/resource-framework.md`](../plans/resource-framework.md) ("the resource framework: `@epsilon-asi/apps` and friends"). It was `~/.claude/plans/happy-stargazing-thunder.md` when this review was written.
-- **Date:** 2026-11-15. Resolution added 2026-11-17.
+- **Date:** 2026-11-15. Resolution added 2026-11-17. Design changes and three follow-ups added 2026-11-18 (§0, "Design changes after resolution").
 - **Status:** **resolved.** Every question in §3 is answered, and every critical and major finding is addressed in the plan. §0 says where. The plan's "Decisions already made" table is the source of truth. Where this review proposed a design that the plan later decided differently, the plan wins.
 - **First-release cuts (2026-11-17):** several features were then deferred, each with a seam kept. The plan lists them under "Deferred features" and keeps their designs in its appendix. §0 marks them below.
 
@@ -21,7 +21,7 @@
 **Conventions**
 - `fnd/` is this repo (`/Users/chris/EpsilonASIWorkspace/foundations`).
 - `ml/` is maxleads (`/Users/chris/EpsilonWorkspace/maxleads/maxleads`).
-- T1–T13 are the scratch typechecks and runs in §9.
+- T1–T18 are the scratch typechecks and runs in §9. T14–T18 were added on 2026-11-18.
 - maxleads evidence comes from four read-only deep reads, of the API, `common`, the UI and the workers. The most severe items were re-checked by hand; those are marked ✔.
 - Finding classes:
   - (a) the plan is wrong
@@ -43,7 +43,7 @@ The answers to §3 are in that table's "Answer" column. Each step in §2 has a s
 | C2 · Nested projection leaks | 1.1 schema variants and server-only fields; 1.4 response projection; spike S1 |
 | C3 · Tenant isolation is opt-in | Decisions: Tenancy; 1.3; 3.1 (the tenant constraint is a global filter); 3.5 (written references are checked); Security 1; spike S4 |
 | C4 · foundation isn't browser-safe | Decisions: Packaging; 0.1 |
-| C5 · `routes()` can't type per-route `use` | 2.3: `handler(Endpoint, { use?, handle })`, group-bound; spike S0 |
+| C5 · `routes()` can't type per-route `use` | 2.3: `handler(Endpoint, { use?, handle })`, group-bound, as fields of a decorated `@Routes` class (T16); spike S0 |
 | C6 · Middleware owns request fields | 2.2: `needs` names contract fields |
 | C7 · No principal or permission model | Decisions: Principals, Authorization; 1.3 principals and access maps |
 | M1 · Phase 0 can't meet its acceptance | 0.0 (pnpm workspaces, ESM, TS 7) |
@@ -71,10 +71,33 @@ The answers to §3 are in that table's "Answer" column. Each step in §2 has a s
 |---|---|
 | npm workspaces (Step 3) | pnpm workspaces |
 | `scope: [...]` chains and `definePermissions` (§2, Step 2) | parent scopes, ownership kinds and access maps (1.3) |
-| `handler(Endpoint, { use }, fn)` (C5) | `handler(Endpoint, { use?, handle })`, one options object |
+| `handler(Endpoint, { use }, fn)` (C5) | `handler(Endpoint, { use?, handle })`, one options object, as a field of a decorated routes class that `runApi()` discovers |
+| `group().routes(…)` taking a list of handlers (C5) | a decorated class per resource whose fields are its handlers, with no handler arrays (2.3) |
 | an `orm` extension on the shared class (Q9) | server-only `defineEntity` (3.1) |
 | sessions left open | bearer tokens, session state in Redis only, no cookies (6.1) |
 | GCP as the likely target (Q6) | provider base classes; messaging ships GCP first, and AWS is deferred |
+
+### Design changes after resolution (2026-11-18)
+
+The owner asked for three changes after the review was resolved: filter caps, declarative routes, and the same declarative pattern for workers and webhooks. All are in the plan, and all were typechecked in scratch on TS 5.9 and TS 7 (§9).
+
+| Change | Why | Plan section | Evidence |
+|---|---|---|---|
+| **Filter caps accept `true`.** `filter: { type: true, status: true, name: ['$ilike'] }` allows every operator the field's type allows, and an explicit list is still checked against the type, so `name: ['$gt']` on text is a compile error. `sort: true` allows every readable scalar field. | Fewer lines at the call site, with no loss of type checking. | 1.6 | T14 |
+| **Named constants and list descriptors.** `FilterOperator` and `SortDirection` are const objects with same-named types. `FILTER_OPERATORS` is the per-type table as data, and every list endpoint carries `Filters` and `Sorts` descriptors that the DataTable reads. | maxleads' UI used enums and objects for this. Its safety came from the per-type table (`AllowedComparisonOperator`), not from the enums, but it kept three hand-synced copies. One table read by the types, the server and the UI can't drift. | 1.6; Phase 4 | T14 |
+| **Routes are decorated classes.** `@Routes({ defaults? }) class OfferingRoutes { update = handler(UpdateOffering, { use?, handle }) }`, built on foundation's `createDecoratorRegistry`. A pure-CRUD resource is the two-line class `@Routes({ defaults: crudHandlers(Offering) }) export class OfferingRoutes {}`. | The owner prefers declarative APIs to handler arrays. A handler array also let a duplicate handler and a missing one compile (T15). | Decisions: Handlers; 2.3 | T15, T16 |
+| **`await runApi()` takes no arguments.** It discovers the routes classes under `routes/`, loads services from `services.ts`, and refuses to start while any endpoint has neither a handler nor a default. Defaults are never applied to a resource without a routes class. | A zero-argument entry point, without letting a missed routes file turn into a silent 404 or a silent fallback. | Decisions: API entry point; 2.7 | — |
+| **Workers and webhooks are declared the same way.** `@Consumers()`, `@Jobs()` and `@Loops()` classes whose fields are `consumer(Topic, { use?, handle })`, `job(Job, { cron?, handle })` and `loop({ every, run })`, and webhook classes whose fields are `stripe.on('invoice.paid', { handle })`. `runConsumer()`, `runWorker()` and `runDaemon()` take no arguments and discover their folders. | The same preference for declarative APIs, applied everywhere handlers are registered, on the condition that everything stays type safe. It does: messages, payloads, webhook events and `ctx` are all inferred and checked, and a cron is only accepted on a payload-free job. | Decisions: Handlers, Entry points; 2.3; Phase 5 | T17 |
+
+Three gaps came up while checking where these decorators can be used, and the owner approved closing all three:
+
+| Gap | Fix | Plan section | Evidence |
+|---|---|---|---|
+| `@Loops` and `loop` had no home subpath. | They live in `@epsilon-asi/apps/jobs`, and each loop's lease is a Postgres row lock renewed by heartbeat, like a claimed job's. | Layers and owners; Phase 5 | — |
+| The decorators are standard (TC39) decorators, but nothing said so. A project with `experimentalDecorators` on gets TS1238 at compile time and `Cannot read properties of undefined (reading 'kind')` at runtime. | Standard decorators only, stated as a decision. `createDecoratorRegistry` detects a legacy-mode call and throws `DecoratorModeError`, naming the decorator and the setting, so every decorator built on it gets the check. | Decisions: Decorators; 0.1 | T18 |
+| Each kind of work had its own run function, so a small app needed several processes. | `await runApp()` runs every declared part in one process: one set of services, one drain, and readiness only when every part is ready. It loads each binding with a dynamic import only when its folder exists. `APP_PARTS` picks parts per deployment, and splitting later changes only the entry points. | Decisions: Entry points; 2.1 | — |
+
+Option A, decorated methods (`@Handle(Endpoint) async update(request, ctx)`), was checked too and works (T16). It wasn't chosen, because TypeScript decorators can't infer a method's parameter types, so every handler would need `request` and `ctx` annotated by hand.
 
 ### Capabilities from §8
 
@@ -737,6 +760,11 @@ Pick one option and record why in the plan:
 | T11 | A per-endpoint `handler()` typed by the contextual return type | **Inconclusive** | The group context is inferred as `unknown`. |
 | T12 | A group-bound `handler(Endpoint, { use }, fn)` | **Verified** on TS 5.9 and TS 7 | All 6 assertions pass. |
 | T13 | type-bridge produces the Python models | **Refuted** for flavored types | `Generated = NewType("Generated", T)` and `id: Generated[str]`, with no diagnostics. |
+| T14 | `filter: { field: true }` can allow exactly the operators the field's type allows, while explicit lists stay checked (2026-11-18) | **Verified** on TS 5.9 and TS 7 | `true` on an enum gives `$eq $ne $in $nin` and rejects `$ilike`; `true` on a boolean rejects `$gt`; `$exists` only on nullable fields; `name: ['$gt']` on text and `type: ['$ilike']` on an enum fail; an unknown field fails. `FilterOperator.ILike` and `'$ilike'` work interchangeably. The error today reads `not assignable to type 'OpsFor<…>'`; the plan names the groups so it reads `TextOperator`. |
+| T15 | The `routes({ handlers: [...] })` array catches duplicate and missing handlers (2026-11-18) | **Refuted** | Two handlers for `CreateOffering` and no handler for `GetOffering` both compile. Each handler on its own is checked. |
+| T16 | Routes as decorated classes, on TC39 decorators (2026-11-18) | **Verified** on TS 5.9 and TS 7 | **Handler fields** (`create = offerings.handler(E, { use, handle })` in an `@offerings.Routes()` class): `ctx` comes from group and route `use`, it isn't `any`, per-route values don't leak to other routes, and wrong returns fail for both context-sensitive and parameterless handlers, with no annotations. **Decorated methods** (`@offerings.Handle(E, { use })`): a `ctx` that asks for unprovided values, a wrong request type and a wrong return all fail, but the parameters must be annotated. **A defaults-only class** (`@Routes({ defaults: crudHandlers(Offering) }) class OfferingRoutes {}`) typechecks. |
+| T17 | Consumers, jobs, loops and webhooks as decorated classes stay type safe (2026-11-18) | **Verified** on TS 5.9 and TS 7 | A consumer's `message` is typed by its topic, `ctx` comes from the group and the field's `use` and isn't `any`, and returning data fails. A job's `payload` is typed by its job; a `cron` on a job with a required payload fails, and so does a cron expression without five fields. A loop's `every` must be a duration (`'15s'`). A webhook's `on('invoice.paid', …)` narrows `event` to that type, reading another type's field fails, and a misspelled event type fails. |
+| T18 | What happens when the framework's decorators run with `experimentalDecorators` on (2026-11-18) | **Fails unclearly today**, so the plan adds `DecoratorModeError` | Compiling T17 with `experimentalDecorators: true` gives TS1238 "Unable to resolve signature of class decorator" on every class. Calling foundation's built `createDecoratorRegistry` decorators the legacy way gives `TypeError: Decorator "field" can only be used on property targets, but was used on undefined` and `TypeError: Cannot read properties of undefined (reading 'kind')`. |
 | — | foundation's type tests pass on TS 7 | **Refuted** | TS5108 `moduleResolution=node10 has been removed`. |
 | — | The middleware chain moves into foundation with command-line's API unchanged | **Not verifiable without implementing it** | Plausible only through adapters (M8). The definition-time duplicate-key check is refuted. |
 | — | The versions the plan lists | **Mostly true** | express 5.3.0 and @mikro-orm/core 7.1.4 confirmed. zod is skewed: 4.4.2 at root, 4.4.3 in apps, 4.6.7 in foundation's dev install. |
