@@ -323,6 +323,7 @@ describe('type extensions', () => {
       ['a missing key', {}, 'Type extensions need a non-empty string key.'],
       ['a reserved key', { key: 'description' }, 'Extension key "description" is reserved by @Type/@Prop options.'],
       ['a reserved shorthand key', { key: 'optional' }, 'Extension key "optional" is reserved by @Type/@Prop options.'],
+      ['a reserved default key', { key: 'default' }, 'Extension key "default" is reserved by @Type/@Prop options.'],
       ['a non-zod field schema', { key: 'x', field: {} }, 'Extension "x" field options must be a zod schema.'],
       ['a non-zod type schema', { key: 'x', type: 'nope' }, 'Extension "x" type options must be a zod schema.'],
     ])('rejects %s', (_label, extension, message) => {

@@ -137,6 +137,101 @@ describe('createTypeRegistry', () => {
     );
   });
 
+  it('fills missing and undefined shorthand fields and preserves explicit values', () => {
+    const { Prop, resolve } = createTypeRegistry().use({ key: 'tag' as const, field: z.string() });
+
+    class Defaults {
+      @Prop.string({ default: '' })
+      label!: string;
+
+      @Prop.number({ integer: true, default: 0 })
+      count!: number;
+
+      @Prop.boolean({ default: false })
+      enabled!: boolean;
+
+      @Prop.enum(['draft', 'ready'], { optional: true, default: 'draft', tag: 'status' })
+      status!: 'draft' | 'ready';
+    }
+
+    const type = resolve(Defaults);
+    const defaults = { label: '', count: 0, enabled: false, status: 'draft' };
+    expect(type.parse({})).toEqual(defaults);
+    expect(type.parse({ status: undefined })).toEqual(defaults);
+    const supplied = { label: 'Item', count: 2, enabled: true, status: 'ready' };
+    expect(type.parse(supplied)).toEqual(supplied);
+    expect(type.safeParse({ count: null }).success).toBe(false);
+    expect(type.safeParse({ status: 'unknown' }).success).toBe(false);
+    expect(type.fields.get('status')?.extensions).toEqual({ tag: 'status' });
+    expect(type.jsonSchema({ io: 'input' }).properties?.status).toMatchObject({ default: 'draft' });
+    expect(type.jsonSchema({ io: 'input' }).required).toBeUndefined();
+    expect(type.jsonSchema({ io: 'output' }).required).toEqual(['label', 'count', 'enabled', 'status']);
+  });
+
+  it('validates shorthand defaults with the field schema, including nested fields', () => {
+    const { Prop, resolve } = createTypeRegistry();
+
+    class Contact {
+      @Prop.email()
+      email!: string;
+    }
+
+    class Defaults {
+      @Prop.email({ default: 'malformed' })
+      email!: string;
+
+      @Prop.number({ min: 1, default: 0 })
+      count!: number;
+
+      @Prop.nested(() => Contact, { default: { email: 'malformed' } })
+      contact!: Contact;
+
+      @Prop.date({ default: new Date(0) })
+      date!: Date;
+    }
+
+    const type = resolve(Defaults);
+    const missing = type.safeParse({});
+    expect(missing.error?.issues.map(issue => issue.path)).toEqual([['email'], ['count'], ['contact', 'email']]);
+    const input = { email: 'ray@example.com', count: 1, contact: { email: 'team@example.com' } };
+    expect(type.parse(input)).toEqual({ ...input, date: new Date(0) });
+  });
+
+  it('isolates mutable default data across parses and preserves opaque values', () => {
+    const { Prop, resolve } = createTypeRegistry();
+    class Token {
+      #value = 'token';
+      read() { return this.#value; }
+    }
+
+    class Details {
+      @Prop.date()
+      created!: Date;
+
+      @Prop(z.instanceof(Token))
+      token!: Token;
+    }
+
+    const token = new Token();
+    class Item {
+      @Prop.date({ default: new Date(0) })
+      date!: Date;
+
+      @Prop.nested(() => Details, { default: { created: new Date(1), token } })
+      details!: Details;
+    }
+
+    const type = resolve(Item);
+    const first = type.parse({});
+    first.date.setTime(10);
+    first.details.created.setTime(20);
+    const second = type.parse({});
+    expect(second.date.getTime()).toBe(0);
+    expect(second.details.created.getTime()).toBe(1);
+    expect(second.details.token).toBe(token);
+    expect(second.details.token.read()).toBe('token');
+  });
+
   it.each([
     ['uuid', '019305d4-ff69-7a9e-b66d-93d661ea8e2f', 'uuid'],
     ['email', 'ray@example.com', 'email'],
@@ -162,6 +257,48 @@ describe('createTypeRegistry', () => {
     expect(type.jsonSchema()).toMatchObject({
       properties: { primary: { type: 'string', format, description: 'Primary value' }, secondary: { format } },
       required: ['primary'],
+    });
+  });
+
+  it('validates enum members and literal lists, including optional fields', () => {
+    enum Status {
+      Draft = 'draft',
+      Ready = 'ready',
+    }
+    enum Priority {
+      Low,
+      High,
+    }
+    const { Prop, resolve } = createTypeRegistry().use({ key: 'tag' as const, field: z.string() });
+
+    class Task {
+      @Prop.enum(Status, { description: 'Task status', tag: 'filterable' })
+      status!: Status;
+
+      @Prop.enum(['manual', 'automatic'])
+      mode!: 'manual' | 'automatic';
+
+      @Prop.enum(Priority, { optional: true })
+      priority?: Priority;
+    }
+
+    const type = resolve(Task);
+    const task = { status: 'draft', mode: 'manual' };
+    expect(type.parse(task)).toEqual(task);
+    expect(type.parse({ ...task, priority: 0 }).priority).toBe(Priority.Low);
+    expect(type.safeParse({ mode: 'manual' }).success).toBe(false);
+    expect(type.safeParse({ ...task, status: 'Draft' }).success).toBe(false);
+    expect(type.safeParse({ ...task, mode: 'unknown' }).success).toBe(false);
+    expect(type.safeParse({ ...task, priority: 'Low' }).success).toBe(false);
+    expect(type.safeParse({ ...task, priority: 2 }).success).toBe(false);
+    expect(type.fields.get('status')?.extensions.tag).toBe('filterable');
+    expect(type.jsonSchema()).toMatchObject({
+      properties: {
+        status: { enum: ['draft', 'ready'], description: 'Task status' },
+        mode: { enum: ['manual', 'automatic'] },
+        priority: { enum: [0, 1] },
+      },
+      required: ['status', 'mode'],
     });
   });
 

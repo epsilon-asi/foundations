@@ -14,7 +14,8 @@ export function SliderControl({ label, helperText, error, id, sx, slotProps, ori
   const first = marks.findIndex((mark) => mark.value === (props.min ?? 0)); const last = marks.findIndex((mark) => mark.value === (props.max ?? 100));
   return <Box sx={{ minWidth: 0, width: '100%' }}>
     <Typography id={labelId} component="div" variant="body2" sx={{ fontWeight: 600, mb: 0.5, overflowWrap: 'anywhere' }}>{label}</Typography>
-    <Box sx={{ px: 1.25, minWidth: 0 }}><MuiSlider {...props} id={id} orientation={orientation} aria-labelledby={props.getAriaLabel ? undefined : labelId}
+    {/* Keep the 42px thumb hit area inside the field at either endpoint. */}
+    <Box sx={{ px: orientation === 'vertical' ? 1.25 : 5.5, minWidth: 0 }}><MuiSlider {...props} id={id} orientation={orientation} aria-labelledby={props.getAriaLabel ? undefined : labelId}
       slotProps={{ ...slotProps, input: (owner) => { const supplied = typeof slotProps?.input === 'function' ? slotProps.input(owner) : slotProps?.input;
         return { ...supplied, 'aria-invalid': error || supplied?.['aria-invalid'],
           'aria-describedby': [describedBy, supplied?.['aria-describedby'], helperText != null ? helperId : undefined].filter(Boolean).join(' ') || undefined }; } }}

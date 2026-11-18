@@ -955,7 +955,8 @@ The visual audit also tightened fallback-avatar and semantic-colour contrast,
 selected navigation labels, disclosure typography, and responsive story fixtures.
 The palette's contrast threshold is 4.5 for generated foreground colours.
 
-The review covered all 602 stories across 56 groups at 320px, 768px and 1280px
+The initial compact-spacing review covered the then-current 602 stories across
+56 groups at 320px, 768px and 1280px
 viewport widths. Story interaction/layout checks passed at each width; additional
 DOM checks found no horizontal overflow, clipped visible text or low-contrast text
 in the states measured. Representative light/dark surfaces and overlays were also
@@ -965,3 +966,93 @@ the contrast check excludes gradients, images, placeholders and disabled content
 Further coverage should include broader RTL/localization examples, system contrast
 and reduced-motion settings, and larger compositions that combine these primitives
 into workbench flows. These complement the existing component-level stories.
+
+## Workbench primitives
+
+The following components share the compact theme and reuse the package's buttons,
+menus, panels, sliders, and empty states. They do not import application stores,
+form libraries, API clients, or asset services.
+
+| Component | Contract |
+| --- | --- |
+| `InspectorRow` | External label, description, error, mixed-value hint and optional reset action around a caller-owned control. |
+| `FieldGroup` | Semantic fieldset/legend, shared label width, description and native descendant disabling. |
+| `TreeView` | Hierarchical selection, expansion, disabled descendants, typeahead and optional caller-owned visibility controls. |
+| `ContextMenu` | Pointer and keyboard context region using the existing `Menu` and item callbacks. |
+| `AssetCard` / `AssetGrid` | Responsive thumbnail cards, selection, metadata, badges, open actions and custom action slots. |
+| `ColorPicker` / `ColorSwatch` | Hex/RGB/alpha editing and named presets; static swatches or accessible selection buttons. |
+| `Popover` | Controlled anchored dialog composed with `Panel`, with title, description, actions and close control. |
+| `ProgressIndicator` | Labelled determinate/indeterminate progress with optional status and caller-owned cancellation. |
+| `ImagePreview` | Contain/cover framing, transparency checkerboard, empty/error states and optional bounded zoom. |
+| `Keycap` / `ShortcutHint` | Semantic key presentation and a single spoken shortcut label; does not register global shortcuts. |
+
+`InspectorRow` accepts a render function to connect a control's `id`,
+`aria-describedby`, `aria-invalid`, and `required` attributes. Native children can
+instead use `controlId`; the caller then connects helper/error semantics explicitly.
+MUI fields require accessibility attributes on their native input slot:
+
+```tsx
+<FieldGroup title="Appearance" labelWidth={120}>
+  <InspectorRow label="Layer name" description="Used in exports" required>
+    {control => <TextField id={control.id} required={control.required}
+      error={control['aria-invalid']} fullWidth
+      slotProps={{ htmlInput: { 'aria-describedby': control['aria-describedby'] } }} />}
+  </InspectorRow>
+</FieldGroup>
+```
+
+`TreeView` requires globally unique item IDs within a tree and a string label for
+typeahead. `expandedIds` and `selectedIds` are controlled when supplied; otherwise
+use `defaultExpandedIds` and `defaultSelectedIds`. Callbacks return the next arrays.
+Arrow Up/Down and Home/End move focus; Right/Left expand, enter, collapse or return
+to the parent (mirrored in RTL). Enter selects and activates; Space selects, or
+toggles in multiple-selection mode. Ctrl/Command-click toggles multiple selection;
+Ctrl/Command+A selects enabled visible nodes. Disabled branches disable descendants.
+Optional `visible` values and `onVisibilityChange` add visibility buttons; Tab can
+reach the focused row's button and Escape returns to its tree item. Visibility
+remains caller-owned. The tree renders its supplied nodes without virtualization.
+
+`ContextMenu` opens on right-click, the ContextMenu key, or Shift+F10. Give the
+region an accessible name with `aria-label`. Selection, Escape, Tab and backdrop
+dismissal reuse the existing menu contract and restore focus to the invoking
+control or region. `menuProps` supports checkable items, headers, actions and
+`closeOnClick={false}`. Preventing a supplied trigger event suppresses opening.
+
+`AssetGrid` requires an accessible name and stable unique item IDs. Single selection
+replaces the selected ID; multiple selection toggles cards without requiring a
+modifier key. `selectedIds`/`defaultSelectedIds` and `onSelectionChange` follow the
+same controlled contract as the tree. Tab reaches each enabled card; Left/Right
+and Home/End also move focus, with RTL-aware horizontal arrows. Open and custom
+actions remain separate from selection. Disabled cards disable native controls in
+their action fieldset; custom link actions should also honor the caller's disabled
+state. Provide descriptive `alt` text when the image adds information beyond the
+title; otherwise thumbnails are decorative. The grid does not fetch or paginate.
+
+`ColorPicker` accepts three-, four-, six- or eight-digit hex values. Valid edits
+emit uppercase `#RRGGBBAA`, or `#RRGGBB` with `allowAlpha={false}`; RGB channels are
+clamped to 0–255. Invalid hex drafts remain editable and show an error on blur
+without emitting an invalid value. `disabled` prevents editing; `readOnly` keeps
+text selectable while preventing changes. Labels and preset names are caller
+configurable. Compose a clickable `ColorSwatch` with `Popover` for an anchored
+editor; the `InPopover` story demonstrates this composition.
+
+`Popover` uses the normal controlled `open`/`anchorEl` API and MUI focus management.
+Supply a title or an accessible name. `onClose` reports `escapeKeyDown`,
+`backdropClick`, or `closeButtonClick`; callers decide when to close. Paper slot
+styles and accessibility attributes are preserved. Use `ModalDialog` for tasks
+that need a larger blocking surface.
+
+`ProgressIndicator.value` is a percentage clamped to 0–100. Omitting it (or passing
+a non-finite value) produces indeterminate progress. `valueText` can describe units
+instead of a percentage. `onCancel` only notifies the caller; it does not terminate
+work or change status automatically. Progress animation respects reduced motion.
+
+`ImagePreview` requires `alt`, including `alt=""` for decorative content. Source
+changes reset image status and zoom. Zoom controls are disabled until loading
+succeeds, use 50% increments, and default to a 400% limit. The enlarged viewport is
+focusable for keyboard scrolling. No external image viewer, global keyboard
+listener, or network service is included. Stories use local inline SVG fixtures.
+
+Each new component has Storybook documentation, dark-mode examples and interaction
+tests. Additional stories exercise narrow layouts, long content, controlled state,
+disabled/read-only states, keyboard behavior, image errors, and overlay dismissal.

@@ -68,7 +68,7 @@ interface TypeRegistrySchema extends DecoratorSchema {
 }
 
 const FIELD_KEYS = ['description', 'meta'] as const;
-const SHORTHAND_KEYS = ['optional', 'min', 'max', 'integer'] as const;
+const SHORTHAND_KEYS = ['optional', 'min', 'max', 'integer', 'default'] as const;
 const TYPE_KEYS = ['name', 'description', 'mode', 'meta'] as const;
 const RESERVED_KEYS: ReadonlySet<string> = new Set([...FIELD_KEYS, ...SHORTHAND_KEYS, ...TYPE_KEYS]);
 const OBJECT_MODES: readonly ObjectMode[] = ['strip', 'strict', 'loose'];
@@ -150,8 +150,19 @@ function withMeta(schema: z.ZodType, description: string | undefined, meta: Opti
   return Object.keys(combined).length === 0 ? schema : schema.meta(combined);
 }
 
-function withOptional(schema: z.ZodType, optional: unknown): z.ZodType {
-  return optional === true ? schema.optional() : schema;
+/** Copy default data per parse. Opaque values may rely on identity or private class state. */
+function copyDefault(value: unknown, copies = new WeakMap<object, object>()): unknown {
+  if (value instanceof Date) return new Date(value.getTime());
+  if (!Array.isArray(value) && !z.util.isPlainObject(value)) return value;
+
+  const existing = copies.get(value);
+  if (existing) return existing;
+  const copy = z.util.shallowClone(value);
+  copies.set(value, copy);
+  for (const key of Reflect.ownKeys(copy)) {
+    Reflect.set(copy, key, copyDefault(Reflect.get(copy, key), copies));
+  }
+  return copy;
 }
 
 function objectFactory(mode: ObjectMode) {
@@ -203,17 +214,23 @@ function createRoot(namespace: string): Root {
     return z.lazy(() => model(target()).object);
   }
 
+  function shorthandField(schema: z.ZodType, options: Options): AnyFieldDecorator {
+    const { default: defaultValue, optional, ...rest } = options;
+    if (defaultValue !== undefined) schema = schema.prefault(() => copyDefault(defaultValue));
+    else if (optional === true) schema = schema.optional();
+    return field(() => schema, rest);
+  }
+
   const Prop = ((schema: z.ZodType, options: Options = {}) =>
     field(() => schema, options)) as unknown as PropDecorator<any>;
 
   function stringShorthand(createSchema: () => z.ZodString | z.ZodStringFormat): PropDecorator<any>['string'] {
     return (options: Options = {}) => {
-      const { optional, min, max, ...rest } = options;
+      const { min, max, ...rest } = options;
       let schema = createSchema();
       if (typeof min === 'number') schema = schema.min(min);
       if (typeof max === 'number') schema = schema.max(max);
-      const built = withOptional(schema, optional);
-      return field(() => built, rest);
+      return shorthandField(schema, rest);
     };
   }
 
@@ -222,33 +239,26 @@ function createRoot(namespace: string): Root {
   Prop.email = stringShorthand(z.email);
   Prop.url = stringShorthand(z.url);
 
-  Prop.number = ((options: Options = {}) => {
-    const { optional, integer, min, max, ...rest } = options;
+  Prop.enum = (values: Parameters<typeof Prop.enum>[0], options: Options = {}) => {
+    // Zod declares separate overloads for the two inputs to the same enum factory.
+    const enumSchema: (source: typeof values) => z.ZodType = z.enum;
+    return shorthandField(enumSchema(values), options);
+  };
+
+  Prop.number = (options: Options = {}) => {
+    const { integer, min, max, ...rest } = options;
     let schema = z.number();
     if (integer === true) schema = schema.int();
     if (typeof min === 'number') schema = schema.min(min);
     if (typeof max === 'number') schema = schema.max(max);
-    const built = withOptional(schema, optional);
-    return field(() => built, rest);
-  }) as PropDecorator<any>['number'];
+    return shorthandField(schema, rest);
+  };
 
-  Prop.boolean = ((options: Options = {}) => {
-    const { optional, ...rest } = options;
-    const built = withOptional(z.boolean(), optional);
-    return field(() => built, rest);
-  }) as PropDecorator<any>['boolean'];
+  Prop.boolean = (options: Options = {}) => shorthandField(z.boolean(), options);
 
-  Prop.date = ((options: Options = {}) => {
-    const { optional, ...rest } = options;
-    const built = withOptional(z.date(), optional);
-    return field(() => built, rest);
-  }) as PropDecorator<any>['date'];
+  Prop.date = (options: Options = {}) => shorthandField(z.date(), options);
 
-  Prop.nested = ((target: () => Constructor, options: Options = {}) => {
-    const { optional, ...rest } = options;
-    const built = withOptional(ref(target), optional);
-    return field(() => built, rest);
-  }) as PropDecorator<any>['nested'];
+  Prop.nested = (target: () => Constructor, options: Options = {}) => shorthandField(ref(target), options);
 
   const Type: TypeDecorator<any> = (options = {}) => {
     const payload: TypePayload = Object.freeze({ options: Object.freeze({ ...options }) });

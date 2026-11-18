@@ -8,10 +8,7 @@ export const uiThemeOptions: ThemeOptions = {
   colorSchemes: {
     dark: true
   },
-  shape: {
-    borderRadius: 10,
-    
-  },
+  shape: {},
   palette: {
     contrastThreshold: 4.5,
     primary: {
@@ -101,13 +98,14 @@ export const uiThemeOptions: ThemeOptions = {
       },
       styleOverrides: {
         root: {
+          borderRadius: 8,
           minHeight: 28,
           paddingInline: 10
         }
       }
     },
     MuiIconButton: { defaultProps: { size: 'small' } },
-    MuiTextField: { defaultProps: { size: 'small', margin: 'none' } },
+    MuiTextField: { defaultProps: { size: 'small', margin: 'none' }, styleOverrides: { root: { '& .MuiInputBase-root': { borderRadius: 8 } } } },
     MuiFormControl: { defaultProps: { size: 'small', margin: 'none' } },
     MuiCheckbox: { defaultProps: { size: 'small' } },
     MuiRadio: { defaultProps: { size: 'small' } },
@@ -129,14 +127,14 @@ export const uiThemeOptions: ThemeOptions = {
     MuiPaper: {
       styleOverrides: {
         rounded: {
-          borderRadius: 18
+          borderRadius: 12
         }
       }
     },
     MuiCard: {
       styleOverrides: {
         root: ({ ownerState }) => ({
-          borderRadius: 18,
+          borderRadius: 12,
           ...(ownerState.variant === 'outlined' ? { boxShadow: 'none' }
             : !ownerState.raised && (ownerState.elevation === undefined || ownerState.elevation === 1)
               ? { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)' } : {}),

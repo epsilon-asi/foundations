@@ -14,13 +14,13 @@
   "scripts": {
     "build": "tsc",
     "build:clean": "rm -rf ./build && npm run build",
-    "typecheck": "tsc --noEmit",
-    "typecheck:tests": "tsc -p tsconfig.type-tests.json --noEmit",
+    "typecheck": "tsc -p tsconfig.type-tests.json --noEmit",
+    "typecheck:tests": "npm run typecheck --",
     "examples": "npm run build && node build/decorators/factory/examples/runExamples.js",
     "start:dev": "npx nodemon --exec \"npx tsc\" --watch src -e ts",
     "test": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles",
     "test:watch": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles --watchAll",
-    "verify": "npm run typecheck && npm run typecheck:tests && npm run examples && npm run test && npm run build",
+    "verify": "npm run typecheck && npm run examples && npm run test && npm run build",
     "bump": "../../scripts/bump_version.sh",
     "pub": "npm run build && npm run bump && npm publish --access public"
   },

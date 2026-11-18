@@ -112,20 +112,30 @@ export type TypeOptions<TExt extends ExtensionMap = {}> = {
 export type StringPropOptions<TExt extends ExtensionMap = {}> = PropOptions<TExt> & {
   min?: number;
   max?: number;
+  /** Parsed when the input is missing or undefined. */
+  default?: string;
 };
 
 export type NumberPropOptions<TExt extends ExtensionMap = {}> = PropOptions<TExt> & {
   integer?: boolean;
   min?: number;
   max?: number;
+  /** Parsed when the input is missing or undefined. */
+  default?: number;
 };
 
-type OptionalField = { optional: true };
-type RequiredField = { optional?: false };
+type OptionalField = { optional: true; default?: never };
+/** A supplied default fills undefined inputs, even when optional is also set. */
+type RequiredField<TDefault> =
+  | { optional?: false; default?: TDefault }
+  | { optional?: boolean; default: TDefault };
 
-interface StringShorthand<TExt extends ExtensionMap> {
-  (options: StringPropOptions<TExt> & OptionalField): FieldDecorator<string | undefined>;
-  (options?: StringPropOptions<TExt> & RequiredField): FieldDecorator<string>;
+type EnumSource = readonly string[] | z.util.EnumLike;
+type EnumValue<T extends EnumSource> = T extends readonly string[] ? T[number] : T[keyof T];
+
+interface Shorthand<TValue, TOptions> {
+  (options: TOptions & OptionalField): FieldDecorator<TValue | undefined>;
+  <const TDefault extends TValue = TValue>(options?: TOptions & RequiredField<TDefault>): FieldDecorator<TValue>;
 }
 
 export interface PropDecorator<TExt extends ExtensionMap = {}> {
@@ -133,28 +143,36 @@ export interface PropDecorator<TExt extends ExtensionMap = {}> {
     z.output<TSchema>
   >;
 
-  string: StringShorthand<TExt>;
-  uuid: StringShorthand<TExt>;
-  email: StringShorthand<TExt>;
-  url: StringShorthand<TExt>;
+  string: Shorthand<string, StringPropOptions<TExt>>;
+  uuid: Shorthand<string, StringPropOptions<TExt>>;
+  email: Shorthand<string, StringPropOptions<TExt>>;
+  url: Shorthand<string, StringPropOptions<TExt>>;
 
-  number(options: NumberPropOptions<TExt> & OptionalField): FieldDecorator<number | undefined>;
-  number(options?: NumberPropOptions<TExt> & RequiredField): FieldDecorator<number>;
+  /** Accepts a TypeScript enum, an enum-like object, or a list of string literals. */
+  enum<const T extends EnumSource>(
+    values: T,
+    options: PropOptions<TExt> & OptionalField,
+  ): FieldDecorator<EnumValue<T> | undefined>;
+  enum<const T extends EnumSource, const TDefault extends EnumValue<T> = EnumValue<T>>(
+    values: T,
+    options?: PropOptions<TExt> & RequiredField<TDefault>,
+  ): FieldDecorator<EnumValue<T>>;
 
-  boolean(options: PropOptions<TExt> & OptionalField): FieldDecorator<boolean | undefined>;
-  boolean(options?: PropOptions<TExt> & RequiredField): FieldDecorator<boolean>;
-
-  date(options: PropOptions<TExt> & OptionalField): FieldDecorator<Date | undefined>;
-  date(options?: PropOptions<TExt> & RequiredField): FieldDecorator<Date>;
+  number: Shorthand<number, NumberPropOptions<TExt>>;
+  boolean: Shorthand<boolean, PropOptions<TExt>>;
+  date: Shorthand<Date, PropOptions<TExt>>;
 
   /** Sugar for `Prop(registry.ref(target), options)`. */
   nested<TClass extends Constructor>(
     target: () => TClass,
     options: PropOptions<TExt> & OptionalField,
   ): FieldDecorator<TypeShape<InstanceType<TClass>> | undefined>;
-  nested<TClass extends Constructor>(
+  nested<
+    TClass extends Constructor,
+    const TDefault extends TypeShape<InstanceType<TClass>> = TypeShape<InstanceType<TClass>>,
+  >(
     target: () => TClass,
-    options?: PropOptions<TExt> & RequiredField,
+    options?: PropOptions<TExt> & RequiredField<TDefault>,
   ): FieldDecorator<TypeShape<InstanceType<TClass>>>;
 }
 

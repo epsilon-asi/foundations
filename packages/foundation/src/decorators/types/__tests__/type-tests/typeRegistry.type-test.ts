@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
 import { createTypeRegistry, defineTypeExtension } from '../../index';
-import type { TypeShape } from '../../index';
+import type { NumberPropOptions, StringPropOptions, TypeShape } from '../../index';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
@@ -24,6 +24,14 @@ const audit = defineTypeExtension({
 const types = createTypeRegistry().use(http).use(audit);
 const { Type, Prop, ref, resolve, extensions } = types;
 
+enum Status {
+  Draft = 'draft',
+  Ready = 'ready',
+}
+
+const countOptions = { default: 0 } satisfies NumberPropOptions;
+const labelOptions = { default: '' } satisfies StringPropOptions;
+
 // --- field type must agree exactly with the schema output ---
 
 @Type({ description: 'agreeing fields' })
@@ -33,6 +41,12 @@ class Address {
 }
 
 class Good {
+  @Prop.number(countOptions)
+  count!: number;
+
+  @Prop.string(labelOptions)
+  label!: string;
+
   @Prop(z.string().email())
   email!: string;
 
@@ -41,6 +55,12 @@ class Good {
 
   @Prop(z.enum(['a', 'b']))
   letter!: 'a' | 'b';
+
+  @Prop.enum(['a', 'b'])
+  choice!: 'a' | 'b';
+
+  @Prop.enum(Status, { optional: true, http: { in: 'query' } })
+  status?: Status;
 
   @Prop(z.array(z.string()))
   tags!: string[];
@@ -78,11 +98,52 @@ class Good {
   @Prop.nested(() => Address, { optional: true })
   work?: Address;
 
+  @Prop.enum(Status, { default: Status.Draft, http: { in: 'query' } })
+  defaultStatus!: Status;
+
+  @Prop.enum(['email', 'phone'], { default: 'email', optional: true })
+  contactMethod!: 'email' | 'phone';
+
+  @Prop.nested(() => Address, { default: { city: 'Paris' } })
+  defaultAddress!: Address;
+
   @Prop(z.array(ref(() => Address)))
   previous!: Address[];
 }
 
 class Bad {
+  // @ts-expect-error the fallback must be a member of the declared list
+  @Prop.enum(['email', 'phone'], { default: 'letter' })
+  invalidMethod!: 'email' | 'phone';
+
+  // @ts-expect-error the fallback must belong to the enum
+  @Prop.enum(Status, { default: 'unknown' })
+  invalidStatus!: Status;
+
+  // @ts-expect-error the fallback of a number field must be a number
+  @Prop.number({ default: '0' })
+  count!: number;
+
+  // @ts-expect-error a nested default must satisfy the target's shape
+  @Prop.nested(() => Address, { default: { city: 123 } })
+  address!: Address;
+
+  // @ts-expect-error a supplied default makes the parsed field required
+  @Prop.boolean({ optional: true, default: false })
+  enabled?: boolean;
+
+  // @ts-expect-error a plain string can hold values outside the declared list
+  @Prop.enum(['a', 'b'])
+  choice!: string;
+
+  // @ts-expect-error the schema accepts every member of Status
+  @Prop.enum(Status)
+  status!: Status.Draft;
+
+  // @ts-expect-error an optional enum can also produce undefined
+  @Prop.enum(Status, { optional: true })
+  requiredStatus!: Status;
+
   // @ts-expect-error a UUID is a string
   @Prop.uuid()
   id!: number;
