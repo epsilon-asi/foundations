@@ -1,6 +1,6 @@
 # Plan: the resource framework (`@epsilon-asi/apps` and friends)
 
-> **Revised 2026-11-15.** This revision applies the findings of `docs/reviews/resource-framework-plan-review.md` and the answers to its open questions. Finding ids (C1–C7, M1–M14) and spike ids (S0–S6) refer to that review. Everything not listed under "Open decisions" is decided. A second pass the same day settled unmarked fields, cloud providers, ID generation and MFA. A third pass set sessions to bearer tokens with their state in Redis, made the API the public API, and applied a contradiction review. A fourth pass on 2026-11-16 settled local pub/sub and brought API versioning into scope. A fifth pass the same day closed every open decision. A sixth pass on 2026-11-17 applied an independent contradiction review, and the plan moved into the repo at `docs/plans/resource-framework.md`, which is now the copy to edit. A seventh pass the same day cut the first release: the features under "Deferred features" wait, each with a seam kept, and their designs moved to the appendix.
+> **Revised 2026-11-15.** This revision applies the findings of `docs/reviews/resource-framework-plan-review.md` and the answers to its open questions. Finding ids (C1–C7, M1–M14) and spike ids (S0–S6) refer to that review. Everything not listed under "Open decisions" is decided. A second pass the same day settled unmarked fields, cloud providers, ID generation and MFA. A third pass set sessions to bearer tokens with their state in Redis, made the API the public API, and applied a contradiction review. A fourth pass on 2026-11-16 settled local pub/sub and brought API versioning into scope. A fifth pass the same day closed every open decision. A sixth pass on 2026-11-17 applied an independent contradiction review, and the plan moved into the repo at `docs/plans/resource-framework.md`, which is now the copy to edit. A seventh pass the same day cut the first release: the features under "Deferred features" wait, each with a seam kept, and their designs moved to the appendix. An eighth pass on 2026-11-18 made filter caps accept `true`, with named operator constants and list descriptors (1.6), and made routes decorated classes that a zero-argument `runApi()` discovers (2.3, 2.7). The same pass applied that pattern to consumers, jobs, loops and webhooks (2.3, Phase 5), put loops in `/jobs`, required standard decorators with a clear error for legacy mode (0.1), and added a one-process `runApp()` (2.1).
 
 ## Context
 
@@ -65,9 +65,11 @@ The first concrete deliverable, which was the original ask, is an express app wh
 | Packaging | The `apps` root entry and every kit's contract subpath are browser-safe (zod and foundation only). Adapters live in subpaths with their library as an optional peer. foundation's root is browser-safe too; its env system moves to `@epsilon-asi/foundation/env`. |
 | foundation env move | Accepted as a breaking change. command-line, apps, system and langgraph are updated in the same change. |
 | Module format | Every package is ESM. `apps` uses vitest, like command-line. |
-| Handlers | The app writes typed handlers, and extensions (mikro-orm) can supply defaults. Handlers are group-bound and take one options object: `handler(Endpoint, { use?, handle })` (C5). `consumer` and `defineMiddleware` have the same shape. |
+| Decorators | **Standard (TC39) decorators only.** A project that uses the framework's decorators keeps `experimentalDecorators` off. TypeScript 5+, esbuild and Vite work as they are; SWC and Babel need their standard-decorators setting. Every decorator built on foundation's `createDecoratorRegistry` detects a legacy-mode call and throws a `DecoratorModeError` that names the decorator and the `experimentalDecorators` setting (0.1). maxleads' `common` runs in legacy mode, so its classes can't be mixed into a framework project as they are. |
+| Handlers | The app writes typed handlers, and extensions (mikro-orm) can supply defaults. **Routes are declarative: one decorated class per resource, whose fields are its handlers** (`@Routes({ defaults? }) class OfferingRoutes { update = handler(UpdateOffering, { use?, handle }) }`). Each handler takes one options object, and its `request`, `ctx` and return are inferred and checked with no annotations (T16). A pure-CRUD resource keeps an explicit two-line class, `@Routes({ defaults: crudHandlers(Offering) }) class OfferingRoutes {}`; defaults are never applied to a resource that has no routes class. There are no handler arrays (2.3). **Workers and webhooks use the same pattern:** `@Consumers`, `@Jobs` and `@Loops` classes whose fields are `consumer()`, `job()` and `loop()`, and webhook classes whose fields are `on('<event type>', …)` (2.3, Phase 5). Every one of them takes one options object, and its message, payload, event and `ctx` are inferred and checked (T17). `defineMiddleware` keeps the one-options-object shape. |
+| Entry points | **`await runApi()`, `await runConsumer()`, `await runWorker()` and `await runDaemon()` take no arguments.** Each finds its classes by folder convention (`routes/` and `webhooks/`; `consumers/`; `jobs/`; `loops/`) and the runtime services from `services.ts`, and refuses to start while anything it serves lacks a handler (2.7, Phase 5). **`await runApp()`** runs every part an app declares in one process, for small apps, and `APP_PARTS` picks parts per deployment (2.1). The classes don't change when an app moves between one process and several. |
 | Envelope | `{ code, data, message? }` on success, with `data` required whenever the endpoint declares a response. `{ code, error, issues?, traceId }` on failure, so every failure carries the request's `traceId`. maxleads compatibility is not required. |
-| Lists | Paging (offset or cursor), sort and filter, with a MikroORM-shaped `where`/`orderBy` object. |
+| Lists | Paging (offset or cursor), sort and filter, with a MikroORM-shaped `where`/`orderBy` object. A filter cap is `true` (every operator the field's type allows) or a list of operators checked against that type, and `sort: true` allows every readable scalar field. Operators and sort directions are named constants (`FilterOperator`, `SortDirection`), the per-type operator table is exported as data (`FILTER_OPERATORS`), and each list endpoint carries `Filters` and `Sorts` descriptors for the UI (1.6). |
 | Naming | maxleads names, derived: `export const { CreateOffering, … } = endpoints(Offering, { name: 'Offering' })`. |
 | Relations | Designed in full here. Parent scoping is built with the core; references between resources are built with mikro-orm. |
 | Ownership | The structured logger and all five casing helpers move to foundation in Phase 0. command-line's typed middleware chain moves to foundation and is shared. It moves in Phase 2, while the HTTP binding is built, so the generic core is designed against two real users. |
@@ -109,7 +111,12 @@ None. Every numbered decision is settled, and each is recorded in the table abov
 | D11 | Nested tenants | deferred |
 | D12 | Token format | opaque, checked in Redis on every request |
 | D13 | Pub/sub for local dev | Google's emulator; a Redis transport for other providers arrives with them |
-| D14 | Handler shape | one options object: `handler(Endpoint, { use?, handle })` |
+| D14 | Handler shape | one options object, `handler(Endpoint, { use?, handle })`, as a field of a decorated routes class |
+| D16 | Route registration | decorated routes classes that `runApi()` discovers; no handler arrays; a pure-CRUD resource keeps a two-line class |
+| D17 | Filter and sort caps | `true` or an explicit list, checked against the field's type; named operator constants; list descriptors for the UI |
+| D18 | Worker and webhook registration | decorated classes like routes (`@Consumers`, `@Jobs`, `@Loops`, webhook classes), found by zero-argument run functions; no handler arrays; loops live in `/jobs` |
+| D19 | Decorator mode | standard (TC39) only; a legacy-mode call throws `DecoratorModeError` naming `experimentalDecorators` |
+| D20 | One-process apps | `runApp()` runs every declared part in one process; `APP_PARTS` picks parts per deployment |
 | D15 | API version naming | a date, sent in a header; per-key pinning arrives with the first breaking change |
 
 Two of these are confirmed by a spike before code depends on them: the handler typing (S0) and base-class inheritance (S6). Each has a stated fallback.
@@ -130,7 +137,9 @@ Two of these are confirmed by a spike before code depends on them: the handler t
   - react-hook-form's `FieldPath` works on flavored request types.
   - MikroORM's `FilterQuery` accepts flavored classes and rejects wrong operands.
   - The class-name check survives esbuild minification.
-  - The group-bound handler shape types `ctx` from both group and route `use`, on TS 5.9 and TS 7 (T12). That check used a trailing function. The options-object form the plan now uses is re-checked in spike S0.
+  - The group-bound handler shape types `ctx` from both group and route `use`, on TS 5.9 and TS 7 (T12). That check used a trailing function. The options-object form, as fields of a decorated routes class, is verified too (T16): `ctx` comes from the group and the route, nothing is `any`, and wrong returns fail, with no annotations. A defaults-only class typechecks. Spike S0 re-runs it against the real chain types.
+  - `filter: { field: true }` gives exactly the field type's operator group, an explicit list is checked against the type (`name: ['$gt']` on text fails), and the named operator constants work at the same call site, on TS 5.9 and TS 7 (T14).
+  - Consumers, jobs, loops and webhooks as decorated classes stay fully typed, on TS 5.9 and TS 7 (T17). A message is typed by its topic and a payload by its job. A consumer can't return data. A job with a required payload can't take a cron, and a cron must have five fields. A loop's `every` must be a duration. A webhook handler gets only its own event type, and a misspelled event type fails. `ctx` is never `any`.
 - **Refuted, and fixed in this plan:**
   - Default detection through `z.input`/`z.output` → structural detection (1.1).
   - `.partial()` update schemas fill defaults → defaults are unwrapped for update (C1).
@@ -139,6 +148,7 @@ Two of these are confirmed by a spike before code depends on them: the handler t
   - foundation's root is browser-safe → 0.1.
   - foundation compiles on TS 7 → 0.0.
   - `routes()` types per-route `use` → group-bound handlers (C5).
+  - A handler array catches duplicate and missing handlers. It lets both compile (T16) → decorated routes classes, which fail on a duplicate when the class is defined and on a missing handler at startup (2.3).
   - type-bridge handles flavored types → Python comes from JSON Schema, or flavors are stripped first.
 - **Versions:**
   - express 5.3.0 and @mikro-orm/core 7.1.4.
@@ -178,13 +188,13 @@ These are the things maxleads got wrong, plus the defaults a production SaaS nee
 | Base | `@epsilon-asi/foundation` (ESM; browser-safe root) | zod (peer) | Decorator registries, the type registry and extensions, `naming`, structured `logging`, `chain`. Subpaths: `/env` (env system, dotenv), `/files`. |
 | CLI | `@epsilon-asi/command-line` | foundation | The CLI binding of `chain`; its public API is unchanged. |
 | Model & contracts | `@epsilon-asi/apps` (root) | foundation, zod | The resource system, access flavors, tenancy, access maps and principal types, field extensions, endpoints (crud, action, transition, stream), state machines, list query, wire codec, responses and errors, client, message and job contracts, agent tool definitions. **Browser-safe.** |
-| Runtime | `@epsilon-asi/apps/runtime` | foundation (`/env`), Node built-ins | Application lifecycle: ordered services, signals, graceful drain, liveness and readiness. |
+| Runtime | `@epsilon-asi/apps/runtime` | foundation (`/env`), Node built-ins | Application lifecycle: ordered services, signals, graceful drain, liveness and readiness. `runApp()`, which runs every part an app declares in one process and loads each binding with a dynamic import only when its folder exists. |
 | HTTP | `@epsilon-asi/apps/express` | express (optional peer) | The HTTP binding of `chain`; the `authenticate`, `tenant` and `access` system steps; routes; the request pipeline; security defaults; rate limiting; webhooks; SSE streams; `createApi`/`runApi`; in-process tool invocation. |
 | ORM | `@epsilon-asi/apps/mikro-orm` | @mikro-orm/core, @mikro-orm/migrations (optional peers) | Entity schemas, the typed query translator, resource services with tenant filters, a transactional unit of work, default handlers, migrations, encrypted fields, ORM error mapping. |
 | Secrets | `@epsilon-asi/apps/secrets` | Node crypto | The key ring, rotation, and the `KeyProvider` base class with its environment-backed default. Cloud KMS subclasses are deferred. |
 | Redis | `@epsilon-asi/apps/redis` | redis (optional peer) | Typed cache, locks, the session and token store, the rate-limit store. |
 | Messaging | `@epsilon-asi/apps/pubsub`; provider `/pubsub/gcp` | the ORM layer (outbox and ledger); `@google-cloud/pubsub` (optional peer) | Typed publish, consumers on the chain, the failure policy, dead-letter defaults, idempotency, the outbox, and the `PubSubTransport` base class with its in-memory subclass. Each provider subpath holds one subclass. |
-| Jobs | `@epsilon-asi/apps/jobs` | the ORM layer | Postgres-backed delayed and cron jobs, workers, the job and dead-letter admin endpoints. |
+| Jobs | `@epsilon-asi/apps/jobs` | the ORM layer | Postgres-backed delayed and cron jobs, workers, loops (`@Loops`, `loop`, `runDaemon`, each loop leased through a Postgres row lock), the job and dead-letter admin endpoints. |
 | Testing | `@epsilon-asi/apps/testing` (dev only) | the layers above | `createTestApp`, `as()`, factories and seeds (2.11, 3.10). |
 | Kits | `@epsilon-asi/apps/{identity,notifications,billing,metering,audit}`, each with a `/server` half | the layers above, plus their own optional peers (stripe, mail transports) | Identity and accounts, tenant deletion, email, billing and entitlements, usage metering, audit log. Each kit's contract entry is browser-safe; its `/server` entry is Node-only. |
 | React | `@epsilon-asi/ui` | apps (browser-safe entries), react, MUI, react-hook-form, TanStack Query | Forms, query and resource contexts, fields, DataTable, `useCan`, the i18n provider, kit UI (auth pages, membership management, jobs admin). |
@@ -261,8 +271,8 @@ export const { CreateOffering, GetOffering, UpdateOffering, DeleteOffering, List
     access: { read: 'VIEWER', write: 'EDITOR', delete: 'ADMINISTRATOR' },
     list: {
       sort: ['name', 'createdAt', 'updatedAt'],
-      filter: { type: ['$eq', '$in'], status: ['$eq', '$in'], name: ['$ilike'], createdAt: ['$gte', '$lte'] },
-    },
+      filter: { type: true, status: true, name: ['$ilike'], createdAt: ['$gte', '$lte'] },
+    },   // true = every operator the field's type allows; `name: ['$gt']` would be a compile error
   });
 // paths: /offerings and /offerings/:offeringId; the tenant comes from the X-Organization-Id header
 
@@ -278,32 +288,37 @@ export const { PublishOffering, ArchiveOffering } = transitions(OfferingLifecycl
 
 ```ts
 // api/src/routes/OfferingRoutes.ts — server-only pieces attached to the contract
-export const OfferingRoutes = routes({ handlers: [
-  handler(CreateOffering, { handle: async (request, ctx) => {   // request: { name; description; links?; type }
+@Routes()
+export class OfferingRoutes {
+  create = handler(CreateOffering, { handle: async (request, ctx) => {   // request: { name; description; links?; type }
     ctx.logger.info('created offering', { name: request.name, organizationId: ctx.organization.id });
     return exampleOffering(request, ctx);            // a stub ReadModel; returning nothing is a type error here
-  } }),
-  handler(ListOfferings, { handle: async (request, ctx) => {   // request.where / request.orderBy typed by the list declaration
+  } });
+
+  list = handler(ListOfferings, { handle: async (request, ctx) => {     // request.where / request.orderBy typed by the list declaration
     ctx.logger.info('listed offerings', { page: request.page });
     return { offerings: [], count: 0 };
-  } }),
-  // GetOffering, UpdateOffering, DeleteOffering, PublishOffering, ArchiveOffering …
-] });
+  } });
+
+  // get, update, delete, publish, archive …
+}
 
 // api/src/main.ts
-await runApi({ routes: [OfferingRoutes] });
+await runApi();   // finds every @Routes class under routes/, and refuses to start if an endpoint has no handler
 ```
 
-Authentication, tenant resolution, access checks, validation and projection all come from the declarations. A handler sees only a request that is authorized and validated.
+Authentication, tenant resolution, access checks, validation and projection all come from the declarations. A handler sees only a request that is authorized and validated. Nothing is annotated: `request`, `ctx` and the return are inferred and checked (T16).
 
 Middleware for some routes binds through a group, and `ctx` is typed from both the group's `use` and the route's `use`:
 
 ```ts
 const offerings = group({ use: [requireFeature('offerings')] });
-export const OfferingRoutes = offerings.routes({ handlers: [
-  offerings.handler(CreateOffering, { use: [checkQuota], handle: async (request, ctx) => { /* ctx.quota typed */ } }),
-  offerings.handler(ListOfferings, { handle: async (request, ctx) => { /* … */ } }),
-] });
+
+@offerings.Routes()
+export class OfferingRoutes {
+  create = offerings.handler(CreateOffering, { use: [checkQuota], handle: async (request, ctx) => { /* ctx.quota typed */ } });
+  list = offerings.handler(ListOfferings, { handle: async (request, ctx) => { /* … */ } });
+}
 ```
 
 ```ts
@@ -314,13 +329,20 @@ export const { FormContext, FormProvider, useFormContext, useFormSubmit, SubmitB
 // Labels come from i18n keys; the tenant header comes from the client's tenant context.
 ```
 
-Once the ORM is in, a pure-CRUD resource needs no handlers at all:
+Once the ORM is in, a pure-CRUD resource needs no handlers at all, only an explicit two-line class:
 
 ```ts
-export const OfferingRoutes = routes({ handlers: [
-  crudHandlers(Offering),                              // from @epsilon-asi/apps/mikro-orm
-  handler(UpdateOffering, { handle: async (request, ctx) => { /* a hand-written handler wins over the default */ } }),
-] });
+@Routes({ defaults: crudHandlers(Offering) })          // crudHandlers from @epsilon-asi/apps/mikro-orm
+export class OfferingRoutes {}
+```
+
+A hand-written field overrides the default for its endpoint, and the other endpoints keep theirs:
+
+```ts
+@Routes({ defaults: crudHandlers(Offering) })
+export class OfferingRoutes {
+  update = handler(UpdateOffering, { handle: async (request, ctx) => { /* wins over the default UpdateOffering */ } });
+}
 ```
 
 ### Pattern naming conventions (documented in `packages/apps/docs/CONVENTIONS.md`)
@@ -333,16 +355,22 @@ export const OfferingRoutes = routes({ handlers: [
 | Factories | `api/test/factories/<Entity>Factory.ts` | `<Entity>Factory` via `defineFactory` |
 | Seeds | `api/src/seeds/<Name>.ts` | `<Name>Seed` via `defineSeed` |
 | Action endpoint | `common/src/resources/<Entity>.ts` (or `common/src/endpoints/<Entity>/<VerbNoun>.ts` when large) | `export const <VerbNoun> = endpoint({ … })` |
-| Endpoint members | — | `Name`, `Kind`, `Method`, `Path`, `Access`, `Request`, `RequestContent`, `Response`, `ResponseData`, `ResponseTypeUnion`, `Route`, `Call`, `toContent`, `fromContent` |
+| Endpoint members | — | `Name`, `Kind`, `Method`, `Path`, `Access`, `Request`, `RequestContent`, `Response`, `ResponseData`, `ResponseTypeUnion`, `Route`, `Call`, `toContent`, `fromContent`; list endpoints add `Filters` and `Sorts` |
 | Endpoint types | — | `RequestOf<typeof X>`, `RequestContentOf`, `ResponseOf`, `ResponseDataOf`, `ResponseTypeUnionOf`; plus `ReadModel<typeof E>`, `CreateInput`, `UpdateInput`, `ListQueryOf<typeof ListX>` |
 | Errors | `common/src/errors/<Domain>.ts` | `<Domain>Error` (`.Types`, one class per type), union `<Domain>Errors` |
-| Jobs | `common/src/jobs/<Job>.ts` | `<Job>` via `defineJob`; handler `<Job>Handler` |
-| Topics | `common/src/topics/<Topic>.ts` | `<Topic>` via `defineTopic`; handler `<Topic>Handler` |
+| Jobs | `common/src/jobs/<Job>.ts` | `<Job>` via `defineJob`; handled by a field of a `<Domain>Jobs` class |
+| Topics | `common/src/topics/<Topic>.ts` | `<Topic>` via `defineTopic`; handled by a field of a `<Domain>Consumers` class |
+| Consumers | `workers/src/consumers/<Domain>Consumers.ts` | `@Consumers() class <Domain>Consumers { <verb> = consumer(<Topic>, …) }` |
+| Job handlers | `workers/src/jobs/<Domain>Jobs.ts` | `@Jobs() class <Domain>Jobs { <verb> = job(<Job>, …) }` |
+| Loops | `workers/src/loops/<Domain>Loops.ts` | `@Loops() class <Domain>Loops { <name> = loop({ every, run }) }`, from `@epsilon-asi/apps/jobs`; the loop's name derives from `<Domain>Loops.<name>` |
+| Worker groups | `workers/src/groups.ts` (or the class's file, when only one class uses it) | `<concern> = consumerGroup({ use })` or `jobGroup({ use })`, used as `@<concern>.Consumers()` / `@<concern>.Jobs()` with `<concern>.consumer(…)` / `<concern>.job(…)` |
+| Webhooks | `api/src/webhooks/<Provider>Webhook.ts` | `<provider> = webhook({ path, verify })`; `@<provider>.Webhook() class <Provider>Webhook { <event> = <provider>.on('<type>', …) }` |
 | Events | `common/src/events/<Domain>.ts` | `<Domain>Events`, `<Domain>Event` via `defineEvents` |
 | Meters | `common/src/meters.ts` | `<Name>Meter` via `defineMeter` |
 | HTTP middleware | `api/src/middleware/<concern>.ts` | camelCase value (`checkQuota`); role checks come from `requireAccess('<ROLE>')` |
-| Routes | `api/src/routes/<Entity>Routes.ts` | `<Entity>Routes = routes({ handlers: [handler(…), …] })` |
-| Large handlers | `api/src/handlers/<Entity>/<Endpoint>.ts` | `<Endpoint>Handler = handler(<Endpoint>, …)`, listed in `<Entity>Routes` |
+| Routes | `api/src/routes/<Entity>Routes.ts` | `@Routes({ defaults? }) class <Entity>Routes { <verb> = handler(<Endpoint>, …) }`. Field names are the verb in camelCase (`create`, `list`, `publish`); the endpoint, not the field name, decides what a handler serves |
+| Route groups | `api/src/routes/groups.ts` (or the routes file, when only one class uses it) | `<concern> = group({ use })`, used as `@<concern>.Routes()` and `<concern>.handler(…)` |
+| Large handlers | `api/src/handlers/<Entity>/<Endpoint>.ts` | `<Endpoint>Handler = handler(<Endpoint>, …)`, assigned to a field of `<Entity>Routes` |
 | Services (ORM) | `api/src/services/<Entity>Service.ts` | `class <Entity>Service extends ResourceService(<Entity>)` |
 | Forms | `ui/src/forms/<entity>/<verb>-<entity>.tsx` | `FormContext`, `FormProvider`, `useFormContext`, `useFormSubmit`, `SubmitButton`, `Field` |
 | List context | `ui/src/context/<entities>.tsx` | `<Entities>Provider`, `<Entities>Context`, `<Entities>Consumer`, `use<Entities>` |
@@ -351,7 +379,7 @@ export const OfferingRoutes = routes({ handlers: [
 | Provider adapter | `<concern>/<provider>/` | `<Provider><Concern>` (`GcpPubSubTransport`), from `@epsilon-asi/apps/<concern>/<provider>` |
 | Route params | — | `:<entity>Id` for the item, `:<parent>Id` for a parent scope |
 | Paths | — | `/<kebab-plural>`, `/<kebab-plural>/:<entity>Id`, under `/<parent-kebab-plural>/:<parent>Id` when a parent is given |
-| Message keys | — | `<entity>.<field>` (label), `<entity>.<field>.placeholder`, `<entity>.<field>.<VALUE>` (enum option), `errors.<Domain>.<TYPE>` |
+| Message keys | — | `<entity>.<field>` (label), `<entity>.<field>.placeholder`, `<entity>.<field>.<VALUE>` (enum option), `errors.<Domain>.<TYPE>`, `filters.operator.<NAME>` (filter operator label) |
 
 **Name rules.** Names are PascalCase with no consecutive capitals (`ApiKey`, not `APIKey`). That way type-level `Uncapitalize` and runtime `toCamelCase` agree. The plural defaults to `` `${name}s` ``, with a definition-time warning for names ending in s, x, y, ch or sh unless `plural` is given (Company → Companies).
 
@@ -384,6 +412,7 @@ Definition-time checks keep the naming honest. Each throws an error that names t
 - The root exports only the decorators, types, naming and logging. The chain joins them in Phase 2. `/env` (the env system and dotenv) and `/files` are subpaths (C4).
 - **Every importer of the env exports moves in the same change:** command-line, apps, system and langgraph import `loadEnv`, `Env`, `EnvVar`, `createEnvSystem` and friends from `@epsilon-asi/foundation/env`.
 - `check:browser` runs in foundation. It bundles the root with esbuild (`platform: 'browser'`) and scans the metafile for Node built-ins.
+- **Decorator mode is checked once, in `createDecoratorRegistry`.** Every decorator it makes checks that it was called the standard way, with a context object that has a `kind`. A legacy-mode call (`(target, key)` or `(constructor)`) throws a `DecoratorModeError` that names the decorator and says to turn `experimentalDecorators` off. Today the same mistake fails with `Cannot read properties of undefined (reading 'kind')` at runtime, and with TS1238 ("Unable to resolve signature of class decorator") at compile time (T18). Because the check lives in the factory, every decorator gets it: command-line's, the env system's, the type registry's, and the route and worker classes.
 
 ### 0.2 Logging and naming into foundation
 - **Move** these from `packages/command-line/src/logging.ts` and `naming.ts` to `packages/foundation/src/logging/` and `packages/foundation/src/naming/`:
@@ -442,7 +471,7 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
 
 | Spike | Question | Done when |
 |---|---|---|
-| S0: route typing | Does `handler(Endpoint, { use, handle })` type `ctx` from group and route `use`, reject wrong returns (including M3's rule on `void`), and reject bad endpoint references? It runs against command-line's chain types and a minimal `Endpoint` stub with 1.4's members, because Phase 1 hasn't built the real ones yet. If `ctx` doesn't type in this form, the fallback is the trailing function, which is verified (T12). | The T12 matrix passes on TS 5.9 and TS 7, and the matrix is committed as a type test. It's re-run against the real types once 1.4 lands. |
+| S0: route typing | Does `handler(Endpoint, { use, handle })`, as a field of a decorated routes class, type `ctx` from group and route `use`, reject wrong returns (including M3's rule on `void`), and reject bad endpoint references? Does a defaults-only class typecheck? It runs against command-line's chain types and a minimal `Endpoint` stub with 1.4's members, because Phase 1 hasn't built the real ones yet. The scratch version already passes (T16). If `ctx` doesn't type in this form against the real chain types, the fallback is the trailing function, which is verified (T12). | The T16 matrix passes on TS 5.9 and TS 7, and the matrix is committed as a type test. It's re-run against the real types once 1.4 lands. |
 | S1: derivation | Do PATCH and nested projection behave? | `UpdateX.Request.parse(oneKey)` returns that key only. A server-only field (unmarked, `Internal`, `WriteOnly` or `Secret`), nested or not, never appears in a response, a message or a log. |
 | S3: MikroORM | Do `em.create`, `assign`, serialization, array/json operators, `FilterQuery` and tenant filters work with flavored classes? | `ResourceService.create` compiles with one stated cast, and `EntityOf<C>` makes `ctx.em.create` correct. Runs on SQLite and Postgres. |
 | S4: tenancy and access | Does every ownership kind scope correctly from declarations alone? They are Offering (owned), SalesThread (owned, under a parent campaign), Channel (owned with a user owner) and Company (shared, behind an entitlement), plus the tenant itself (`'self'`) and an `'account'` row (`MfaFactor`). Do conditional rules give the same answer on the server and in the UI? | Org A can't read or write org B's rows in any case, a user can't reach another user's `'account'` rows, and no case needs a hand-written handler. |
@@ -610,7 +639,7 @@ export const ExportOfferings = endpoint({
 - `operations`: default all five, or Get and List for a `shared` resource. `{ Delete: false }` turns one off, and `{ Delete: { principals: ['user'] } }` sets options for one.
 - `access`.
 - `in`: per-operation field locations.
-- `list: { sort?, filter?, search?, perPage?: { default, max }, paging?: 'offset' | 'cursor' }`. `search` is 1.13.
+- `list: { sort?, filter?, search?, perPage?: { default, max }, paging?: 'offset' | 'cursor' }`. `sort` is `true` or a list of paths, and each `filter` entry is `true` or a list of operators (1.6). `search` is 1.13.
 - `tool?`: agent tool exposure (1.12).
 - `scope`, `principals` and `docs`, as on `endpoint()`. They apply to every operation unless `operations` sets them for one.
 
@@ -678,14 +707,32 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 
 ### 1.6 List query (`apps/src/query/`)
 - **`ListQuery<C, Caps>`** is `{ page, perPage, where?, orderBy? }`, or `{ cursor?, perPage, where?, orderBy? }` with cursor paging. It adds `q?` when search is declared (1.13).
-- **`Where`** is MikroORM-shaped and nested. Each field gets only its declared operators, from:
-  - `$eq $ne $in $nin $gt $gte $lt $lte $like $ilike`;
-  - `$exists` and `$eq: null` on nullable fields;
-  - `$contains`/`$overlap` on array fields.
+- **`Where`** is MikroORM-shaped and nested, and each field gets only its declared operators. `$and`/`$or` nest the same shape. MikroORM's own types allow `$like`/`$ilike` on dates; ours don't.
+- **Filter caps.** Each entry in `list.filter` is `true` or a list of operators:
+  - `true` allows every operator the field's type allows. The groups come from one table, `FILTER_OPERATORS`:
 
-  `$and`/`$or` nest the same shape. `$like`/`$ilike` exist only on strings; MikroORM's own types allow them on dates, but ours don't.
-- **`OrderBy`** is `{ [sortable path]?: 'asc' | 'desc' }`, nested for dot paths, and every key applies.
-- **Capabilities are declared once**, in `endpoints(…, { list })`, and type-checked against `Paths<C>`. With nothing declared, there's no sort or filter, only paging. Only fields the caller can read can be filtered or sorted, because a filter on a hidden field leaks its value. Naming an unmarked, `Internal`, `WriteOnly` or `Secret` field is a definition-time error.
+    | Field type | `true` allows | Named type |
+    |---|---|---|
+    | text (`string`) | `$eq $ne $in $nin $like $ilike` | `TextOperator` |
+    | enum or literal union | `$eq $ne $in $nin` | `EnumOperator` |
+    | number, bigint, `Date` | `$eq $ne $in $nin $gt $gte $lt $lte` | `RangeOperator` |
+    | boolean | `$eq $ne` | `BooleanOperator` |
+    | id or reference (`Id`, `Ref`) | `$eq $ne $in $nin` | `IdOperator` |
+    | array | `$contains $overlap` | `ArrayOperator` |
+    | nullable, any of the above | adds `$exists` and `$eq: null` | — |
+
+  - A list names a subset, and every operator in it is checked against the field's type. `name: ['$gt']` on a text field is a compile error, and so is `$ilike` on an enum.
+  - Object and json fields have no group, so naming one is a definition-time error. The `Tenant` field can't be named, because every query is already scoped to the tenant.
+  - The compile-time check reads the field's TypeScript type, and the runtime check reads its zod schema. A type test fails if the two ever disagree, for every supported kind.
+  - A compile error names the group (`'"$gt"' is not assignable to type 'TextOperator'`), not an internal helper.
+- **Sort caps.** `list.sort` is `true` (every readable scalar field of the resource itself) or a list of paths, which may go through relations. Arrays, objects and json can't be sorted.
+- **Named constants.** Each is a const object plus a same-named type, like the response codes (1.8), so a constant and its literal are interchangeable at every call site:
+  - `FilterOperator`: `FilterOperator.ILike` is `'$ilike'`, `FilterOperator.Gte` is `'$gte'`, and so on.
+  - `SortDirection`: `SortDirection.Asc` is `'asc'` and `SortDirection.Desc` is `'desc'`.
+  - `FILTER_OPERATORS`: the table above, as data. The types, the server's 422 check and the UI's filter menus all read it, so they can't drift. maxleads kept three hand-synced copies (`AllowedComparisonOperator`, `UIFilterTypeToBackendFilterType` and a label map).
+- **Descriptors on every list endpoint.** `ListX.Filters` and `ListX.Sorts` are frozen, typed objects describing what was declared. For example, `ListOfferings.Filters.type` is `{ path: 'type', kind: 'enum', operators: ['$eq', '$ne', '$in', '$nin'], values: [...], labelKey: 'offering.type' }`. The UI's DataTable builds its sort buttons and filter menus from them, choosing the input by `kind`, so a page declares nothing more (Phase 4). Operator labels are message keys (`filters.operator.<NAME>`).
+- **`OrderBy`** is `{ [sortable path]?: SortDirection }`, nested for dot paths, and every key applies.
+- **Capabilities are declared once**, in `endpoints(…, { list })`, and type-checked against `Paths<C>`. With nothing declared, there's no sort or filter, only paging. Only fields the caller can read can be filtered or sorted, because a filter on a hidden field leaks its value. Naming an unmarked, `Internal`, `WriteOnly` or `Secret` field is a definition-time error, and `true` never reaches one either.
 - **Exported defaults:** `DEFAULT_PAGE = 0`, `DEFAULT_PER_PAGE = 20`, `DEFAULT_MAX_PER_PAGE = 100`.
 - **Query cost is capped.** The depth of a `where`, its number of conditions and the length of an `$in` list each have a limit (`DEFAULT_MAX_WHERE_DEPTH`, `DEFAULT_MAX_WHERE_NODES`, `DEFAULT_MAX_IN_LENGTH`). Going over is a 422.
 - **Wire format:** bracket encoding, with one encoder and decoder in core used by both sides. The decoder rejects the keys `__proto__`, `constructor` and `prototype`, and builds null-prototype objects (Security 2).
@@ -782,6 +829,17 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 ### 2.1 Runtime lifecycle (`@epsilon-asi/apps/runtime`)
 - **Services:** `defineService({ name, start, stop })` declares a service, and `runApplication({ services, name?, env?, shutdownTimeoutMs? })` runs them in order and stops them in reverse. `name` defaults to the package name, `env` to `ApplicationEnv`, and `shutdownTimeoutMs` to `DEFAULT_SHUTDOWN_TIMEOUT_MS`.
 - **Health:** `/health/live` and `/health/ready`. When a drain starts, readiness flips to failing first. Both bypass auth and rate limits, and both reveal nothing (M14).
+- **`runApp(options?)`** runs every part an app declares in one process, for apps too small to split:
+  ```ts
+  // server/src/main.ts
+  await runApp();   // serves routes/, webhooks/, consumers/, jobs/ and loops/, whichever exist
+  ```
+  - It discovers the same folders as `runApi()`, `runConsumer()`, `runWorker()` and `runDaemon()`. It loads each binding (`/express`, `/pubsub`, `/jobs`) with a dynamic import only when its folder exists, so an app without consumers never loads the Pub/Sub SDK.
+  - Every part shares one `runApplication`: one set of services (one ORM, one Redis), one logger and one drain. Readiness is ready only when every part is. A drain stops intake everywhere first, then waits for in-flight requests, messages and jobs.
+  - Each part runs its own startup checks, as it would on its own.
+  - `parts` picks a subset, and defaults to `APP_PARTS` from the env (`api,consumers,jobs,loops`), then to every part discovered. One image can then run as the API in one deployment and as the workers in another.
+  - Splitting an app later changes only its entry points. The classes stay the same, and loop leases and job claims already keep one replica per loop and per job.
+  - Without an API part, the health endpoints are served on `HEALTH_PORT` (`DEFAULT_HEALTH_PORT`).
 - **Drain:** on SIGINT/SIGTERM, the HTTP server calls `server.close()` and `closeIdleConnections()`, then `closeAllConnections()` when the timeout hits. `agents/api.py`'s `AsyncWorkerManager` is only a model here: it never reads its `stop_event`, and `asyncio.wait([])` raises when no workers are running.
 - **Env:** `ApplicationEnv` uses foundation's `@Env` from `/env`, with `LOG_LEVEL` defaulting to `info`. It also reads `PORT`, `TRUST_PROXY` (2.2) and `APP_ENV`. Stack traces are never sent, whatever the environment says.
 - **`APP_ENV`** is `production`, `development` or `test`. Its default, `DEFAULT_APP_ENV`, is `production`, so an unset value never turns on a dev or test behaviour. Every dev-only and test-only check reads it, and nothing reads `NODE_ENV`.
@@ -796,7 +854,7 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 - **Built-in middleware:**
   - **`rateLimit`** is on by default (`createApi({ rateLimit: false | options })`):
     - It's keyed on the principal, so each user and each API key has its own limit.
-    - Public endpoints have no principal, so they're keyed on IP. That needs a correct client IP, which needs `trustProxy`. It comes from `TRUST_PROXY` in the env unless passed. It takes a hop count or a list of proxy CIDRs. `true` (trust every hop) is refused, because it lets a client forge its IP. In development and test (`APP_ENV`) it defaults to off. In production, an app with a public route and no value set fails at startup with an error that names `TRUST_PROXY`. Every app has public routes (health, `/openapi.json`), so the deploy sets one variable and the call site still passes only routes.
+    - Public endpoints have no principal, so they're keyed on IP. That needs a correct client IP, which needs `trustProxy`. It comes from `TRUST_PROXY` in the env unless passed. It takes a hop count or a list of proxy CIDRs. `true` (trust every hop) is refused, because it lets a client forge its IP. In development and test (`APP_ENV`) it defaults to off. In production, an app with a public route and no value set fails at startup with an error that names `TRUST_PROXY`. Every app has public routes (health, `/openapi.json`), so the deploy sets one variable and the call site is still `await runApi()`.
     - A limited request gets 429 with `Retry-After`, and responses carry `RateLimit` headers.
     - A memory store multiplies the limit by the number of replicas, so it's for dev and tests. Outside them, `createApi` refuses a memory store unless `singleReplica: true` is set. The Redis store (6.9) is the default once Redis is registered.
     - A second bucket limits each tenant as a whole, so many keys can't multiply one tenant's limit. Keys per tenant are capped (`DEFAULT_MAX_API_KEYS`).
@@ -810,10 +868,33 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
   - `requireAccess(...)`, `requireFeature(...)` and `requireBudget(...)` come from the access map, billing and metering.
 
 ### 2.3 Routes and handlers
-- **`handler(Endpoint, { use?, handle })`** binds one handler, where `use` is route middleware and `handle` is the function. `request` is `RequestOf<E>`, `ctx` is typed from the group's and the route's `use`, and the return is checked. Spike S0 confirms the typing of this form. The trailing-function form is the verified fallback (T12).
-- **`group({ use })`** returns `{ handler, routes }` bound to that group's middleware.
-- **`routes({ handlers })`** takes a list of bound handlers and handler sets (such as `crudHandlers(C)`), so a resource's routes are one expression. A hand-written handler wins over a default one.
-- **`webhook({ name, path, verify, handlers })`.** A webhook is public, and its verifier is what authenticates it. Prebuilt verifiers (`stripeVerifier`, `hmacVerifier({ header, secret, toleranceMs })`) check timestamp tolerance and every signature, compare in constant time, and dedup event ids in a ledger (Security 8). Webhooks arrive with Phase 3, because their ledger is a table.
+- **Routes are declared, not listed.** A resource's routes are one decorated class in `api/src/routes/<Entity>Routes.ts`, and each field is one handler:
+  ```ts
+  @Routes({ defaults: crudHandlers(Offering) })
+  export class OfferingRoutes {
+    update = handler(UpdateOffering, { use: [checkQuota], handle: async (request, ctx) => { /* … */ } });
+  }
+  ```
+- **`handler(Endpoint, { use?, handle })`** binds one handler, where `use` is route middleware and `handle` is the function. `request` is `RequestOf<E>`, `ctx` is typed from the group's and the route's `use`, and the return is checked. Nothing is annotated, because everything is inferred (T16). Spike S0 re-runs this against the real chain types. The trailing-function form is the verified fallback (T12).
+- **`group({ use })`** returns `{ Routes, handler }` bound to that group's middleware: `@offerings.Routes()` on the class and `offerings.handler(…)` for its fields. The plain `Routes` and `handler` belong to the default group, which has no middleware of its own.
+- **`@Routes(options?)`** takes `defaults`, a handler set such as `crudHandlers(C)` or a list of them. A hand-written field wins over a default for the same endpoint. A pure-CRUD resource is the two-line class `@Routes({ defaults: crudHandlers(Offering) }) export class OfferingRoutes {}`. Defaults are never applied to a resource that has no routes class, so a routes file that was never loaded fails the startup check instead of quietly falling back to default behaviour.
+- **How it's built.** `createRouteSystem()` follows the `create*System` pattern on foundation's `createDecoratorRegistry`, and its default instance's members (`Routes`, `handler`, `group`) are exported directly. The registry records each decorated class. Handlers, endpoints and middleware are live values, so each record carries a closure instead of going through the registry's clone, as the type registry does. At startup the system creates each class once and reads its fields. A field that isn't a bound handler is left alone, so a class can hold helpers.
+- **Checks when a class is defined** (`ApiDefinitionError`, naming the class and field): two fields bound to one endpoint, and a handler for a disabled operation.
+- **Checks at startup:** every endpoint the API serves must have a handler or a default. `runApi()` refuses to start and names each endpoint that has neither. An endpoint meant to have no handler yet is turned off with `operations` (1.4). Kits bring their own routes classes, so their endpoints pass the check without app code.
+- **Webhooks are declared the same way.** `webhook({ path, verify })` returns a binding, and a decorated class's fields handle its event types:
+  ```ts
+  // api/src/webhooks/StripeWebhook.ts
+  const stripe = webhook({ path: '/webhooks/stripe', verify: stripeVerifier() });   // secret from STRIPE_WEBHOOK_SECRET by default
+
+  @stripe.Webhook()
+  export class StripeWebhook {
+    invoicePaid = stripe.on('invoice.paid', { handle: async (event, ctx) => { /* event.data typed for invoice.paid */ } });
+  }
+  ```
+  - The verifier fixes the event union, so `on('<type>', …)` narrows `event` to that type, and a misspelled type is a compile error (T17). `hmacVerifier({ header, secretEnv?, toleranceMs?, schema })` parses events with a discriminated-union schema, so a custom provider is typed the same way.
+  - A webhook is public, and its verifier is what authenticates it. Prebuilt verifiers check timestamp tolerance and every signature, compare in constant time, and dedup event ids in a ledger (Security 8). An event type with no handler is acknowledged and logged, not retried.
+  - Two fields for one event type fail when the class is defined. `runApi()` discovers webhook classes under `webhooks/` (2.7).
+  - Webhooks arrive with Phase 3, because their ledger is a table.
 
 ### 2.4 Request pipeline (per route, compiled once at startup)
 1. Match the route and enforce the body size limit.
@@ -832,8 +913,8 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 - a path param with no request field;
 - a non-public route on an app without an `authenticate` verifier (`createApi` refuses to start);
 - a middleware `needs` field missing from the contract;
-- a handler for a disabled operation;
-- two handlers for one endpoint.
+- a handler for a disabled operation, and two handlers for one endpoint (both when the routes class is defined, 2.3);
+- an endpoint with no handler and no default (at startup, 2.3).
 
 ### 2.5 Browser and transport security defaults
 - **CORS:** an allow-list from `CORS_ORIGINS`. The API never sends `Access-Control-Allow-Credentials`, because it uses no cookies.
@@ -866,15 +947,17 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 - **Realtime updates are deferred** (see "Deferred features"). The UI refetches after its own writes and when the window regains focus.
 
 ### 2.7 App factory
-- **`createApi({ routes, services?, use?, env?, logger?, rateLimit?, cors?, trustProxy?, singleReplica?, bodyLimit?, health?, errorMappers?, verifiers? })`** returns `{ app, listen(port?), close() }`.
-  - `services` registers runtime services, such as the ORM (3.1) and Redis (6.9).
+- **`createApi({ routes?, services?, use?, env?, logger?, rateLimit?, cors?, trustProxy?, singleReplica?, bodyLimit?, health?, errorMappers?, verifiers? })`** returns `{ app, listen(port?), close() }`.
+  - `routes` defaults to the routes classes found by discovery (below).
+  - `services` registers runtime services, such as the ORM (3.1) and Redis (6.9). It defaults to the `services` export of `services.ts` beside the entry module, when that file exists, in start order.
   - When the ORM service is registered, `orm` and `unitOfWork` wrap every route automatically, so no route lists them.
-- **`runApi(options)`** runs `createApi` inside `runApplication`, listening on `env.PORT` (`DEFAULT_PORT = 3000`). The common case passes only routes.
+- **`runApi(options?)`** runs `createApi` inside `runApplication`, listening on `env.PORT` (`DEFAULT_PORT = 3000`). The common case passes nothing: `await runApi()`.
+- **Route discovery.** With no `routes` given, the layer loads every `*Routes` module under the `routes` folder beside the entry module (`src/routes` when run from source, `dist/routes` when built), and every `*Webhook` module under `webhooks`, and the decorators register each class. `routesDir` changes the folder (`DEFAULT_ROUTES_DIR = 'routes'`). A bundled build, or a test that wants a subset, passes `routes: [OfferingRoutes]` instead. The startup check (2.3) runs either way, so a routes file that was missed is an error that names its endpoints, never a silent 404.
 
 ### 2.8 Example app (`packages/apps/examples/crud-api/`)
 - `common/app.ts` and `common/resources/Offering.ts`, as shown above.
 - The API uses a stub `authenticate` verifier with a token map, plus stub memberships across two tenants and several roles.
-- The routes return stub read models.
+- `api/src/routes/OfferingRoutes.ts` is one `@Routes` class whose handlers return stub read models, and `api/src/main.ts` is `await runApi()`.
 - The end-to-end tests drive the real app through the typed client (see "Verification"). There is no database yet. From Phase 3, they run against a local Postgres.
 
 ### 2.9 The public API
@@ -904,7 +987,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - Each old version has a support window (`DEFAULT_API_VERSION_SUPPORT_MONTHS`).
 
 ### 2.11 Test kit (`@epsilon-asi/apps/testing`)
-- **`createTestApp({ routes, ...createApiOptions })`** starts the real app on port 0. In-memory stand-ins replace Redis, the session store and pub/sub. It returns `{ client, as, close }`.
+- **`createTestApp({ routes?, ...createApiOptions })`** starts the real app on port 0. `routes` defaults to discovery, as in `runApi()`. In-memory stand-ins replace Redis, the session store and pub/sub. It returns `{ client, as, close }`.
 - **`as({ user?, tenant?, role? })`** returns a typed client acting as that principal. It signs in through a test verifier that only `createTestApp` registers. `createApi` refuses that verifier outside tests, so there is no back door in production code.
 - **A database from Phase 3 on:** each test file gets a fresh schema built from the entities, on SQLite by default, or on Postgres for anything that depends on Postgres.
 - **`/testing` is for tests only.** It's a dev dependency, and `check:browser` never sees it.
@@ -947,7 +1030,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **Error mappers:** `NotFoundError` → 404; `UniqueConstraintViolationException` → 409; not-null, foreign-key and check violations → 409/422. Postgres `detail` never reaches the response.
 
 ### 3.4 Default handlers
-`crudHandlers(C)` returns handlers keyed by operation (`Create`, `Get`, `Update`, `Delete`, `List`), because a class type carries no endpoint names. At startup, they bind to the endpoints registered for `C`. A hand-written handler wins, endpoint by endpoint.
+`crudHandlers(C)` returns handlers keyed by operation (`Create`, `Get`, `Update`, `Delete`, `List`), because a class type carries no endpoint names. It's passed to a routes class as `@Routes({ defaults: crudHandlers(C) })`. At startup, the handlers bind to the endpoints registered for `C`. A hand-written field wins, endpoint by endpoint.
 
 ### 3.5 Relations
 - **Declaration:** `@Prop.ref(() => SalesCampaign, { crud: 'createOnly' }) campaign!: CreateOnly<Ref<SalesCampaign>>`. A relation is marked like any field; unmarked, it would be hidden. The relation kind is derived from the field's shape and can be overridden in `defineEntity`.
@@ -983,7 +1066,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 ### 3.8 Tests
 - The adapter's unit and integration tests run on in-memory SQLite.
 - These run on Postgres: `ilike`, arrays and json, migrations and the linter, and encryption round-trips.
-- The example app switches to `crudHandlers(Offering)` and keeps one hand-written override.
+- The example app's `OfferingRoutes` switches to `@Routes({ defaults: crudHandlers(Offering) })` and keeps one hand-written field as an override.
 - Search runs on Postgres.
 
 ### 3.9 Search in the database
@@ -1013,7 +1096,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - Field access rules disable fields.
   - Labels come from i18n.
 - **Fields.** `Field name` is typed by `FieldPath<RequestOf<E>>`, and the input kind, label and options come from the `ui` extension. `FormFields` renders an operation's writable fields in order.
-- **Lists.** List state is synced to the URL, and the page resets when a filter changes. The DataTable is built from the list caps.
+- **Lists.** List state is synced to the URL, and the page resets when a filter changes. The DataTable is built from the list endpoint's `Filters` and `Sorts` descriptors (1.6). It picks each filter's input by `kind` (text box, enum checkboxes, number or date range), offers only the declared operators, and labels them from `filters.operator.<NAME>`, so a list page passes only the endpoint.
   - It adds a search box when search is declared.
 - **`CreateResourceContext(GetOffering)`** returns entity-named exports through template literals: `{ OfferingProvider, OfferingContext, useOffering }`.
 - **Session and tenant:**
@@ -1037,16 +1120,38 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **Topics (`/pubsub`).**
   - **The transport is a base class** (see "Cloud providers"). `PubSubTransport` owns validation, envelopes, the failure policy, idempotency, tenant restore, tracing and limit checks. A subclass implements `publish`, `subscribe`, `ack`, `nack` and `provision`. GCP (`GcpPubSubTransport`) ships first. The AWS design is in the appendix (A.13).
   - `publish(Topic, { ctx, message })` is typed and validated.
-  - `consumer(Topic, { use?, handle, failure? })` runs on the chain with a failure policy. Validation failures and unknown errors behave as before. The defaults are `maxAttempts: 5`, then the dead-letter topic.
+  - `consumer(Topic, { use?, handle, failure?, maxAttempts? })` runs on the chain with a failure policy. Validation failures and unknown errors behave as before. The defaults are `maxAttempts: 5`, then the dead-letter topic. `message` is typed by the topic, and `handle` returns nothing or a failure, never data (T17).
   - `idempotent` middleware keeps a message-id ledger in the same transaction.
   - The tenant context is restored from the envelope.
-- **Provisioning.** `runConsumer({ consumers })` checks, or with an opt-in flag creates, each provider's subscriptions and dead-letter targets from the declarations, through the transport. A CI check fails any topic that has no consumer.
+- **Workers are declared like routes (2.3).** Each kind of work is a decorated class, and each field handles one topic, job or loop:
+  ```ts
+  // workers/src/consumers/EmailConsumers.ts
+  @Consumers()
+  export class EmailConsumers {
+    send = consumer(ScheduledEmail, { use: [idempotent], handle: async (message, ctx) => { /* message: { messageId; sendAt } */ } });
+  }
+
+  // workers/src/jobs/BillingJobs.ts
+  @Jobs()
+  export class BillingJobs {
+    receipt = job(SendReceipt, { handle: async (payload, ctx) => { /* payload: { invoiceId } */ } });
+    digest = job(WeeklyDigest, { cron: '0 9 * * 1', handle: async (payload, ctx) => { /* … */ } });
+  }
+
+  // workers/src/main.ts
+  await runConsumer();
+  ```
+  - `consumerGroup({ use })` and `jobGroup({ use })` bind shared middleware, as `group` does for routes: `@research.Consumers()` with `research.consumer(…)`. `ctx` is typed from the group's and the field's `use`. When the ORM service is registered, `unitOfWork` wraps every consumer and job, so none lists it.
+  - These are built on the same `createDecoratorRegistry` system as routes. The classes are created once at startup, and fields that aren't bound handlers are left alone.
+  - **Checks when a class is defined:** two consumers for one topic, or two handlers for one job, in one app.
+  - **Checks at startup:** each run function refuses to start with no classes to serve, and names any topic or job a class declares that the transport or jobs table can't serve. A CI check across apps fails any topic with no consumer and any job with no handler.
+- **Provisioning.** `runConsumer()` checks, or with an opt-in flag creates, each provider's subscriptions and dead-letter targets from the declarations, through the transport.
 - **Jobs (`/jobs`) replace the maxleads queuer**, which was a delayed-job queue, not a set of loops (M10).
   - `schedule(Job, { ctx, payload, at?, delay?, key? })` writes to a Postgres jobs table.
   - Workers claim jobs with `FOR UPDATE SKIP LOCKED`, hold a lease with a heartbeat, retry with backoff, and finally mark a job dead.
-  - `cron(Job, { schedule: '0 * * * *' })` dedups each slot.
+  - `job(Job, { cron: '0 * * * *', handle })` runs a job on a schedule and dedups each slot. Only a job whose payload has no required fields can take a `cron`, and the expression must have five fields; both are compile errors otherwise (T17).
   - Paid side effects run under an idempotency key.
-- **`loop()`** is only for genuinely periodic work. It holds a lease, so one replica runs it.
+- **`loop({ every, run })`** is only for genuinely periodic work, as a field of a `@Loops()` class. Both come from `@epsilon-asi/apps/jobs`. Each loop holds a lease, a Postgres row lock renewed by heartbeat like a claimed job's, so one replica runs it even when every replica runs every part (`runApp()`, 2.1). `every` is a duration such as `'15s'`, checked at compile time, and the loop's name derives from its class and field (`MaintenanceLoops.refreshTokens`).
 - **State machine guards in workers.** `inState(CampaignLifecycle, { states: ['RUNNING'] })` stops work for paused or cancelled records. It ships for both the consumer and the job bindings.
 - **Outbox.** A message is written to an outbox table in the unit of work and published after commit. A relay in the worker publishes anything left behind, so a crash between commit and publish loses nothing. Delivery is at-least-once. Jobs need no outbox: `schedule` writes to the jobs table in the same transaction.
 - **Events.** `defineEvents` domains publish to one events topic.
@@ -1055,7 +1160,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - Actions: `RetryJob`, `CancelJob`, `ReplayDeadLetter`, `DiscardDeadLetter`.
   - Tenant admins see their own tenant's jobs through `tenant`-scope endpoints, when the app enables it. Staff see every tenant's jobs through `apps-cli jobs`.
   - `ui` ships a `JobsAdmin` page. Counts per state come from the job list endpoint; exporting them as metrics waits for the metrics follow-up.
-- **App kinds:** `runConsumer`, `runWorker` (jobs) and `runDaemon` (loops), all built on `runApplication`.
+- **App kinds:** `runConsumer()`, `runWorker()` (jobs) and `runDaemon()` (loops), all built on `runApplication` and all taking no arguments. Each discovers its classes under the folder beside the entry module: `consumers/` (`*Consumers`), `jobs/` (`*Jobs`) and `loops/` (`*Loops`), with `services.ts` as in 2.7. A bundled build or a test passes the classes instead, for example `runConsumer({ consumers: [EmailConsumers] })`. `runApp()` runs all of them, plus the API, in one process (2.1).
 - **Local dev** uses Google's Pub/Sub emulator, which `dev` starts. `MemoryPubSubTransport` can't carry a message from the API process to a worker process, so it's for tests only.
 - **Tests:** unit tests use `MemoryPubSubTransport`. The transport conformance suite runs against the Pub/Sub emulator. Job locking and cron dedup are tested on Postgres, because SQLite can't test `SKIP LOCKED`.
 
@@ -1328,6 +1433,7 @@ None of these is in the first release. Each can be added later without reworking
 - `check:browser` covers foundation's root, `apps`' root, every kit contract entry, and a fixture `common` package that imports every root export. It uses esbuild with `platform: 'browser'`, nothing external, and a metafile with no Node built-ins, express, `@mikro-orm`, `@google-cloud`, `@aws-sdk` or redis. Each entry also compiles with `tsconfig.browser.json` (`types: []`, DOM lib).
 - **Consumer view:** a fixture package type-checks against the built `.d.ts`, not against `src`.
 - **Regression:** command-line's full vitest suite and both examples pass unchanged.
+- **Decorator mode:** a decorator from `createDecoratorRegistry` called the legacy way, as a class or as a member decorator, throws `DecoratorModeError` naming the decorator and `experimentalDecorators`. A fixture built with esbuild and `experimentalDecorators: true` fails at startup with that error, not with a property-read error.
 
 **Contract drift.** In a fixture app, renaming a field must break compilation in each layer, with one `@ts-expect-error` per layer:
 - the handler;
@@ -1346,7 +1452,9 @@ The tool-schema snapshot must also change.
 - `endpoints()` returns the exact pattern-named keys.
 - `RequestOf` contains parent and id params and never the tenant field.
 - `ListQuery` allows only declared paths and operators, with correctly typed operands.
-- A handler's `ctx` has exactly what its group and route `use` provide.
+- `filter: { field: true }` gives exactly the field type's operator group, an explicit list rejects an operator its field's type can't take, `FilterOperator` constants and their literals are interchangeable, and the compile-time and runtime field kinds agree for every supported kind.
+- A handler's `ctx` has exactly what its group and route `use` provide, as a field of a routes class, with no annotations.
+- A routes class with two handlers for one endpoint fails when it's defined, and a defaults-only class typechecks.
 - A handler's return must match `ResponseDataOf`, and `void` is rejected when a response is declared.
 - A middleware's `needs` must be in the contract.
 - `Field name` accepts only request fields.
@@ -1369,7 +1477,8 @@ The tool-schema snapshot must also change.
 - **Routing:** an unmatched path → 404, and there is no second response after a success.
 - **Wire:** dates with offsets survive the round trip, and a bracket query with filters and a two-key sort decodes correctly.
 - **Projection:** unmarked, `Internal`, `WriteOnly` and `Secret` values never appear, nested or not.
-- **Definition-time errors:** a duplicate route, an unauthenticated non-public route, and a missing `needs` field each throw at startup.
+- **Definition-time errors:** a duplicate route, an unauthenticated non-public route, a missing `needs` field, and an endpoint with no handler or default each throw at startup. The last error names every such endpoint.
+- **Discovery:** `await runApi()` with no arguments serves every routes class under `routes/`, and `runApi({ routes })` serves only the classes given.
 - **Shutdown:** readiness flips first, and `close()` drains an in-flight request.
 - **Search:** `q` finds rows by text, never crosses tenants, and can't name a hidden field.
 - **Test kit:** `as()` works in tests, and `createApi` refuses the test verifier outside them. Seeding refuses a production database.
@@ -1443,6 +1552,9 @@ The tool-schema snapshot must also change.
 - Every transport passes the same conformance suite (in-memory and GCP).
 - `EnvKeyProvider` passes the `KeyProvider` conformance suite.
 - Publish validates.
+- The T17 type tests are committed: messages, payloads, webhook events and `ctx` are typed, a consumer can't return data, a cron needs a payload-free job and a five-field expression, and a misspelled webhook event type fails.
+- Two consumers for one topic, two handlers for one job, and two fields for one webhook event type each fail when the class is defined.
+- `runConsumer()`, `runWorker()` and `runDaemon()` with no arguments serve every class in their folder.
 - The failure policy routes ack and nack.
 - Messages are dead-lettered after `maxAttempts`.
 - The idempotency ledger drops duplicates.
@@ -1451,6 +1563,8 @@ The tool-schema snapshot must also change.
 - Cron dedups.
 - Job admin actions work.
 - Shutdown drains.
+- `runApp()` serves routes, webhooks, consumers, jobs and loops in one process, with one drain and a readiness that waits for every part. `APP_PARTS` limits it to the parts named. An app with no `consumers/` folder never loads the Pub/Sub binding.
+- A loop runs on one replica at a time, even when every replica runs every part.
 
 **Kits:**
 - Every identity flow works end to end.
