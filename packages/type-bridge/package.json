@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/type-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Convert Python type annotations to TypeScript types and TypeScript types to Python, with the semantics of both languages mapped deliberately: optional vs nullable, TypedDict/dataclass/pydantic, enums, generics, forward references and Python version targets.",
   "keywords": [
     "python",
