@@ -1,6 +1,6 @@
 # @epsilon-asi/apps
 
-The browser-safe package root exports resource model types, the `newId()` UUID generator, CRUD, HTTP and UI metadata, and helpers for CRUD endpoint names, tenant names and translation keys. It also provides list query primitives, date, number and boolean wire codecs, and success response types and codes. See the [resource framework plan](https://github.com/epsilon-asi/foundations/blob/main/docs/plans/resource-framework.md) for the implementation schedule.
+The browser-safe package root exports resource model types, the `newId()` UUID generator, and CRUD, HTTP and UI metadata. It derives CRUD endpoint names and paths, tenant names and translation keys. It also provides CRUD methods and success codes, typed success and failure responses, list query primitives, and date, number and boolean wire codecs. [Resource framework plan](https://github.com/epsilon-asi/foundations/blob/main/docs/plans/resource-framework.md)
 
 The [naming guide](docs/CONVENTIONS.md) covers the planned file names, exports and discovery rules for application code. It ships with the package.
 
@@ -151,11 +151,34 @@ const apiKeyParam = itemParamName('ApiKey'); // 'apiKeyId' in /api-keys/:apiKeyI
 const companyListKey = listResponseKey({ name: 'Company', plural: 'Companies' }); // 'companies'
 ```
 
-`crudPaths()` returns the collection and item path templates for an ordinary resource with no parent. The plural forms one static collection segment. An explicit plural such as `Companies` gives `/companies` and `/companies/:companyId`.
+`crudPaths()` returns the collection and item path templates. The plural forms one static collection segment. An explicit plural such as `Companies` gives `/companies` and `/companies/:companyId`.
 
 `itemParamName()` returns the flat request field used in an item route. Use the singular resource name and write acronyms as words. For example, the helper rejects `APIKey` because its camel-case spelling would disagree with its TypeScript literal type.
 
 `listResponseKey()` returns the property that holds the rows in a list response. It uses the same plural as the list endpoint and converts it to camel case. For example, `ListApiKeys` uses `apiKeys`, and `ListCompanies` uses `companies`.
+
+## Parent-scoped paths
+
+Pass the parent’s singular name and optional plural to prefix both child paths with the parent’s item path. Each ID maps to its own flat request field. The helper rejects a pair that would give both IDs the same field name. The tenant ID travels in the header.
+
+```ts
+import { crudPaths } from '@epsilon-asi/apps';
+
+const threadPaths = crudPaths({ name: 'SalesThread', parent: { name: 'SalesCampaign' } });
+// threadPaths.collection is '/sales-campaigns/:salesCampaignId/sales-threads'.
+// threadPaths.item is '/sales-campaigns/:salesCampaignId/sales-threads/:salesThreadId'.
+```
+
+## CRUD methods and success codes
+
+`CRUD_OPERATIONS` is the shared table of HTTP methods and success codes. Create uses `post` and `201`. Get and List use `get`, Update uses `patch`, and Delete uses `delete`, each with `200`. The table and its entries are frozen and preserve their literal types.
+
+```ts
+import { CRUD_OPERATIONS } from '@epsilon-asi/apps';
+
+const createOffering = CRUD_OPERATIONS.Create; // { method: 'post', code: 201 }
+const deleteOffering = CRUD_OPERATIONS.Delete; // { method: 'delete', code: 200 }
+```
 
 ## Reserved route names
 
@@ -295,6 +318,20 @@ const forbidden: AuthorizationFailureResponse = {
   code: 403,
   error: 'Offering.PERMISSION_REQUIRED',
   traceId: 'request-19',
+};
+```
+
+## Not-found responses
+
+`NotFoundFailureResponse` carries status `404`, a namespaced error and the request’s trace ID. The same response describes a missing resource and one outside the caller’s tenant, so callers cannot distinguish those cases.
+
+```ts
+import type { NotFoundFailureResponse } from '@epsilon-asi/apps';
+
+const missingOffering: NotFoundFailureResponse = {
+  code: 404,
+  error: 'Offering.NOT_FOUND',
+  traceId: 'request-20',
 };
 ```
 

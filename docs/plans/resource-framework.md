@@ -472,7 +472,7 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 
 ## Phase 1 — Core: model and contracts (browser-safe)
 
-The workspace build and typecheck passed on a frozen Node 24.15 install. With PostgreSQL enabled, the 12 package suites reported 2,674 tests passed and 18 skipped. An isolated consumer compiled and ran the package examples from local dry-run tarballs on Node 22.17 and 24.15 with TypeScript 5.9.3 and 7.0.2. The examples also ran in a browser-targeted bundle. [Resource models and UI metadata](../../packages/apps/README.md#resource-model-primitives) · [List queries](../../packages/apps/README.md#sort-directions-and-filter-operators) · [Search](../../packages/apps/README.md#search-queries) · [Date wire codec](../../packages/apps/README.md#date-wire-codec) · [Number wire codec](../../packages/apps/README.md#number-wire-codec)
+The workspace build and typecheck passed on a frozen Node 24.15 install. With PostgreSQL enabled, the 12 package suites reported 2,680 tests passed and 18 skipped. An isolated consumer compiled and ran all 20 TypeScript examples in the apps README from local dry-run tarballs on Node 22.17 and 24.15 with TypeScript 5.9.3 and 7.0.2. The examples also ran in a browser-targeted bundle. [Resource models and UI metadata](../../packages/apps/README.md#resource-model-primitives) · [List queries](../../packages/apps/README.md#sort-directions-and-filter-operators) · [Search](../../packages/apps/README.md#search-queries) · [Date wire codec](../../packages/apps/README.md#date-wire-codec) · [Number wire codec](../../packages/apps/README.md#number-wire-codec)
 
 ### 1.1 Resource system (`apps/src/model/`)
 - **`createResourceSystem(options)`** follows the `create*System` pattern and builds on `createTypeRegistry({ namespace: 'resources' })`. Its options:
@@ -574,6 +574,7 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
   - The tenant resource itself is `'self'`, set automatically.
   - `'account'`: the row belongs to one user and sits outside any tenant (the user's own profile, MFA factors). Only that user reaches it; staff reach it only through `apps-cli`. It needs `owner`, or the definition fails.
 - **Parent scopes:** `endpoints(SalesThread, { name, parent: SalesCampaign })` gives `/sales-campaigns/:salesCampaignId/sales-threads`. The layer checks that the parent belongs to the tenant (404 otherwise) and constrains the rows to that parent.
+  - [x] `crudPaths()` derives parent-scoped collection and item templates from the parent and child names. Each accepts a plural override. The helper rejects duplicate ID parameter names. [Parent path example](../../packages/apps/README.md#parent-scoped-paths) · [Tests](../../packages/apps/tests/endpoints/crudPaths.test.ts)
 - **Workers:** every job and message envelope carries the tenant id, and consumers and jobs run with the same scoping.
 - **Nested tenants** (an organization holding projects) are deferred. There is one tenant level.
 
@@ -680,6 +681,7 @@ Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` 
 
 - [x] Export `listResponseKey({ name, plural? })` for the collection field shared by offset and cursor responses. It camel-cases the same plural used by the list endpoint, preserving literal types for default and explicit plurals. [List key example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/listResponseKey.test.ts)
 - [x] Export `crudPaths({ name, plural? })` for ordinary unparented resources. The collection uses the kebab-case plural, and the item adds the singular ID parameter. [Path example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/crudPaths.test.ts)
+- [x] Export `CRUD_OPERATIONS` with the HTTP method and success code for each of the five operations above. The table preserves literal types and each entry is frozen. [CRUD method and status examples](../../packages/apps/README.md#crud-methods-and-success-codes) · [Tests](../../packages/apps/tests/endpoints/crudOperations.test.ts)
 
 **`endpoint({...})`** builds one custom or action endpoint with the same members. It takes:
 - `name`, `method`, `path`;
@@ -792,6 +794,7 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 - [x] Export the type `ValidationFailureResponse<Field>` for code 422. It requires a namespaced error, a trace ID and field issues. The optional field-name type parameter restricts issue paths to the flat request fields. [Validation failure example](../../packages/apps/README.md#validation-failures) · [Type tests](../../packages/apps/tests/responses/validationFailure.test-d.ts)
 - [x] Export the type `AuthenticationFailureResponse` for code 401. It requires the request's trace ID and distinguishes `Auth.TOKEN_EXPIRED` from `Auth.UNAUTHENTICATED`. [Authentication failure example](../../packages/apps/README.md#authentication-failures) · [Type tests](../../packages/apps/tests/responses/authenticationFailure.test-d.ts)
 - [x] Export `AuthorizationFailureResponse` for a member who lacks a role or permission in the current tenant. It requires code 403, a namespaced error and the request’s trace ID. [Authorization failure example](../../packages/apps/README.md#authorization-failures) · [Type tests](../../packages/apps/tests/responses/authorizationFailure.test-d.ts)
+- [x] Export `NotFoundFailureResponse` for a missing or out-of-scope resource. The type requires code 404, a namespaced error and the request’s trace ID. [Not-found example](../../packages/apps/README.md#not-found-responses) · [Type tests](../../packages/apps/tests/responses/notFoundFailure.test-d.ts)
 - **Handlers never build envelopes.** They return data, return `failure.notFound()` and friends, or throw.
 - **`defineErrors('OrgBilling', { UNPAID: { code: 402 }, … })`** produces `OrgBillingError` with `.Types` and the `OrgBillingErrors` union.
   - `error` on the wire is the namespaced type (`OrgBilling.UNPAID`), and the UI translates it through `errors.OrgBilling.UNPAID`.
