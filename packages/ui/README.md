@@ -39,7 +39,7 @@ A publish-ready component library starter for React 19 and Material UI 7 with:
 ## Quick start
 
 ```bash
-npm install
+corepack pnpm install --frozen-lockfile
 npm run storybook
 ```
 
@@ -1056,3 +1056,202 @@ listener, or network service is included. Stories use local inline SVG fixtures.
 Each new component has Storybook documentation, dark-mode examples and interaction
 tests. Additional stories exercise narrow layouts, long content, controlled state,
 disabled/read-only states, keyboard behavior, image errors, and overlay dismissal.
+
+## File, collection and inspection components
+
+These components follow the compact 4px spacing grid and reuse the existing
+`IconButton`, `ActionButton`, `EmptyState`, `Alert`, `InspectorSection`, `Panel`,
+`TreeView`, `Slider`, and `ImagePreview` components. They add no runtime dependencies
+and contain no form framework, API client, or application store integration.
+
+| Component | Purpose |
+| --- | --- |
+| `FileTypeIcon` | Shared file icon interface, including migrated core-ui document artwork and generic media/code/archive fallbacks. |
+| `ReorderableList` | Controlled ordering with pointer dragging, cancellable keyboard previews and move buttons. |
+| `JsonViewer` | Read-only inspection of nested values with bounded traversal and safe snapshot copying. |
+| `ErrorState` | Compact failure display with retry, optional details, secondary actions and retry failure feedback. |
+| `ImageComparison` | Before/after image comparison with pointer dragging, keyboard slider and side-by-side mode. |
+| `VirtualList` | Fixed-height virtualization with keyboard navigation, stable keys and focus preservation. |
+| `CopyButton` / `CopyableValue` | Clipboard actions with asynchronous status, failure handling and optional formatted value display. |
+
+### File types and clipboard values
+
+```tsx
+<FileTypeIcon fileName="reference.pdf" label="PDF document" />
+<FileTypeIcon fileName="coast.png" /> {/* Decorative beside an existing label. */}
+<CopyableValue label="Asset ID" value={asset.id}
+  copyButtonProps={{ 'aria-label': 'Copy asset ID', onCopyError: reportCopyError }} />
+```
+
+`FileTypeIcon.type` overrides inference. Recognized MIME types take precedence over
+file extensions; generic MIME types can fall back to the filename. Paths, uppercase
+extensions, query strings and fragments are supported. `resolveFileType` exposes
+the same inference without rendering. Omit `label` for decorative icons; supply it
+for standalone accessible images. Icon size, theme color, refs and SVG attributes
+use the MUI `SvgIcon` contract.
+
+`CopyButton` copies the exact `value` using the browser clipboard, or an injected
+`copy(value): Promise<void>` implementation. Pending operations prevent duplicate
+clicks. Success and failure update the icon, tooltip and spoken status; callbacks
+are `onCopied(value)` and `onCopyError(error)`. Unavailable clipboard APIs report a
+failure rather than claiming success. `resetAfter` defaults to 2000ms; use zero to
+retain feedback. A value change resets feedback and ignores a stale completion.
+Unmounting also ignores pending completions. No global clipboard listeners or
+deprecated document-copy fallback are installed.
+
+`CopyableValue.displayValue` can differ from the underlying copied value. Values
+wrap by default; `wrap={false}` uses horizontal scrolling. `monospace={false}` uses
+normal body typography. Labels, copy labels, disabled state and callbacks remain
+caller-configurable. Clipboard stories simulate results unless explicitly named
+`BrowserClipboard`.
+
+### Reordering collections
+
+```tsx
+<ReorderableList aria-label="Layer order" items={layers}
+  getItemId={layer => layer.id} getItemLabel={layer => layer.name}
+  isItemDisabled={layer => layer.locked}
+  onReorder={(next, details) => setLayers(next)} />
+```
+
+Items require stable unique IDs. The caller owns committed ordering. A drag or
+keyboard preview does not invoke `onReorder` until dropped; the callback includes
+the moved ID, original/final indices, and `pointer`, `keyboard`, or `button` method.
+Ignored requests restore the caller's existing order. Disabled rows retain their
+original positions while enabled rows move between available slots.
+
+On a handle, Space/Enter picks up and drops; Up/Down and Home/End move the preview;
+Escape cancels. Without a picked-up item, arrows move between enabled handles.
+Tab or leaving a keyboard handle cancels the preview. Explicit move buttons provide
+a touch-friendly alternative to dragging. Pointer capture supports mouse, pen and
+touch gestures on the handle. Ending a drag without a valid
+drop cancels it. Changes to item order or locked rows cancel obsolete previews.
+Pointer dragging highlights the destination without moving the source in the
+DOM until drop; keyboard previews reorder rows as they move. Status announcements
+describe pickup, movement, requests and cancellation. Labels,
+instructions and announcement formatting can be localized through props.
+
+### Inspecting values and failures
+
+```tsx
+<JsonViewer label="Generation settings" value={settings}
+  defaultExpandedPaths={['', '/output']} maxEntries={100} maxNodes={1000} />
+<ErrorState title="Export failed" description="The destination is unavailable."
+  onRetry={retryExport} details={diagnosticText} />
+```
+
+`JsonViewer` uses the existing tree keyboard model. Controlled `expandedPaths` and
+`onExpandedChange` use JSON Pointer paths: the empty string is the root, `/` in keys
+becomes `~1`, and `~` becomes `~0`. The viewer never inserts HTML, evaluates property
+getters, or calls `toJSON`. Cycles, accessors, unsupported objects and non-JSON
+values are displayed explicitly. Shared references are inspectable independently.
+Traversal defaults to depth 12, 100 entries per container and 1000 total nodes;
+limits are bounded to depth 100, 1000 entries and 10000 nodes. Truncation is marked.
+
+Copying produces the **inspected snapshot**, with the same limits and explanatory
+strings for unsupported/truncated values. It does not silently serialize omitted
+data or evaluate application methods. Supply immutable values so memoized inspection
+updates when data changes. `copyable={false}`, `copyButtonProps`, `maxHeight` and
+the normal root styles provide presentation control.
+
+`ErrorState` composes `EmptyState`, buttons, `Alert` and an optional collapsed
+`InspectorSection`. `onRetry` can be synchronous or asynchronous. While awaiting
+it, duplicate requests are blocked; rejection displays `retryErrorMessage` and
+calls `onRetryError`. `retrying` and `retryDisabled` support caller-owned status.
+Successful retry does not automatically dismiss the error; the caller replaces it
+when its data or task recovers. Details are caller-supplied text or React content.
+
+### Image comparison and virtual lists
+
+```tsx
+<ImageComparison aria-label="Asset revisions"
+  before={{ src: originalUrl, alt: 'Original coast', label: 'Original' }}
+  after={{ src: editedUrl, alt: 'Edited coast', label: 'Edited' }} />
+<VirtualList aria-label="Assets" items={assets}
+  getItemKey={asset => asset.id} height={240} itemHeight={32}
+  renderItem={asset => asset.name} />
+```
+
+`ImageComparison` reuses the image preview's checkerboard and empty/error handling.
+Split mode shares an aspect ratio and fit so images remain aligned; dragging the
+image moves the divider, and the labelled slider provides normal arrow/Home/End
+keyboard controls. Position is the percentage of the before image visible from the
+left, clamped to 0–100. Use `position`/`onPositionChange` for controlled state or
+`defaultPosition` for local state. `disabled` prevents editing. Side-by-side mode
+stacks on narrow screens. Labels, instructions and spoken position text are
+configurable. Comparison does not modify either source image.
+
+`VirtualList` requires stable unique item keys and **fixed row heights**. Its
+`renderItem` receives `{ index, active, disabled }`; content must fit `itemHeight`
+(minimum 24px). Use taller rows for richer content. The default viewport is 240px
+with 32px rows and three overscan rows per edge. A `ResizeObserver` tracks actual
+viewport height, including style overrides. Variable-height measurement and data
+fetching/pagination are outside this component's contract.
+
+Rows expose full-list positions to assistive technology. Up/Down, Page Up/Down,
+Home/End navigate enabled rows; Enter/Space invokes optional `onItemActivate`.
+Inputs and other nested controls retain their own key behavior. A focused row,
+including a focused child control, remains mounted outside the visible range;
+leaving the list releases that extra row. Stable keys preserve identity across
+reordering, and removing a focused item restores focus to a remaining row.
+`isItemDisabled` skips row navigation/activation; pass the render-state flag to
+custom interactive children as needed. Refs expose `element`, `scrollToIndex`
+(start/center/end/nearest alignment), and `focusIndex`.
+
+### DatePicker, TimePicker, and DateTimePicker
+
+These are compact wrappers around the MUI X Community pickers. Install the peer
+dependencies `@mui/x-date-pickers@^9.18.0`, `dayjs@^1.11.0`, and
+`@mui/system@^7.3.0` alongside MUI Material 7.3 or later within major version 7.
+The Community pickers do not require a Pro license. The package's MUI peer minimum
+is now 7.3 to match MUI X; consumers on older MUI 7 releases must update.
+
+```tsx
+import { useState } from 'react';
+import dayjs, { type Dayjs } from 'dayjs';
+import { UiProvider, DatePickerProvider, DateTimePicker } from '@epsilon-asi/ui';
+
+function Schedule() {
+  const [value, setValue] = useState<Dayjs | null>(dayjs());
+  return <DateTimePicker label="Publish at" value={value}
+    onChange={(next, context) => {
+      setValue(next);
+      // Use context.validationError to decide whether to persist a field edit.
+    }}
+    onAccept={(accepted, context) => {
+      if (!context.validationError) console.log(accepted?.toISOString());
+    }}
+    ampm={false} helperText="Local publication time" />;
+}
+
+<UiProvider><DatePickerProvider><Schedule /></DatePickerProvider></UiProvider>;
+```
+
+Use one `DatePickerProvider` around a screen or app. Values are `Dayjs | null`
+(`DatePickerValue`), including controlled `value`/`onChange` and uncontrolled
+`defaultValue` usage. MUI's validation contexts, `onError`, `onAccept`, refs,
+`minDate`/`maxDate`, `minTime`/`maxTime`, `minDateTime`/`maxDateTime`, disabled-date
+and time predicates, views, formats, and keyboard behavior pass through.
+Fields can contain incomplete or invalid edits; check the change context before
+saving. Use `helperText` and `error` for application validation; `error={false}`
+does not suppress native date/time errors. Labels are required for accessibility.
+
+Defaults are `density="compact"`, `size="small"`, `fullWidth`, and `clearable`.
+Use `density="comfortable"` and/or `size="medium"` when needed. Our `IconButton`
+and `ActionButton` provide the opening, navigation, clearing, and footer actions.
+The footer follows MUI's mobile date-to-time Next/OK steps and localized labels.
+The desktop layout activates at 600px with a fine pointer; narrower devices use
+the mobile dialog. `desktopModeMediaQuery` can override this behavior.
+
+Native `slots` and object/function `slotProps` remain available. Field and paper
+styles compose with our defaults, and explicit action-bar actions replace the
+defaults. Custom slot event handlers follow MUI's replacement semantics. Set
+`clearable={false}` to remove the default field/footer clearing controls.
+
+For localization, import the Day.js locale (for example `dayjs/locale/fr`) and pass
+`adapterLocale="fr"` to `DatePickerProvider`; pass MUI X's matching `localeText`
+for translated controls. This does not change Day.js's global locale. For named
+time zones, explicitly extend Day.js with its `utc` and `timezone` plugins before
+passing `timezone`. The provider does not install global plugins. Date-only
+values, wall-clock times, and date-time instants have different storage needs;
+callers choose serialization rather than the wrappers converting values.

@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
-import { createTypeRegistry, defineTypeExtension } from '../../index';
-import type { NumberPropOptions, StringPropOptions, TypeShape } from '../../index';
+import { createTypeRegistry, defineTypeExtension } from '../../index.js';
+import type { NumberPropOptions, StringPropOptions, TypeShape } from '../../index.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
@@ -215,10 +215,23 @@ class Shaped {
   id!: string;
   label?: string;
   readonly count!: number;
+  empty!: undefined;
+  missing!: null;
+  impossible!: never;
+  valueOrCallback?: string | (() => string);
+  optionalMethod?(name: string): void;
   run(): void {}
 }
 
-type _Shape = Expect<Equal<TypeShape<Shaped>, { id: string; label?: string; readonly count: number }>>;
+type _Shape = Expect<Equal<TypeShape<Shaped>, {
+  id: string;
+  label?: string;
+  readonly count: number;
+  empty: undefined;
+  missing: null;
+  impossible: never;
+  valueOrCallback?: string | (() => string);
+}>>;
 
 // --- extension options are typed by each extension's schema ---
 

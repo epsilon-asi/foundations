@@ -29,8 +29,10 @@ interface FakeTerminal {
   readonly type: (keys: string, waitFor?: string) => Promise<void>;
 }
 
-/** A pretend TTY pair and a terminal prompter on it. The env is empty, so CI on the test machine does not matter. */
+/** A pretend TTY pair and a terminal prompter with its own environment. */
 function fakeTerminal(env: NodeJS.ProcessEnv = {}): FakeTerminal {
+  // Node's readline reads TERM from the process when handling editing keys.
+  vi.stubEnv('TERM', env.TERM ?? 'xterm');
   const events: string[] = [];
   const input = Object.assign(new PassThrough(), {
     isTTY: true,

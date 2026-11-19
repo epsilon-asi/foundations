@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {loadFileSync, saveFile, saveFileSync, SaveOptions, SchemaFileError} from "../index";
+import {loadFileSync, saveFile, saveFileSync, SaveOptions, SchemaFileError} from "../index.js";
 
 const AppConfig = z.object({name: z.string(), port: z.number().int()});
 const value = {name: "api", port: 8080};

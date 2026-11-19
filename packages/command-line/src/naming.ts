@@ -1,21 +1,7 @@
+import { toKebabCase } from '@epsilon-asi/foundation';
 import type { OptionMetadata } from './types.js';
 
-/** `logLevel` → `log-level`, `HTTPServer` → `http-server`. */
-export function toKebabCase(name: string): string {
-  return name
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[_\s]+/g, '-')
-    .toLowerCase();
-}
-
-/** `agent-engineer` → `AGENT_ENGINEER`, `myCli` → `MY_CLI`. Used for environment variable names. */
-export function toScreamingSnakeCase(name: string): string {
-  return toKebabCase(name)
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .toUpperCase();
-}
+export { toKebabCase, toScreamingSnakeCase } from '@epsilon-asi/foundation';
 
 /** `InfoCommand` → `info`, `AgentEngineerCli` → `agent-engineer`. */
 export function commandNameFromClass(className: string): string {

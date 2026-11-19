@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
-import { createTypeRegistry, defineTypeExtension, TypeRegistryError } from '../index';
-import type { AnyTypeExtension } from '../index';
+import { createTypeRegistry, defineTypeExtension, TypeRegistryError } from '../index.js';
+import type { AnyTypeExtension } from '../index.js';
 
 const http = defineTypeExtension({
   key: 'http',

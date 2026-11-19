@@ -1,5 +1,5 @@
 import * as z from "zod";
-import {parseStringSync, serialize, serializeAsync, SchemaFileError} from "../index";
+import {parseStringSync, serialize, serializeAsync, SchemaFileError} from "../index.js";
 
 const AppConfig = z.object({name: z.string(), port: z.number(), tags: z.array(z.string())});
 const value = {name: "api", port: 8080, tags: ["a", "b"]};

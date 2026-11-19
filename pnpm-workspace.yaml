@@ -1,0 +1,16 @@
+packages:
+  - 'packages/*'
+
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+  - unrs-resolver
+
+# jest-dom's Vitest entry augments the consumer's installed Vitest types.
+packageExtensions:
+  '@testing-library/jest-dom@6.9.1':
+    peerDependencies:
+      vitest: '*'
+    peerDependenciesMeta:
+      vitest:
+        optional: true

@@ -71,7 +71,7 @@ npm install @epsilon-asi/slack
 For local development:
 
 ```bash
-npm install
+corepack pnpm install --frozen-lockfile
 npm run verify
 ```
 
@@ -338,7 +338,7 @@ const payload = message({ validate: false })
 ## Development
 
 ```bash
-npm install
+corepack pnpm install --frozen-lockfile
 npm run typecheck
 npm run build
 npm run coverage

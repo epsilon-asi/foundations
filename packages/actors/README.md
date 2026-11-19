@@ -28,7 +28,7 @@ That third flow is the default for `existing-profile` mode. It lets the caller p
 ## Install
 
 ```bash
-npm install
+corepack pnpm install --frozen-lockfile
 ```
 
 ## Verify

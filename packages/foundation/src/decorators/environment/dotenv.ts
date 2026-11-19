@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {parse} from 'dotenv';
-import {EnvParseError} from './errors';
+import {EnvParseError} from './errors.js';
 
 export const DEFAULT_DOTENV_PATH = '.env';
 

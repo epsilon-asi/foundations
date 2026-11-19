@@ -1,6 +1,6 @@
 import * as z from "zod";
-import {LoadOptions, SafeResult} from "./types";
-import {readRawAsync, readRawSync, safely, safelySync, validateAsync, validateSync} from "./util";
+import {LoadOptions, SafeResult} from "./types.js";
+import {readRawAsync, readRawSync, safely, safelySync, validateAsync, validateSync} from "./util.js";
 
 /** Read a JSON/YAML file and return a validated, typed value. */
 export async function loadFile<S extends z.ZodType>(

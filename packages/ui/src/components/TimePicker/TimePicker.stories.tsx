@@ -1,0 +1,33 @@
+import * as React from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Box, Typography } from '@mui/material';
+import type { Dayjs } from 'dayjs';
+import { expect, userEvent, within } from 'storybook/test';
+import { TimePicker } from './TimePicker';
+import { checkOverlayLayout } from '../../../.storybook/overlayExamples';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
+import { desktopPicker, exampleDate, mobilePicker, withDatePickers, withFrenchPickers } from '../../../.storybook/pickerExamples';
+
+const meta = { title: 'Components/TimePicker', component: TimePicker, decorators: [withDatePickers], play: checkOverlayLayout,
+  args: { label: 'Start time', ampm: false, reduceAnimations: true }, render: args => <TimePicker defaultValue={exampleDate()} referenceDate={exampleDate()} {...args} /> } satisfies Meta<typeof TimePicker>;
+export default meta; type Story = StoryObj<typeof meta>;
+export const Default: Story = {};
+export const Empty: Story = { render: args => <TimePicker {...args} referenceDate={exampleDate()} /> };
+export const Controlled: Story = { render: function ControlledExample(args) { const [value, setValue] = React.useState<Dayjs | null>(exampleDate()); return <><TimePicker {...args} value={value} onChange={setValue} /><Typography component="p" variant="caption">Selected: {value?.isValid() ? value.format('HH:mm') : 'none'}</Typography></>; } };
+export const TwelveHour: Story = { args: { ampm: true, open: true } };
+export const DesktopClock: Story = { args: { open: true, desktopModeMediaQuery: desktopPicker } };
+export const MobileClock: Story = { args: { open: true, desktopModeMediaQuery: mobilePicker } };
+export const Seconds: Story = { args: { views: ['hours', 'minutes', 'seconds'], format: 'HH:mm:ss', open: true } };
+export const QuarterHours: Story = { args: { timeSteps: { minutes: 15 }, minutesStep: 15, open: true } };
+export const SingleColumn: Story = { args: { thresholdToRenderTimeInASingleColumn: 100, timeSteps: { minutes: 30 }, open: true } };
+export const BusinessHours: Story = { render: args => <TimePicker {...args} defaultValue={exampleDate()} minTime={exampleDate().hour(9).minute(0)} maxTime={exampleDate().hour(17).minute(0)} shouldDisableTime={(value, view) => view === 'minutes' && value.minute() === 30} open helperText="09:00–17:00; half-hour slots unavailable." /> };
+export const HelperText: Story = { args: { helperText: 'Time uses the selected project timezone.' } };
+export const Error: Story = { args: { error: true, helperText: 'Choose an available time.' } };
+export const Disabled: Story = { args: { disabled: true } };
+export const ReadOnly: Story = { args: { readOnly: true } };
+export const Comfortable: Story = { args: { density: 'comfortable', size: 'medium', open: true } };
+export const French: Story = { decorators: [withFrenchPickers], args: { label: 'Heure de début', open: true } };
+export const NoClear: Story = { args: { clearable: false, open: true } };
+export const Narrow: Story = { render: args => <Box sx={{ width: 200, maxWidth: '100%' }}><TimePicker {...args} defaultValue={exampleDate()} /></Box> };
+export const Keyboard: Story = { args: { selectedSections: 'minutes' }, play: async ({ canvasElement }) => { const minute = within(canvasElement).getByRole('spinbutton', { name: 'Minutes' }); minute.focus(); await userEvent.keyboard('{ArrowUp}'); await expect(minute).toHaveAttribute('aria-valuenow', '31'); await checkOverlayLayout({ canvasElement }); } };
+export const Dark: Story = { decorators: [withDarkUi], args: { open: true } };

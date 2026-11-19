@@ -9,7 +9,7 @@ import {
     LoadOptions,
     SafeResult,
     SchemaFileError,
-} from "./types";
+} from "./types.js";
 import {
     deepMerge,
     expandHome,
@@ -21,7 +21,7 @@ import {
     safelySync,
     validateAsync,
     validateSync,
-} from "./util";
+} from "./util.js";
 
 /**
  * Every place `fileName` may live, highest precedence first: the extra files, the start directory, each

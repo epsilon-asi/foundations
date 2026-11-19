@@ -1,6 +1,6 @@
-import { cloneDeep, deepFreeze, immutableClone } from '../clone';
-import { createSnapshot } from '../snapshot';
-import type { DecorationRecord } from '../types';
+import { cloneDeep, deepFreeze, immutableClone } from '../clone.js';
+import { createSnapshot } from '../snapshot.js';
+import type { DecorationRecord } from '../types.js';
 
 describe('clone and freeze helpers', () => {
   it('returns primitive values and functions without cloning them', () => {

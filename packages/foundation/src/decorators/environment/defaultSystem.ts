@@ -1,4 +1,4 @@
-import {createEnvSystem} from './system';
+import {createEnvSystem} from './system.js';
 
 /** The shared env system behind the top-level Env, EnvVar and loadEnv exports. */
 const defaultEnvSystem = createEnvSystem();

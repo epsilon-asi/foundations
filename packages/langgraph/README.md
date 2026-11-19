@@ -167,21 +167,16 @@ const update = await graph.test.invokeNode("normalize", initial);
 
 ## Verification
 
-The included test suite was run with:
+After the workspace install and build, run the package's typecheck, Vitest suite and build from the repository root.
 
 ```bash
-npm run test:all
+corepack pnpm --filter @epsilon-asi/langgraph run test:all
 ```
 
-Latest result:
+CI also typechecks the source, tests and Vitest config on TypeScript 5.9.3 and 7.0.2. With langgraph's dependencies installed, run the same checks locally using the compilers pinned in the repository's consumer fixture.
 
-```text
-Typecheck: passed
-Tests:     24 passed
-Build:     passed
-Coverage:
-  Statements: 99.36%
-  Branches:   99.24%
-  Functions:  100%
-  Lines:      99.33%
+```sh
+npm --prefix testing/foundation-consumer ci --install-links
+node testing/foundation-consumer/node_modules/typescript/bin/tsc -p packages/langgraph/tsconfig.json --noEmit
+node testing/foundation-consumer/node_modules/typescript7/bin/tsc -p packages/langgraph/tsconfig.json --noEmit
 ```

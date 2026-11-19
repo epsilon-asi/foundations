@@ -130,7 +130,7 @@ Every error extends `SandboxError`.
 ## Development
 
 ```bash
-npm install
+corepack pnpm install --frozen-lockfile
 ```
 
 ```bash

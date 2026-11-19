@@ -1,5 +1,6 @@
+import { jest } from '@jest/globals';
 import * as z from "zod";
-import {parseString, parseStringSync, SchemaFileError} from "../index";
+import {parseString, parseStringSync, SchemaFileError} from "../index.js";
 
 const Server = z.object({host: z.string(), port: z.coerce.number()});
 

@@ -1,0 +1,23 @@
+{
+  "name": "foundation-consumer-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:ts5 && npm run test:ts7 && npm run test:bundle",
+    "test:builds": "bash test-builds.sh",
+    "test:ts5": "node node_modules/typescript/bin/tsc -p tsconfig.json && node build/consumer.js",
+    "test:ts7": "node node_modules/typescript7/bin/tsc -p tsconfig.json && node build/consumer.js",
+    "test:bundle": "esbuild bundled-decorators.ts --bundle --minify --platform=node --format=esm --target=node22 --outfile=build/bundled-decorators.mjs && node build/bundled-decorators.mjs"
+  },
+  "dependencies": {
+    "@epsilon-asi/foundation": "file:../../packages/foundation",
+    "zod": "4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.27.7",
+    "typescript": "5.9.3",
+    "typescript7": "npm:typescript@7.0.2"
+  }
+}

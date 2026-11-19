@@ -1,8 +1,9 @@
+import { jest } from '@jest/globals';
 import * as z from "zod";
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync, SchemaFileError} from "../index";
+import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync, SchemaFileError} from "../index.js";
 
 const AppConfig = z.object({
     name: z.string().min(1),

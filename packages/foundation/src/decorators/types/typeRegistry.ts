@@ -1,18 +1,19 @@
 import { z } from 'zod/v4';
-import { createDecoratorRegistry } from '../factory';
+import { createDecoratorRegistry } from '../factory/index.js';
 import type {
   ClassDecoratorDefinition,
   Constructor,
   DecorationRecord,
   DecoratorSchema,
   PropertyDecoratorDefinition,
-} from '../factory';
-import { TypeRegistryError } from './errors';
+} from '../factory/index.js';
+import { TypeRegistryError } from './errors.js';
 import type {
   AnyFieldDecorator,
   AnyTypeExtension,
   CreateTypeRegistryOptions,
   ExtensionMap,
+  JsonSchemaOptions,
   ObjectMode,
   PropDecorator,
   ResolvedField,
@@ -20,7 +21,7 @@ import type {
   TypeClassDecorator,
   TypeDecorator,
   TypeRegistry,
-} from './types';
+} from './types.js';
 
 /**
  * Live values (zod schemas, class references, user callbacks) never pass through the factory's
@@ -150,15 +151,22 @@ function withMeta(schema: z.ZodType, description: string | undefined, meta: Opti
   return Object.keys(combined).length === 0 ? schema : schema.meta(combined);
 }
 
+function isPlainObject(value: unknown): value is Record<PropertyKey, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  // Recognize Object.prototype from any realm. A default may also have its own `constructor` field.
+  return prototype === null || (Object.getPrototypeOf(prototype) === null && Object.hasOwn(prototype, 'isPrototypeOf'));
+}
+
 /** Copy default data per parse. Opaque values may rely on identity or private class state. */
 function copyDefault(value: unknown, copies?: WeakMap<object, object>): unknown {
   if (value instanceof Date) return new Date(value.getTime());
-  if (!Array.isArray(value) && !z.util.isPlainObject(value)) return value;
+  if (!Array.isArray(value) && !isPlainObject(value)) return value;
 
   copies ??= new WeakMap();
   const existing = copies.get(value);
   if (existing) return existing;
-  const copy = z.util.shallowClone(value);
+  const copy = Array.isArray(value) ? [...value] : { ...value };
   copies.set(value, copy);
   for (const key of Reflect.ownKeys(copy)) {
     Reflect.set(copy, key, copyDefault(Reflect.get(copy, key), copies));
@@ -172,21 +180,22 @@ function objectFactory(mode: ObjectMode) {
   return z.object;
 }
 
-function assertInstanceField(decorator: string, context: ClassFieldDecoratorContext): void {
-  // Misuse on methods/accessors is reported by the factory's own kind check.
-  if (context.kind !== 'field') return;
-
-  if (context.static) {
-    throw new TypeRegistryError(
-      `${decorator} cannot be used on static field "${String(context.name)}"; types describe instance data.`,
-    );
+function instanceFieldLocation(decorator: string, context: ClassFieldDecoratorContext) {
+  // A legacy call may omit the context. The registry reports that and wrong target kinds.
+  const { kind, name, static: isStatic, metadata: owner } = context ?? {};
+  if (kind === 'field') {
+    if (isStatic) {
+      throw new TypeRegistryError(
+        `${decorator} cannot be used on static field "${String(name)}"; types describe instance data.`,
+      );
+    }
+    if (typeof name !== 'string') {
+      throw new TypeRegistryError(
+        `${decorator} cannot be used on symbol field ${String(name)}; object schemas need string keys.`,
+      );
+    }
   }
-
-  if (typeof context.name !== 'string') {
-    throw new TypeRegistryError(
-      `${decorator} cannot be used on symbol field ${String(context.name)}; object schemas need string keys.`,
-    );
-  }
+  return { owner, member: name as string };
 }
 
 function createRoot(namespace: string): Root {
@@ -200,10 +209,8 @@ function createRoot(namespace: string): Root {
 
   function field(schema: () => z.ZodType, options: Options): AnyFieldDecorator {
     return (value, context) => {
-      assertInstanceField('@Prop', context);
       const payload: FieldPayload = Object.freeze({
-        owner: context.metadata,
-        member: context.name as string,
+        ...instanceFieldLocation('@Prop', context),
         schema,
         options: Object.freeze({ ...options }),
       });
@@ -268,10 +275,8 @@ function createRoot(namespace: string): Root {
 
   function extensionField(key: string, options: unknown): AnyFieldDecorator {
     return (value, context) => {
-      assertInstanceField(`Extension "${key}"`, context);
       const payload: FieldExtensionPayload = Object.freeze({
-        owner: context.metadata,
-        member: context.name as string,
+        ...instanceFieldLocation(`Extension "${key}"`, context),
         key,
         options,
       });
@@ -545,7 +550,7 @@ function createFacade<TExt extends ExtensionMap>(
       }),
       parse: (input: unknown) => model.object.parse(input),
       safeParse: (input: unknown) => model.object.safeParse(input),
-      jsonSchema: (params?: z.core.ToJSONSchemaParams) => z.toJSONSchema(model.object, params),
+      jsonSchema: (params?: JsonSchemaOptions) => z.toJSONSchema(model.object, params),
     }) as unknown as ResolvedType<unknown, TExt>;
 
     resolved.set(target, result);

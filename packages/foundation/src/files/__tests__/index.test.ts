@@ -1,6 +1,6 @@
 import * as z from "zod";
-import * as files from "../index";
-import * as root from "../../index";
+import * as files from "../index.js";
+import * as root from "../../index.js";
 
 describe("exports", () => {
     test("the files module exports its runtime API", () => {

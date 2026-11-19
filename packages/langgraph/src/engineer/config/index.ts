@@ -1,4 +1,4 @@
-import {Env, EnvVar, loadEnv} from "@epsilon-asi/foundation";
+import {Env, EnvVar, loadEnv} from "@epsilon-asi/foundation/env";
 
 @Env({prefix: "ENGINEER_", description: "Engineering agent settings."})
 export class EngineerConfig {

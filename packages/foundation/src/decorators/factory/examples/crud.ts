@@ -1,4 +1,4 @@
-import { createDecoratorRegistry } from '../index';
+import { createDecoratorRegistry } from '../index.js';
 
 type CrudController<TEntity, TCreateInput> = {
   id: string;

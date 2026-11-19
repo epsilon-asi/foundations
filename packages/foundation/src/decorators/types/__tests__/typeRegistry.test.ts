@@ -1,5 +1,6 @@
+import { runInNewContext } from 'node:vm';
 import { z } from 'zod/v4';
-import { createTypeRegistry, TypeRegistryError } from '../index';
+import { createTypeRegistry, TypeRegistryError } from '../index.js';
 
 describe('createTypeRegistry', () => {
   it('leaves zod usable after schemas are recorded through decorators', () => {
@@ -208,16 +209,20 @@ describe('createTypeRegistry', () => {
       @Prop.date()
       created!: Date;
 
+      @Prop(z.custom<Date[]>())
+      dates!: Date[];
+
       @Prop(z.instanceof(Token))
       token!: Token;
     }
 
     const token = new Token();
+    const dates = [new Date(2)];
     class Item {
       @Prop.date({ default: new Date(0) })
       date!: Date;
 
-      @Prop.nested(() => Details, { default: { created: new Date(1), token } })
+      @Prop.nested(() => Details, { default: { created: new Date(1), dates, token } })
       details!: Details;
     }
 
@@ -225,11 +230,34 @@ describe('createTypeRegistry', () => {
     const first = type.parse({});
     first.date.setTime(10);
     first.details.created.setTime(20);
+    first.details.dates[0].setTime(30);
     const second = type.parse({});
     expect(second.date.getTime()).toBe(0);
     expect(second.details.created.getTime()).toBe(1);
+    expect(second.details.dates).toEqual([new Date(2)]);
+    expect(dates).toEqual([new Date(2)]);
     expect(second.details.token).toBe(token);
     expect(second.details.token.read()).toBe('token');
+  });
+
+  it('copies plain defaults from another realm even when constructor is a data field', () => {
+    const { Prop, resolve } = createTypeRegistry();
+    type Data = { constructor: null; count: number };
+    const data: Data = runInNewContext('({ constructor: null, count: 1 })');
+
+    class Details {
+      @Prop(z.custom<Data>())
+      data!: Data;
+    }
+    class Item {
+      @Prop.nested(() => Details, { default: { data } })
+      details!: Details;
+    }
+
+    const type = resolve(Item);
+    type.parse({}).details.data.count = 2;
+    expect(type.parse({}).details.data.count).toBe(1);
+    expect(data.count).toBe(1);
   });
 
   it.each([

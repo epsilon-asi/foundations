@@ -1,10 +1,11 @@
+import { jest } from '@jest/globals';
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createEnvSystem, EnvParseError, readDotenvFiles} from '../';
+import {createEnvSystem, EnvParseError, readDotenvFiles} from '../index.js';
 
 let dir: string;
-let cwd: jest.SpyInstance<string, []>;
+let cwd: jest.SpiedFunction<typeof process.cwd>;
 
 beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'env-dotenv-'));

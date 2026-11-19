@@ -56,8 +56,7 @@ jobs:
         # a value that an earlier include added (but never an original value).
         include:
           - node: "22.17"
-          # sandbox declares engines.node >=24 with engine-strict, so npm ci
-          # refuses to run on 22. Matches its .nvmrc.
+          # sandbox uses Node 24 features and declares engines.node >=24.
           - name: sandbox
             node: "24.15"
           # agent-engineer runs its agents in @epsilon-asi/sandbox, so its
@@ -72,23 +71,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Mirrors `.package_template` cache: key "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG",
-      # path ".npm/", policy pull-push.
-      - name: Restore npm cache
-        uses: actions/cache@v4
-        with:
-          path: .npm
-          key: validate-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', matrix.name)) }}
-          restore-keys: |
-            validate-packages-${{ matrix.name }}-${{ github.ref_name }}-
-            validate-packages-${{ matrix.name }}-
-
-      # Mirrors `.package_template` before_script. The GitLab job sets a
-      # relative path from the project root; the absolute workspace path keeps
-      # the same location regardless of the working directory of later steps.
-      - name: Configure npm cache directory
-        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
-
       - name: Require NPM_TOKEN
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
@@ -99,15 +81,10 @@ jobs:
       - name: Configure npm auth
         run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
 
-      # The root package.json has an `install` lifecycle script that runs
-      # scripts/run_for_packages.sh (zsh) with no arguments, which exits 1 and
-      # would fail `npm ci`. Only the root devDependencies are needed here.
-      - name: Install root dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Install package dependencies
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm ci
+      - name: Install workspace and build dependencies
+        uses: ./.github/actions/install-workspace
+        with:
+          package: ${{ matrix.name }}
 
       # type-bridge's integration tests compile and run the Python they generate
       # on every supported version, with typing_extensions and pydantic. uv
@@ -128,22 +105,72 @@ jobs:
             echo "$venv/bin" >> "$GITHUB_PATH"
           done
 
-      # Builds compile src only and vitest does not type-check *.test.ts, so
-      # this is the only step that type-checks the tests.
-      - name: Typecheck
+      # Builds compile src only and Vitest transpiles runtime test files.
+      - name: Typecheck and verify type-test discovery
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run typecheck
+        run: bash ../../scripts/testing/check-type-tests.sh
+
+      - name: Typecheck command-line on TypeScript 5.9
+        if: matrix.name == 'command-line'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: node ../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
         # Makes type-bridge fail, rather than skip, if an interpreter is missing.
         env:
           TYPE_BRIDGE_REQUIRE_PYTHON: ${{ matrix.name == 'type-bridge' && '1' || '' }}
-        run: npm run test
+        run: npm test
 
       - name: Build
+        if: matrix.name != 'apps'
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run build
+        run: corepack pnpm run build
+
+      - name: Check the foundation browser entry
+        if: matrix.name == 'foundation'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: corepack pnpm run check:browser
+
+      - name: Load the packed system package from ESM and CommonJS
+        if: matrix.name == 'system'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm run test:package
+
+      - name: Build apps and check the browser and Node entries
+        if: matrix.name == 'apps'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          npm run check:browser
+          npm run test:import
+          # The package uses TS 7. Repeat the type checks with the root TS 5.9.
+          node ../../node_modules/typescript/bin/tsc -p tsconfig.type-tests.json
+          node ../../node_modules/typescript/bin/tsc -p tsconfig.browser.json
+
+      - name: Install the TypeScript 5.9 and 7 consumer fixture
+        if: matrix.name == 'foundation' || matrix.name == 'langgraph' || matrix.name == 'system'
+        working-directory: testing/foundation-consumer
+        run: npm ci --install-links
+
+      - name: Typecheck system on TypeScript 7
+        if: matrix.name == 'system'
+        working-directory: testing/foundation-consumer
+        run: node node_modules/typescript7/bin/tsc -p ../../packages/system/tsconfig.type-tests.json --noEmit
+
+      - name: Typecheck langgraph on TypeScript 5.9 and 7
+        if: matrix.name == 'langgraph'
+        working-directory: testing/foundation-consumer
+        run: |
+          node node_modules/typescript/bin/tsc -p ../../packages/langgraph/tsconfig.json --noEmit
+          node node_modules/typescript7/bin/tsc -p ../../packages/langgraph/tsconfig.json --noEmit
+
+      - name: Check foundation and consume tarballs built by TypeScript 5.9 and 7
+        if: matrix.name == 'foundation'
+        working-directory: testing/foundation-consumer
+        run: |
+          node node_modules/typescript7/bin/tsc -p ../../packages/foundation/tsconfig.type-tests.json
+          node node_modules/typescript7/bin/tsc -p ../../packages/foundation/tsconfig.browser.json
+          npm run test:builds
 
       # Mirrors `artifacts: when: always, expire_in: 7 days`
       - name: Upload artifacts
@@ -184,18 +211,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore npm cache
-        uses: actions/cache@v4
-        with:
-          path: .npm
-          key: validate-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', format('packages/{0}/package.json', matrix.name)) }}
-          restore-keys: |
-            validate-automation-packages-${{ matrix.name }}-${{ github.ref_name }}-
-            validate-automation-packages-${{ matrix.name }}-
-
-      - name: Configure npm cache directory
-        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
-
       - name: Require NPM_TOKEN
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
@@ -206,30 +221,22 @@ jobs:
       - name: Configure npm auth
         run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
 
-      # See validate-packages for why scripts are skipped at the root.
-      - name: Install root dependencies
-        run: npm ci --ignore-scripts
+      - name: Install workspace and build dependencies
+        uses: ./.github/actions/install-workspace
+        with:
+          package: ${{ matrix.name }}
 
-      # Mirrors the GitLab script verbatim: drop the lock file, write a
-      # package-local .npmrc with the registry overrides, then `npm install`.
-      - name: Configure package registries
+      - name: Typecheck and verify type-test discovery
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: |
-          rm package-lock.json
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
-          echo "@epsilon-asi:registry=https://npmjs.org"  >> .npmrc
-
-      - name: Install package dependencies
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm install
+        run: bash ../../scripts/testing/check-type-tests.sh
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run test
+        run: npm test
 
       - name: Build
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run build
+        run: corepack pnpm run build
 
       - name: Upload artifacts
         if: always()

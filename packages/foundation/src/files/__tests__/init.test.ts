@@ -2,7 +2,7 @@ import * as z from "zod";
 import {mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {createSchemaFile, interpolateEnv, interpolateEnvHook, loadFile, loadFileSync, SchemaFileError} from "../index";
+import {createSchemaFile, interpolateEnv, interpolateEnvHook, loadFile, loadFileSync, SchemaFileError} from "../index.js";
 
 function caught(run: () => unknown): SchemaFileError {
     try {

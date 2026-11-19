@@ -1,8 +1,8 @@
-import type {Constructor, RegistryMetadataSnapshot} from '../factory';
-import {createDecoratorRegistry} from '../factory';
-import {readDotenvFiles, resolveDotenvOptions} from './dotenv';
-import {EnvParseError} from './errors';
-import {parseEnvValue, toEnvKey} from './parse';
+import type {Constructor, RegistryMetadataSnapshot} from '../factory/index.js';
+import {createDecoratorRegistry} from '../factory/index.js';
+import {readDotenvFiles, resolveDotenvOptions} from './dotenv.js';
+import {EnvParseError} from './errors.js';
+import {parseEnvValue, toEnvKey} from './parse.js';
 import type {
     BooleanEnvVarMetadata,
     DescribeEnvOptions,
@@ -19,7 +19,7 @@ import type {
     LoadEnvOptions,
     NumberEnvVarMetadata,
     StringEnvVarMetadata,
-} from './types';
+} from './types.js';
 
 export function createEnvSystem(): EnvSystem {
     const registry = createDecoratorRegistry<EnvDecoratorSchema>({

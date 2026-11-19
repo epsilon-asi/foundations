@@ -136,6 +136,8 @@ The environment variable is `<NAME>_LOG_LEVEL`, from the root command's name
 in SCREAMING_SNAKE_CASE. The flag may appear before or after a subcommand.
 `context.logLevel` holds the resolved level.
 
+The CLI re-exports foundation’s `LogLevel` type, `LOG_LEVELS`, `DEFAULT_LOG_LEVEL` and `isLogLevel`. Its flag handling and text writer use those same levels.
+
 Override any part of it with `logging` on the root:
 
 | Field         | Meaning                                                                               |
@@ -150,12 +152,19 @@ Override any part of it with `logging` on the root:
 option whose flags collide with the log level option is a definition error;
 remove the built-in option or change the flags of one of them.
 
-The default logger writes `[level] message` lines to `io.stderr`; `createLogger(level, write)`
-builds one anywhere. To use something else, give `buildCli` / `runCli` /
-`runMain` a factory, called once per run:
+The CLI’s `createLogger(level, write)` returns a foundation logger with `child(bindings)`. Its text writer formats each accepted record as `[level] message\n` and defaults to `io.stderr`. A custom CLI logger can still implement the four level methods and expose its threshold. Commands that accept such loggers can use `logger.child?.(bindings) ?? logger`.
+
+To send JSON to stderr, pass a logger factory to `buildCli`, `runCli` or `runMain`. The CLI calls the factory once per run.
 
 ```ts
-await runMain(App, { logger: ({ level, io, name }) => myLogger(level) });
+import { createJsonLogWriter, createLogger } from '@epsilon-asi/foundation';
+
+await runMain(App, {
+  logger: ({ level, io, name }) => createLogger({
+    level,
+    write: createJsonLogWriter({ write: io.stderr }),
+  }).child({ cli: name }),
+});
 ```
 
 ## Live lines
@@ -484,11 +493,17 @@ export default defineConfig({ plugins: [standardDecorators()], test: { /* ... */
 | `src/prompt/scripted.ts` | `scriptedPrompter` for tests                                          |
 | `src/prompt/shared.ts`   | Prompt defaults, question formatting, validation, choice checks and editor text clean-up |
 | `src/package.ts`         | `readPackageJson`, `findPackageJson`, `cliNameFromPackage`            |
-| `src/naming.ts`          | Name, flag and environment variable derivation                        |
+| `src/naming.ts`          | Command and flag derivation. The public `toKebabCase` and `toScreamingSnakeCase` exports come from foundation. |
 | `src/vitest.ts`          | The `standardDecorators` vitest plugin (`./vitest` export)            |
 | `examples/`              | Runnable examples, exercised by the tests                             |
 
 ## Scripts
+
+The package typecheck uses TypeScript 7.0.2. CI also checks the source, examples, tests and Vitest config on TypeScript 5.9.3. To repeat that check with the root and package dependencies installed, run this from the repository root.
+
+```sh
+node node_modules/typescript/bin/tsc -p packages/command-line/tsconfig.json --noEmit
+```
 
 | Script                     | Description                                   |
 | -------------------------- | --------------------------------------------- |
@@ -498,3 +513,9 @@ export default defineConfig({ plugins: [standardDecorators()], test: { /* ... */
 | `npm run test:coverage`    | Tests with v8 coverage (80% thresholds)       |
 | `npm run example -- <args>`| Run the agent-engineer example with tsx       |
 | `npm run verify`           | Typecheck, test and build                     |
+
+The prompt tests simulate an interactive terminal. Node's readline reads the process's `TERM` when handling editing keys, so the fixture sets it to `xterm` by default. Vitest restores the host value between tests. To exercise backspace with a noninteractive host setting, run this from the package directory.
+
+```sh
+TERM=dumb npm test -- tests/promptTerminal.test.ts -t 'reads a line, with readline editing'
+```

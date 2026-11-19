@@ -14,7 +14,7 @@ import {
     SchemaFileError,
     serialize,
     serializeAsync,
-} from "../../index";
+} from "../../index.js";
 import type {
     ErrorFormatter,
     FileFormat,
@@ -26,8 +26,8 @@ import type {
     SchemaFileErrorKind,
     SerializeOptions,
     SerializeStrategy,
-} from "../../index";
-import * as root from "../../../index";
+} from "../../index.js";
+import * as root from "../../../index.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;

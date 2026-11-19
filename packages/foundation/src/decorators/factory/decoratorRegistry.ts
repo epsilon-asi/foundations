@@ -1,6 +1,6 @@
-import { immutableClone } from './clone';
-import { createSnapshot } from './snapshot';
-import { symbolMetadata } from './symbolMetadata';
+import { immutableClone } from './clone.js';
+import { createSnapshot } from './snapshot.js';
+import { symbolMetadata } from './symbolMetadata.js';
 import type {
   AccessorDecoratorFactory,
   AnyFunction,
@@ -23,7 +23,7 @@ import type {
   StringKeyOf,
   TargetOf,
   UnscopedClassDecoratorFactory,
-} from './types';
+} from './types.js';
 
 type DecoratorMetadataObject = object;
 
@@ -41,6 +41,14 @@ type ParsedDecoratorArgs = {
   readonly key?: PublicMemberKey;
   readonly metadata: unknown;
 };
+
+/** Raised at class definition time when a compiler invokes a standard decorator in legacy mode. */
+export class DecoratorModeError extends TypeError {
+  public constructor(decoratorName: string) {
+    super(`Decorator "${decoratorName}" requires standard decorators. Turn off experimentalDecorators in your tsconfig.json.`);
+    this.name = 'DecoratorModeError';
+  }
+}
 
 function isPropertyKey(value: unknown): value is PublicMemberKey {
   return typeof value === 'string' || typeof value === 'symbol';
@@ -84,6 +92,9 @@ function assertContextKind(
   decoratorName: string,
   context: ClassOrMemberContext,
 ): void {
+  if (typeof context !== 'object' || context === null || !('kind' in context)) {
+    throw new DecoratorModeError(decoratorName);
+  }
   if (expectedKind === 'class' && context.kind === 'class') return;
   if (expectedKind === 'property' && context.kind === 'field') return;
   if (expectedKind === 'method' && context.kind === 'method') return;

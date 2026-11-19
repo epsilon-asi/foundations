@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import {mkdtempSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -9,11 +10,11 @@ import {
     loadEnv,
     parseEnvValue,
     toEnvKey,
-} from '../';
+} from '../index.js';
 
 // Dotenv is on by default, so run from an empty directory to keep a real .env out of these tests.
 let dir: string;
-let cwd: jest.SpyInstance<string, []>;
+let cwd: jest.SpiedFunction<typeof process.cwd>;
 
 beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'env-'));

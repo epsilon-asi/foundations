@@ -1,5 +1,6 @@
-import { createDecoratorRegistry } from '../index';
-import { ensureSymbolMetadata, symbolMetadata } from '../symbolMetadata';
+import { jest } from '@jest/globals';
+import { createDecoratorRegistry } from '../index.js';
+import { ensureSymbolMetadata, symbolMetadata } from '../symbolMetadata.js';
 
 type EdgeSchema = {
   class: {

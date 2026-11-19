@@ -20,7 +20,10 @@ export default defineConfig({
     '@emotion/react',
     '@emotion/styled',
     '@mui/material',
-    '@mui/material/styles'
+    '@mui/material/styles',
+    '@mui/x-date-pickers',
+    '@mui/system',
+    'dayjs'
   ],
   outExtension({ format }) {
     return {

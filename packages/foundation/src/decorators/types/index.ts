@@ -1,5 +1,5 @@
-export { createTypeRegistry } from './typeRegistry';
-export { defineTypeExtension } from './extension';
-export { TypeRegistryError } from './errors';
-export type { TypeRegistryErrorDetails } from './errors';
-export * from './types';
+export { createTypeRegistry } from './typeRegistry.js';
+export { defineTypeExtension } from './extension.js';
+export { TypeRegistryError } from './errors.js';
+export type { TypeRegistryErrorDetails } from './errors.js';
+export * from './types.js';

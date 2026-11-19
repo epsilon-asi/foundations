@@ -1,11 +1,11 @@
-import {createSchemaFile, interpolateEnv, interpolateEnvHook} from "./init";
-import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync} from "./load";
-import { parseStringSync } from "./parse";
-import { parseString } from "./parse";
-import {serialize, serializeAsync } from "./serialize";
-import {saveFile, saveFileSync} from "./save";
-import {SchemaFileError} from "./types";
-import {deepMerge} from "./util";
+import {createSchemaFile, interpolateEnv, interpolateEnvHook} from "./init.js";
+import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync} from "./load.js";
+import { parseStringSync } from "./parse.js";
+import { parseString } from "./parse.js";
+import {serialize, serializeAsync } from "./serialize.js";
+import {saveFile, saveFileSync} from "./save.js";
+import {SchemaFileError} from "./types.js";
+import {deepMerge} from "./util.js";
 import {
     createLayeredFile,
     discoverLayers,
@@ -16,7 +16,7 @@ import {
     loadMergedFilesSync,
     safeLoadLayeredFile,
     safeLoadLayeredFileSync,
-} from "./layered";
+} from "./layered.js";
 
 export type {
     DiscoverOptions,
@@ -35,7 +35,7 @@ export type {
     SchemaFileErrorKind,
     SerializeOptions,
     SerializeStrategy,
-} from "./types";
+} from "./types.js";
 
 export {
     createSchemaFile,

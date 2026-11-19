@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import * as z from "zod";
 import os from "node:os";
 import {mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync} from "node:fs";
@@ -14,7 +15,7 @@ import {
     safeLoadLayeredFile,
     safeLoadLayeredFileSync,
     SchemaFileError,
-} from "../index";
+} from "../index.js";
 
 const Config = z.object({
     model: z.string().default("default-model"),

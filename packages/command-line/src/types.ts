@@ -1,6 +1,8 @@
 import type {
   ClassDecoratorDefinition,
   DecoratorRegistry,
+  Logger as FoundationLogger,
+  LogLevel,
   PropertyDecoratorDefinition,
 } from '@epsilon-asi/foundation';
 import type { Command as CommanderCommand } from 'commander';
@@ -39,17 +41,11 @@ export interface TerminalStream {
   readonly columns?: number | undefined;
 }
 
-/** Log levels, least to most severe. `silent` turns logging off. */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
+export type { LogLevel } from '@epsilon-asi/foundation';
 
-/** What every command receives as `context.logger`. */
-export interface Logger {
-  /** The minimum level this logger writes. */
-  readonly level: LogLevel;
-  debug(message: string): void;
-  info(message: string): void;
-  warn(message: string): void;
-  error(message: string): void;
+/** Commands also accept custom loggers that implement only the four level methods. */
+export interface Logger extends Omit<FoundationLogger, 'child'> {
+  child?: FoundationLogger['child'];
 }
 
 export interface LoggerOptions {

@@ -119,7 +119,7 @@ None. Every numbered decision is settled, and each is recorded in the table abov
 | D20 | One-process apps | `runApp()` runs every declared part in one process; `APP_PARTS` picks parts per deployment |
 | D15 | API version naming | a date, sent in a header; per-key pinning arrives with the first breaking change |
 
-Two of these are confirmed by a spike before code depends on them: the handler typing (S0) and base-class inheritance (S6). Each has a stated fallback.
+S0 verified handler typing against the CLI middleware types. S6 verified kit base-class inheritance with a type check for erased overrides and a runtime check for decorated overrides. The [spike results](#spikes-about-a-day-each-after-phase-0-before-phase-1) record the conditions each test covers.
 
 ### maxleads patterns kept on purpose (even where they look inconvenient)
 
@@ -137,7 +137,7 @@ Two of these are confirmed by a spike before code depends on them: the handler t
   - react-hook-form's `FieldPath` works on flavored request types.
   - MikroORM's `FilterQuery` accepts flavored classes and rejects wrong operands.
   - The class-name check survives esbuild minification.
-  - The group-bound handler shape types `ctx` from both group and route `use`, on TS 5.9 and TS 7 (T12). That check used a trailing function. The options-object form, as fields of a decorated routes class, is verified too (T16): `ctx` comes from the group and the route, nothing is `any`, and wrong returns fail, with no annotations. A defaults-only class typechecks. Spike S0 re-runs it against the real chain types.
+  - On TS 5.9 and TS 7, a handler defined as a decorated routes class field infers its request and its group and route middleware context. A defaults-only class typechecks. S0 exercises the T16 options-object form with command-line’s real middleware types and a §1.4 endpoint stub. [Route typing fixture](../../packages/apps/tests/spikes/routes/handlers.test-d.ts)
   - `filter: { field: true }` gives exactly the field type's operator group, an explicit list is checked against the type (`name: ['$gt']` on text fails), and the named operator constants work at the same call site, on TS 5.9 and TS 7 (T14).
   - Consumers, jobs, loops and webhooks as decorated classes stay fully typed, on TS 5.9 and TS 7 (T17). A message is typed by its topic and a payload by its job. A consumer can't return data. A job with a required payload can't take a cron, and a cron must have five fields. A loop's `every` must be a duration. A webhook handler gets only its own event type, and a misspelled event type fails. `ctx` is never `any`.
 - **Refuted, and fixed in this plan:**
@@ -146,14 +146,13 @@ Two of these are confirmed by a spike before code depends on them: the handler t
   - Nested projection leaks → per-operation variants (C2).
   - A cast-free generic ORM translator → one stated internal cast (M6).
   - foundation's root is browser-safe → 0.1.
-  - foundation compiles on TS 7 → 0.0.
+  - Foundation's original module resolution failed on TS 7. The NodeNext change in 0.0 fixes that build.
   - `routes()` types per-route `use` → group-bound handlers (C5).
   - A handler array catches duplicate and missing handlers. It lets both compile (T16) → decorated routes classes, which fail on a duplicate when the class is defined and on a missing handler at startup (2.3).
   - type-bridge handles flavored types → Python comes from JSON Schema, or flavors are stripped first.
 - **Versions:**
   - express 5.3.0 and @mikro-orm/core 7.1.4.
-  - zod is skewed: 4.4.2 at the root, 4.4.3 in apps, 4.6.7 in foundation's dev install. foundation's peer range is `^4.0.0`.
-  - 0.0 settles one zod version and raises the peer floor to the first release with codecs.
+  - The workspace lock resolves direct Zod dependencies to 4.6.7. Foundation's separate consumer fixture tests the minimum supported version, 4.1.0.
 
 ### Security requirements
 
@@ -249,10 +248,10 @@ export class Offering {
   @Prop(z.array(z.url()).default([]), { crud: 'editable' })
   links!: Defaulted<Editable<string[]>>;
 
-  @Prop.enum(OfferingType, { crud: 'createOnly' })
+  @(Prop.enum(OfferingType, { crud: 'createOnly' }))
   type!: CreateOnly<OfferingType>;
 
-  @Prop.enum(OfferingStatus, { crud: 'readable', default: OfferingStatus.DRAFT })
+  @(Prop.enum(OfferingStatus, { crud: 'readable', default: OfferingStatus.DRAFT }))
   status!: Defaulted<Readable<OfferingStatus>>;   // visible, and changed only by OfferingLifecycle
 
   @Prop.string()
@@ -345,91 +344,62 @@ export class OfferingRoutes {
 }
 ```
 
-### Pattern naming conventions (documented in `packages/apps/docs/CONVENTIONS.md`)
+### Pattern naming conventions
 
-| Thing | File | Export(s) |
-|---|---|---|
-| Application system | `common/src/app.ts` | `{ Resource, Prop, endpoints, endpoint, defineStateMachine, transitions, Access } = createResourceSystem({...})` |
-| Resource | `common/src/resources/<Entity>.ts` | `class <Entity>`; `{ Create<Entity>, Get<Entity>, Update<Entity>, Delete<Entity>, List<Entities> } = endpoints(<Entity>, …)` |
-| State machine | `common/src/resources/<Entity>.ts` | `<Entity>Lifecycle`; `{ <Verb><Entity>, … } = transitions(<Entity>Lifecycle, …)` |
-| Factories | `api/test/factories/<Entity>Factory.ts` | `<Entity>Factory` via `defineFactory` |
-| Seeds | `api/src/seeds/<Name>.ts` | `<Name>Seed` via `defineSeed` |
-| Action endpoint | `common/src/resources/<Entity>.ts` (or `common/src/endpoints/<Entity>/<VerbNoun>.ts` when large) | `export const <VerbNoun> = endpoint({ … })` |
-| Endpoint members | — | `Name`, `Kind`, `Method`, `Path`, `Access`, `Request`, `RequestContent`, `Response`, `ResponseData`, `ResponseTypeUnion`, `Route`, `Call`, `toContent`, `fromContent`; list endpoints add `Filters` and `Sorts` |
-| Endpoint types | — | `RequestOf<typeof X>`, `RequestContentOf`, `ResponseOf`, `ResponseDataOf`, `ResponseTypeUnionOf`; plus `ReadModel<typeof E>`, `CreateInput`, `UpdateInput`, `ListQueryOf<typeof ListX>` |
-| Errors | `common/src/errors/<Domain>.ts` | `<Domain>Error` (`.Types`, one class per type), union `<Domain>Errors` |
-| Jobs | `common/src/jobs/<Job>.ts` | `<Job>` via `defineJob`; handled by a field of a `<Domain>Jobs` class |
-| Topics | `common/src/topics/<Topic>.ts` | `<Topic>` via `defineTopic`; handled by a field of a `<Domain>Consumers` class |
-| Consumers | `workers/src/consumers/<Domain>Consumers.ts` | `@Consumers() class <Domain>Consumers { <verb> = consumer(<Topic>, …) }` |
-| Job handlers | `workers/src/jobs/<Domain>Jobs.ts` | `@Jobs() class <Domain>Jobs { <verb> = job(<Job>, …) }` |
-| Loops | `workers/src/loops/<Domain>Loops.ts` | `@Loops() class <Domain>Loops { <name> = loop({ every, run }) }`, from `@epsilon-asi/apps/jobs`; the loop's name derives from `<Domain>Loops.<name>` |
-| Worker groups | `workers/src/groups.ts` (or the class's file, when only one class uses it) | `<concern> = consumerGroup({ use })` or `jobGroup({ use })`, used as `@<concern>.Consumers()` / `@<concern>.Jobs()` with `<concern>.consumer(…)` / `<concern>.job(…)` |
-| Webhooks | `api/src/webhooks/<Provider>Webhook.ts` | `<provider> = webhook({ path, verify })`; `@<provider>.Webhook() class <Provider>Webhook { <event> = <provider>.on('<type>', …) }` |
-| Events | `common/src/events/<Domain>.ts` | `<Domain>Events`, `<Domain>Event` via `defineEvents` |
-| Meters | `common/src/meters.ts` | `<Name>Meter` via `defineMeter` |
-| HTTP middleware | `api/src/middleware/<concern>.ts` | camelCase value (`checkQuota`); role checks come from `requireAccess('<ROLE>')` |
-| Routes | `api/src/routes/<Entity>Routes.ts` | `@Routes({ defaults? }) class <Entity>Routes { <verb> = handler(<Endpoint>, …) }`. Field names are the verb in camelCase (`create`, `list`, `publish`); the endpoint, not the field name, decides what a handler serves |
-| Route groups | `api/src/routes/groups.ts` (or the routes file, when only one class uses it) | `<concern> = group({ use })`, used as `@<concern>.Routes()` and `<concern>.handler(…)` |
-| Large handlers | `api/src/handlers/<Entity>/<Endpoint>.ts` | `<Endpoint>Handler = handler(<Endpoint>, …)`, assigned to a field of `<Entity>Routes` |
-| Services (ORM) | `api/src/services/<Entity>Service.ts` | `class <Entity>Service extends ResourceService(<Entity>)` |
-| Forms | `ui/src/forms/<entity>/<verb>-<entity>.tsx` | `FormContext`, `FormProvider`, `useFormContext`, `useFormSubmit`, `SubmitButton`, `Field` |
-| List context | `ui/src/context/<entities>.tsx` | `<Entities>Provider`, `<Entities>Context`, `<Entities>Consumer`, `use<Entities>` |
-| Single context | `ui/src/context/<entity>.tsx` | `<Entity>Provider`, `<Entity>Context`, `use<Entity>` |
-| Tenant | — | header `X-<Tenant>-Id`, context `ctx.<tenant>` and `ctx.membership`, field `<tenant>Id`, all derived from the tenant resource's name |
-| Provider adapter | `<concern>/<provider>/` | `<Provider><Concern>` (`GcpPubSubTransport`), from `@epsilon-asi/apps/<concern>/<provider>` |
-| Route params | — | `:<entity>Id` for the item, `:<parent>Id` for a parent scope |
-| Paths | — | `/<kebab-plural>`, `/<kebab-plural>/:<entity>Id`, under `/<parent-kebab-plural>/:<parent>Id` when a parent is given |
-| Message keys | — | `<entity>.<field>` (label), `<entity>.<field>.placeholder`, `<entity>.<field>.<VALUE>` (enum option), `errors.<Domain>.<TYPE>`, `filters.operator.<NAME>` (filter operator label) |
-
-**Name rules.** Names are PascalCase with no consecutive capitals (`ApiKey`, not `APIKey`). That way type-level `Uncapitalize` and runtime `toCamelCase` agree. The plural defaults to `` `${name}s` ``, with a definition-time warning for names ending in s, x, y, ch or sh unless `plural` is given (Company → Companies).
-
-Definition-time checks keep the naming honest. Each throws an error that names the offender:
-
-- `endpoints()`'s `name` literal is the source of truth. In development and test builds, it must equal the class name. (Minifiers other than esbuild aren't verified to keep class names.)
-- Two routes can't share a method and path.
-- Every path param must map to a request field.
-- A tenant-owned resource has exactly one `Tenant` field, named `<tenant>Id`.
-- Every role, permission and entitlement named in an access rule exists.
+Use the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.md) for file names, exports, discovery folders and the checks that enforce those conventions.
 
 ---
 
 ## Phase 0 — Toolchain and foundation prep
 
-**Phase 0.4 is complete.** On 2026-11-18, foundation passed its three remaining type-test files, 361 runtime tests, examples and a clean build. The foundation README examples compiled and ran against the built package with TypeScript 5.9.3 and 7.0.2. After the dependency cleanup in 0.5, `apps` passed its typecheck, test and clean build from an isolated lockfile install.
+**Phase 0.4 is complete.** On 2026-11-18, foundation passed all 373 runtime tests with both Zod 4.1.0 and 4.6.7. Its packaged consumer exercised the root, `/env` and `/files` on TypeScript 5.9.3 and 7.0.2 at the 4.1.0 minimum. The packed `apps` declarations resolved on both compilers. A clean Node 22.17 consumer installed the `apps` tarball with only foundation and Zod and imported its ESM root.
 
 ### 0.0 Toolchain
 - **pnpm workspaces:**
-  - A root `pnpm-workspace.yaml` with `packages/*`.
-  - Inter-package dependencies use `workspace:^`.
-  - The per-package `package-lock.json` files go, replaced by one root lockfile.
-- **Root scripts:** `build`, `test` and `typecheck` run through `pnpm -r`, in dependency order. That replaces `scripts/run_for_packages.sh`. `release.sh` and `bump_version.sh` stay; `release.sh` publishes with pnpm, which rewrites `workspace:` ranges to real versions.
-- **CI (`validate.yml`):** one `pnpm install`, then typecheck, test and build in dependency order, so `apps` builds against foundation's source (M1).
-- **foundation's tsconfig:** ESM with `module`/`moduleResolution: nodenext`. It compiles on TS 5.9 and TS 7; TS 7 rejects the current `moduleResolution: node`.
-- [x] Foundation's `typecheck` command, which CI already calls, compiles source and every `*.type-test.ts` file. Local verification runs this check once.
-- [ ] Verify coverage of `*.type-test.ts` and `*.test-d.ts` in the other packages' `typecheck` commands as part of the workspace migration (M2).
-- **zod:** one version across the workspace. foundation's peer floor rises to the first zod release with `z.codec`.
+  - [x] Declare `packages/*` in the root `pnpm-workspace.yaml` and pin pnpm 10.33.2. The workspace lists all 12 package manifests on Node 22.17 and 24.15. [Workspace discovery](../../README.md#workspace)
+  - [x] Switch all 11 inter-package dependencies to `workspace:^`. The apps build and tests use the local foundation and command-line packages.
+  - [x] Replace the root and 12 package installation locks with one [pnpm lockfile](../../pnpm-lock.yaml). A clean frozen install links local packages. The standalone npm consumer and repo-runner fixtures retain their test lockfiles.
+- **Root scripts**
+  - [x] Run `typecheck` through `pnpm -r run typecheck`. After a frozen workspace install and build, all 12 packages passed on Node 24.15. [Workspace commands](../../README.md#workspace)
+  - [x] Run `build` through `pnpm -r run build`. On Node 24.15.0 all 12 packages built, including `actors` and `agent-engineer`. Each package's declared root entry or CLI executable was present after the build. [Workspace commands](../../README.md#workspace)
+  - [x] Run all 12 package suites with `corepack pnpm test` and retire `scripts/run_for_packages.sh`. With the six resource spikes in place and PostgreSQL enabled, the 12 package suites on a clean frozen install on Node 24.15 reported 2,495 passed, 18 skipped and zero failures. [Workspace commands](../../README.md#workspace)
+  - [x] Keep `release.sh` and `bump_version.sh` and use the pinned pnpm in the [tag-driven publish workflow](../../.github/workflows/publish.yml). Offline dry runs for foundation, command-line and apps matched their local tarballs on Node 22.17 and 24.15. The apps manifest used `^0.0.13` for foundation and `^0.0.11` for its command-line development dependency. [Local release check](../../README.md#release)
+- [x] Each validation job runs one frozen workspace install for its package, its dependency tree and the root tools. It builds local dependencies in order before typechecking and testing the package. The publish job uses the same [workspace setup](../../.github/actions/install-workspace/action.yml) (M1).
+- [x] Use NodeNext for foundation's `module` and `moduleResolution`. TypeScript 5.9.3 and 7.0.2 both built the package, and Node 22.17 loaded its root, `/env` and `/files` from the resulting tarballs.
+- [x] Typecheck foundation source, runtime test files and every `*.type-test.ts` file on both compiler versions in CI. Jest uses isolated compilation, and the separate no-emit check catches type errors in the tests. [Verification commands](../../packages/foundation/README.md#verification)
+- [x] Build foundation with TypeScript 5.9.3 and 7.0.2 in CI. Each build produces its own tarball and passes the consumer fixture on both compilers at Zod 4.1.0, plus the minified decorator bundle. [Repeat the four compiler combinations](../../packages/foundation/README.md#verification)
+- [x] Detect skipped type tests in CI (M2). Both package matrices compare fixtures on disk with the files the package's typecheck compiles. The check covers all three `*.type-test.ts` files in foundation and both `*.test-d.ts` files in command-line. Both matrices retain this check with the frozen workspace install. [Run the check locally](../../README.md#type-tests)
+- [x] Raise foundation's Zod peer range to `^4.1.0`, the first stable release with codecs. The packed consumer uses exactly 4.1.0 on TS 5.9.3 and 7.0.2. [Foundation verification](../../packages/foundation/README.md#verification)
+- [x] Align direct development resolutions of Zod at 4.6.7 in the root lockfile. The standalone consumer still verifies foundation at the 4.1.0 peer minimum.
+- [x] Repair `system` verification. Its no-emit check covers source and tests, Jest runs the package smoke test, and the packed build loads by name through both ESM `import` and CommonJS `require`. Both exports resolve to the emitted `build/index.js`. [System verification](../../packages/system/README.md#verification)
+- [x] Typecheck langgraph source, tests and Vitest config on TypeScript 5.9.3 and 7.0.2 in its CI job. Its regular test and build commands use the workspace lockfile. [Langgraph verification](../../packages/langgraph/README.md#verification)
+- [x] Add TypeScript 5.9.3 to command-line CI and 7.0.2 to system CI. Together with their regular package checks, this completes dual-compiler no-emit coverage for the five Phase 0 packages. [Command-line checks](../../packages/command-line/README.md#scripts) and [system checks](../../packages/system/README.md#verification)
 - **Done when:** `pnpm -r typecheck test build` passes on TS 5.9 and TS 7, with no npm release in between.
 
 ### 0.1 Browser-safe foundation
-- foundation ships ESM with `sideEffects: false`.
-- The root exports only the decorators, types, naming and logging. The chain joins them in Phase 2. `/env` (the env system and dotenv) and `/files` are subpaths (C4).
-- **Every importer of the env exports moves in the same change:** command-line, apps, system and langgraph import `loadEnv`, `Env`, `EnvVar`, `createEnvSystem` and friends from `@epsilon-asi/foundation/env`.
-- `check:browser` runs in foundation. It bundles the root with esbuild (`platform: 'browser'`) and scans the metafile for Node built-ins.
-- **Decorator mode is checked once, in `createDecoratorRegistry`.** Every decorator it makes checks that it was called the standard way, with a context object that has a `kind`. A legacy-mode call (`(target, key)` or `(constructor)`) throws a `DecoratorModeError` that names the decorator and says to turn `experimentalDecorators` off. Today the same mistake fails with `Cannot read properties of undefined (reading 'kind')` at runtime, and with TS1238 ("Unable to resolve signature of class decorator") at compile time (T18). Because the check lives in the factory, every decorator gets it: command-line's, the env system's, the type registry's, and the route and worker classes.
+- [x] Package foundation as native ESM with `sideEffects: false`. The regular build produced a tarball on both TypeScript 5.9.3 and 7.0.2. Each tarball passed the consumer tests on both compilers and retained class and field metadata in a tree-shaken bundle. Node 22.17 loaded the same modules through `import` and `require` across all three public entries. [Foundation verification](../../packages/foundation/README.md#verification)
+- [x] Give the five relative re-exports in foundation's root and `/env` explicit `index.js` paths. TypeScript 5.9.3 and 7.0.2 each built a tarball. Both compilers passed the consumer tests against each tarball. [Foundation verification](../../packages/foundation/README.md#verification)
+- [x] Use explicit `.js` paths throughout the decorator factory. Isolated native ESM builds on TypeScript 5.9.3 and 7.0.2 loaded the factory in Node 22.17, recovered decorated accessor metadata and matched the CommonJS output for all seven examples. [Foundation verification](../../packages/foundation/README.md#verification)
+- [x] Use explicit `.js` paths for the type registry's 11 production imports and re-exports. Node 22.17 loaded native ESM built by TypeScript 5.9.3 and 7.0.2. Each build parsed a decorated email field, applied an enum default and rejected invalid email and enum values. [Foundation verification](../../packages/foundation/README.md#verification)
+- [x] Expose `@epsilon-asi/foundation/env`. This Node entry owns the environment registry and dotenv API. The packed consumer loads a numeric field from an injected source using standard decorators. [Environment example](../../packages/foundation/README.md#environment)
+- The browser-safe root exports decorators, types, naming, the logger and the JSON log writer. Phase 2 adds the chain. The Node APIs live at `/env` and `/files` (C4).
+- [x] Remove env from the root and move the remaining production importer, [langgraph’s configuration](../../packages/langgraph/src/engineer/config/index.ts), to `@epsilon-asi/foundation/env`.
+- [x] Run `check:browser` on foundation's built root. The [browser consumer](../../packages/foundation/tests/browser/common.ts) checks every export with esbuild and verifies the declarations with DOM libraries and no ambient Node types on TS 5.9 and 7.
+- [x] Check decorator mode in `createDecoratorRegistry`. A legacy class or member call throws the exported `DecoratorModeError` with the registry decorator's name and the instruction to turn off `experimentalDecorators`. Standard decorators applied to the wrong target keep their existing diagnostic. The check covers the env and type registries and will apply to route and worker decorators built on this factory. [Consumer setup](../../packages/foundation/README.md#decorator-mode)
 
 ### 0.2 Logging and naming into foundation
-- **Move** these from `packages/command-line/src/logging.ts` and `naming.ts` to `packages/foundation/src/logging/` and `packages/foundation/src/naming/`:
-  - `Logger`, `LogLevel`, `LOG_LEVELS`, `DEFAULT_LOG_LEVEL`, `isLogLevel`, `createLogger`
-  - `toKebabCase`, `toScreamingSnakeCase`
+- [x] Move `LogLevel`, `LOG_LEVELS`, `DEFAULT_LOG_LEVEL` and `isLogLevel` to the foundation root and re-export them through command-line. The CLI keeps its flag, environment and threshold behavior. [Log levels](../../packages/foundation/README.md#log-levels)
+- [x] Move `Logger` and the threshold logic in `createLogger` to foundation. The CLI adapts its existing `createLogger(level, write)` call to the shared logger. Its custom logger type accepts existing implementations with four level methods. [CLI logging](../../packages/command-line/README.md#logging)
 - **Structured logging (M9):**
-  - `Logger` methods take `(message, fields?)`.
-  - `child(bindings)` creates a bound logger.
-  - Errors are serialized.
-  - Fields are redacted by key name, and through a redaction hook. `apps` fills the hook with every server-only field (1.1), because foundation doesn't know about flavors.
-  - A JSON writer takes its field names from a format preset: generic (`level`, the default) or `gcp` (`severity`).
-  - The CLI keeps its text writer.
+  - [x] `Logger` methods take `(message, fields?)`. A custom writer receives the level, message and any supplied fields after threshold filtering.
+  - [x] `child(bindings)` inherits the parent’s threshold, writer and redaction policy. Child bindings override inherited fields, and per-call fields win for that record. [Child logger example](../../packages/foundation/README.md#structured-logging)
+  - [x] Serialize errors supplied as structured fields, including nested errors and causes. Both custom and JSON writers receive the error name, message, stack when available, and enumerable metadata.
+  - [x] Omit matching fields recursively before invoking the writer. The logger accepts exact key names and a `shouldRedact` predicate. Tests cover child bindings, nested arrays and error details. [Redaction options](../../packages/foundation/README.md#structured-logging)
+  - [ ] In 1.1, have `apps` supply the server-only field names from `serverOnlyFields(C)` to the redaction hook.
+  - [x] `createJsonLogWriter` emits one JSON line per record. The default generic preset writes `level`. The `gcp` preset writes `severity` using Cloud Logging values, including `WARNING` for `warn`. [Structured logging](../../packages/foundation/README.md#structured-logging)
+  - [x] The CLI text writer emits `[level] message\n`.
 - [x] Export `toCamelCase`, `toPascalCase` and `toSnakeCase` from the foundation package root. Tests exercise all five input spellings for each of these three outputs. [Usage examples](../../packages/foundation/README.md#naming)
-- [ ] Move the two existing CLI helpers listed above, preserve their CLI exports, and complete round-trip tests across all five outputs. Phase 1 uses these conversions for item params, list keys and message keys.
+- [x] Move the two existing CLI helpers to foundation and re-export them from command-line. Tests cover all 25 combinations of the five naming forms and preserve the CLI’s existing punctuation and acronym behavior. Phase 1 uses these conversions for item params, list keys and message keys.
 - **Stays in command-line:** the CLI-specific pieces (`logLevelEnvName`, `commandNameFromClass`, `optionFlags`, `parseFlags`, `argumentSyntax`, the `DEFAULT_LOG_LEVEL_*` flag constants).
 - command-line re-exports the moved names, so its public API and tests stay unchanged.
 
@@ -457,7 +427,9 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
 - [x] Retire the request-mapping prototype and its two private test fixtures. The three remaining type-test files cover the decorator factory, type registry and file helpers.
 
 ### 0.5 Re-tool `@epsilon-asi/apps`
-- **ESM build:** `"type": "module"` and `tsconfig.build.json`, matching command-line's TS and vitest versions.
+- [x] Ship the package root as ESM. The build emits `build/index.js` and `build/index.d.ts` using `tsconfig.build.json`. Both are reachable through the package exports map. Local verification and CI import the built package by name.
+- [x] Match command-line's TypeScript 7.0.2 and Vitest 5.0.5 toolchain. The [decorator test](../../packages/apps/tests/standardDecorators.test.ts) uses the shared `standardDecorators()` transform and reads both class and field metadata from foundation's registry.
+- [x] Ship the [naming guide](../../packages/apps/docs/CONVENTIONS.md) with the package. It covers the file and export names that route, webhook and worker discovery will use.
 - **Exports map:**
   - `.`, `./runtime`, `./express`, `./mikro-orm`, `./secrets`, `./redis`, `./pubsub`, `./jobs`, `./testing`
   - a provider subpath under `pubsub` (`./pubsub/gcp`)
@@ -465,32 +437,42 @@ This work runs with 2.2, not in Phase 0, so the generic core is designed against
   - `./package.json`
 - **Dependencies:**
   - `@epsilon-asi/foundation` (`workspace:^`) and `zod`.
-  - Optional peers: `express`, `@mikro-orm/core`, `@mikro-orm/migrations`, `redis`, `stripe`, and the cloud SDK each provider subpath uses (`@google-cloud/pubsub`).
+  - [x] Make `express`, `redis` and `@google-cloud/pubsub` optional peers. A normal install of the packed package in an empty project imported the root with all three absent. The package import test checks the peer declarations.
+  - [x] Make `@mikro-orm/core` an optional peer and `@mikro-orm/postgresql` a development dependency. A clean development install loaded both at 7.1.4. An empty project installed the tarball with only foundation and Zod and imported the public root.
+  - [x] Declare `@mikro-orm/migrations` as an optional peer with the same `^7.1.4` range as core. A clean consumer installed the tarball and imported the root with migrations absent. [Apps dependencies](../../packages/apps/README.md)
+  - [x] Declare `stripe` (`^23.1.0`) as an optional peer for the planned billing adapter. An empty consumer installed the `apps` tarball and imported its root with Stripe absent. [Apps dependencies](../../packages/apps/README.md)
   - [x] Remove the direct dependencies `openai`, `dotenv`, `uuid`, `ts-deepmerge` and `@mikro-orm/decorators` from the `apps` manifest and lockfile. A clean install from that lockfile passed the package checks.
-  - devDependencies: vitest, @types/express, @mikro-orm/sqlite, @mikro-orm/postgresql, esbuild.
-- [x] Remove `src/{api,consumer,daemon,producer}/index.ts` and their scaffolding in `src/common/`. A clean build produced only `index.js`, `index.d.ts` and `package.json`.
+  - [x] Add `@mikro-orm/sqlite` as a development dependency at the same `^7.1.4` range as the PostgreSQL driver. The [SQLite test](../../packages/apps/tests/sqlite.test.ts) executed a query against an in-memory database on Node 22.17 and 24.15. A clean install of the packed root imported successfully with both `@mikro-orm/sqlite` and its native `better-sqlite3` binding absent. [Apps verification](../../packages/apps/README.md#verification)
+- [x] Remove `src/{api,consumer,daemon,producer}/index.ts` and their scaffolding in `src/common/`.
+- [x] Verify the current `apps` entry with `corepack pnpm --filter @epsilon-asi/apps run verify`. It typechecks source and tests, runs Vitest, rebuilds the public entry and checks it in Node and a browser bundle. [Package verification](../../packages/apps/README.md#verification)
 - **Scripts:** `build`, `typecheck` (including type tests), `test`, `check:browser`, `verify`, `bump`, `pub`.
 
 **Phase 0 is done when** `typecheck`, `test` and `build` pass in foundation, command-line, apps, system and langgraph, and `check:browser` passes on foundation's and `apps`' browser-safe entries, all on TS 5.9 and TS 7.
+
+On 2026-11-18, all five packages typechecked and built with TypeScript 5.9.3 and 7.0.2 on Node 24.15. Their 732 runtime tests passed after each compiler’s build. Both browser entries passed the bundle and declaration checks on each build.
 
 ---
 
 ## Spikes (about a day each; after Phase 0, before Phase 1)
 
-| Spike | Question | Done when |
+| Spike | Question | Acceptance and results |
 |---|---|---|
-| S0: route typing | Does `handler(Endpoint, { use, handle })`, as a field of a decorated routes class, type `ctx` from group and route `use`, reject wrong returns (including M3's rule on `void`), and reject bad endpoint references? Does a defaults-only class typecheck? It runs against command-line's chain types and a minimal `Endpoint` stub with 1.4's members, because Phase 1 hasn't built the real ones yet. The scratch version already passes (T16). If `ctx` doesn't type in this form against the real chain types, the fallback is the trailing function, which is verified (T12). | The T16 matrix passes on TS 5.9 and TS 7, and the matrix is committed as a type test. It's re-run against the real types once 1.4 lands. |
-| S1: derivation | Do PATCH and nested projection behave? | `UpdateX.Request.parse(oneKey)` returns that key only. A server-only field (unmarked, `Internal`, `WriteOnly` or `Secret`), nested or not, never appears in a response, a message or a log. |
-| S3: MikroORM | Do `em.create`, `assign`, serialization, array/json operators, `FilterQuery` and tenant filters work with flavored classes? | `ResourceService.create` compiles with one stated cast, and `EntityOf<C>` makes `ctx.em.create` correct. Runs on SQLite and Postgres. |
-| S4: tenancy and access | Does every ownership kind scope correctly from declarations alone? They are Offering (owned), SalesThread (owned, under a parent campaign), Channel (owned with a user owner) and Company (shared, behind an entitlement), plus the tenant itself (`'self'`) and an `'account'` row (`MfaFactor`). Do conditional rules give the same answer on the server and in the UI? | Org A can't read or write org B's rows in any case, a user can't reach another user's `'account'` rows, and no case needs a hand-written handler. |
-| S5: shutdown | Does an Express 5 drain work with keep-alive clients, with readiness flipping first? | An in-flight request completes, new connections are refused, and the process exits before the timeout. |
-| S6: resource inheritance | Do decorated fields inherit through `class Organization extends TenantResource`, with the strict `Prop` and derived types intact? Can a subclass be stopped from loosening an inherited field, for example making a hidden field `Readable`? | Confirms the base-class approach. If it fails, the fallback is generated copies. |
+| S0: route typing | Can a handler field infer group and route middleware context, enforce its endpoint’s response type and accept a defaults-only routes class? | Verified on TS 5.9.3 and 7.0.2 with the real command-line middleware types. Both compilers rejected all eight negative cases, including an empty return for a declared response and an invalid endpoint reference. Re-run with the real endpoint contracts in 1.4. [Committed type test](../../packages/apps/tests/spikes/routes/handlers.test-d.ts) |
+| S1: derivation | Do PATCH and nested projection behave? | Verified with decorated resources, Zod and the foundation logger. A one-key PATCH emits one key. Nested writes reject forbidden fields. Responses, messages and raw structured logs omit all four server-only categories at both depths. The fixture follows recursive resource refs and rejects unsupported containers during derivation. [Runtime tests](../../packages/apps/tests/spikes/derivation/derivation.test.ts) |
+| S3: MikroORM | Do typed creation, assignment, serialization, array/JSON queries and tenant filters work with flavored classes? | Verified with MikroORM 7.1.4 on SQLite and PostgreSQL 16.15. The generic create method uses one cast to `RequiredEntityData`. Direct `em.create` uses `EntityOf<C>`. An unbound query failed and a cross-tenant update affected zero rows. PostgreSQL JSONB containment and scalar-array overlap passed. [Database tests](../../packages/apps/tests/spikes/orm/orm.test.ts) and [type tests](../../packages/apps/tests/spikes/orm/entity.test-d.ts) |
+| S4: tenancy and access | Can the same operations enforce the six ownership declarations and give the UI and server the same conditional decisions? | Verified in memory after authentication. Offering, parent-scoped SalesThread, user-owned Channel, entitled shared Company, the tenant itself and account-scoped MfaFactor all use the same service methods. Tests check permitted and denied reads and writes, plus six role/request combinations against independently specified outcomes. [Policy matrix](../../packages/apps/tests/spikes/tenancy/tenancy.test.ts) |
+| S5: shutdown | Does an Express 5 drain work with keep-alive clients, with readiness flipping first? | Verified on Node 22.17 and 24.15. Readiness returned 503 while the listener was still open. Fresh connections were then refused, and a request on a reused socket finished before the child exited. A stalled request was disconnected at the deadline. [HTTP and process tests](../../packages/apps/tests/spikes/shutdown/shutdown.test.ts) |
+| S6: resource inheritance | Can `Organization extends TenantResource` inherit schema, field access and derived types while preventing a subclass from widening access? | Verified for kit bases. Each reusable base captures its original field types so the class decorator rejects a type-only `declare` override. A separate definition-time check rejects decorated overrides that widen the parent’s access. Both compilers preserve the derived types and reject the tested mismatches. [Type tests](../../packages/apps/tests/spikes/inheritance/inheritance.test-d.ts) and [runtime tests](../../packages/apps/tests/spikes/inheritance/inheritance.test.ts) |
+
+All 25 spike runtime cases passed with PostgreSQL enabled. On TypeScript 5.9.3 and 7.0.2, removing the expected-error directives produced diagnostics at the 14 S0/S6 sites and the five S3 sites. [Run the spikes](../../packages/apps/README.md#resource-framework-spikes)
 
 S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 
 ---
 
 ## Phase 1 — Core: model and contracts (browser-safe)
+
+The workspace build and typecheck passed on a frozen Node 24.15 install. With PostgreSQL enabled, the 12 package suites reported 2,674 tests passed and 18 skipped. An isolated consumer compiled and ran the package examples from local dry-run tarballs on Node 22.17 and 24.15 with TypeScript 5.9.3 and 7.0.2. The examples also ran in a browser-targeted bundle. [Resource models and UI metadata](../../packages/apps/README.md#resource-model-primitives) · [List queries](../../packages/apps/README.md#sort-directions-and-filter-operators) · [Search](../../packages/apps/README.md#search-queries) · [Date wire codec](../../packages/apps/README.md#date-wire-codec) · [Number wire codec](../../packages/apps/README.md#number-wire-codec)
 
 ### 1.1 Resource system (`apps/src/model/`)
 - **`createResourceSystem(options)`** follows the `create*System` pattern and builds on `createTypeRegistry({ namespace: 'resources' })`. Its options:
@@ -523,6 +505,10 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
   | `Secret<T>` | never | no | `Internal`, plus encrypted at rest (3.7) and redacted from logs |
   | `Defaulted<T>` | — | — | the schema has a default; optional on create; composes with the others |
 
+- [x] Export `Readable<T>`, `Editable<T>`, `WriteOnly<T>`, `CreateOnly<T>` and `UpdateOnly<T>` from the apps root. The last two are readable and grant exactly one write operation. Type tests cover the grants, ordinary value assignment and nullable unions. [Access flavor tests](../../packages/apps/tests/model/access.test-d.ts)
+- [x] Export `Id<T>` and `Tenant<T>` with distinct primary-key and tenant markers. Both grant read access, accept plain values and preserve nullable unions. Type tests check that neither grants a write operation. [Identity field tests](../../packages/apps/tests/model/access.test-d.ts)
+- [x] Export `Defaulted<T>` as an independent marker for schema defaults. It preserves nullable unions and the wrapped field's read and write grants. [Defaulted field example](../../packages/apps/README.md#resource-model-primitives)
+- [x] Export `Internal<T>` and `Secret<T>` as server-only field types. `Internal<T>` is equivalent to an unmarked field. `Secret<T>` carries a distinct marker for encryption and redaction. Neither grants read or write access. [Field type tests](../../packages/apps/tests/model/access.test-d.ts)
 - **Flavors are stripped from derived types** (`RequestOf`, `ReadModel`, `CreateInput`, form values). Brands stay only on the class, so diagnostics read `string`, not `Defaulted<UpdateOnly<…>>` (M5).
 - **Server-only fields** are unmarked, `Internal`, `WriteOnly` and `Secret` fields. `serverOnlyFields(C)` lists them, and projection, log redaction, audit and the tests all use that one list.
 - **Strict `Prop` (`model/prop.ts`)** wraps foundation's `Prop` and every shorthand with `const` option generics. At compile time it requires:
@@ -532,32 +518,47 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 - **`patch` field option:** `'replace'` (the default), `'merge'` for objects, or `'append'` for arrays.
 - **Derived types (`model/types.ts`)** come from the class type alone:
   - `Fields`, `ReadModel`, `CreateInput` (required unless `?` or `Defaulted`), `UpdateInput` (all optional), `IdOf`.
+  - [x] Export `Fields<C>` for a constructor or instance type. It uses foundation's `TypeShape` to preserve the original field declarations, including inherited, readonly and optional fields, and omit methods. [Data field tests](../../packages/apps/tests/model/fields.test-d.ts)
+  - [x] Export `IdOf<C>`. Given a class constructor or instance type, it derives the plain value of the field marked `Id<T>`, including an inherited primary key. [ID type tests](../../packages/apps/tests/model/idOf.test-d.ts)
+  - [x] Export the type-only `ReadModel<C>`. It selects readable fields, removes their access flavors and projects nested resource types, including recursive references and arrays. Inline JSON records retain their plain data keys. [Projection tests](../../packages/apps/tests/model/readModel.test-d.ts)
+  - [x] Export `CreateInput<C>` for a resource constructor or instance. It selects create-writable fields, including write-only fields, and applies the same projection to nested resources. Optional and schema-defaulted fields may be omitted. [Create input type tests](../../packages/apps/tests/model/createInput.test-d.ts)
+  - [x] Export `UpdateInput<C>` for a constructor or instance. Every update-writable field is optional, including write-only fields. Nested resources follow the same update rules. Type tests cover empty patches, password changes and rejection of create-only fields. [Update input type tests](../../packages/apps/tests/model/updateInput.test-d.ts)
   - `Paths` (dot paths into nested resources, depth-limited).
 - **Runtime model.** `resolveResource(C)` caches a `ResourceModel` per class, holding fields with their access, the id field, the tenancy and extension options. It also holds three schema **variants**: `read`, `create` and `update`.
   - A nested `ref` inside a variant points at the *same variant* of its target, so projection reaches nested types (C2). `ReadModel` recurses the same way.
+  - S1 keeps the target thunk with each resource ref and caches each class’s operation schema before following its refs. This lets recursive models terminate and lets the logger collect hidden names from reachable models. A hidden name anywhere in that graph is redacted throughout a structured log. [Derivation fixture](../../packages/apps/tests/spikes/derivation/variants.ts)
   - `update` is built from each field's schema with the `default`, `prefault` and `catch` wrappers removed before `.optional()`, so an absent key stays absent (C1).
   - Resource-level `refine` runs after the per-operation derivation, because zod can't `pick`/`partial` a refined object.
 - **Definition-time errors** (`ResourceDefinitionError`, naming the class and field):
+  - A decorated override widens an inherited field’s access. S6 also checks the original kit field types at compile time, since a type-only override emits no runtime metadata.
   - no `id` field when CRUD endpoints are requested;
   - two `id` fields, or composite keys (memberships use a surrogate id);
   - an `Internal` or `Secret` field that is also an id;
   - a tenant-owned resource without exactly one `Tenant` field;
-- **IDs:** uuid v7, generated in code. `newId()` is exported from the core and uses Web Crypto, so it needs no dependency. Services call it when they create a row, so the id exists before the flush, and ids sort by creation time. The database sets no default.
+- [x] Export `newId()` from the core. It uses Web Crypto to generate UUIDv7 IDs with a millisecond timestamp and 74 random bits. IDs from different milliseconds sort by creation time. [UUIDv7 tests](../../packages/apps/tests/model/newId.test.ts)
+  - Services will call it when they create a row so the id exists before the flush. The database sets no default.
 - **Field helper:** `fields(C, { pick: ['name', 'description'] })` or `fields(C, { omit: [...] })` returns a typed zod object, for facet-update and action endpoints.
 
 ### 1.2 Field and type extensions (definitions only, dependency-free)
 
 | Key | Field options | Type options | Consumed by |
 |---|---|---|---|
-| `crud` | an access preset string, or `{ access?, id? }`; plus `patch?` | — | endpoints, forms, ORM defaults |
+| `crud` | an access preset string or `{ access?, id?, patch? }` | — | endpoints, forms, ORM defaults |
 | `http` | `{ name? }`, a wire-name override. Location is per operation, not per field: an endpoint option `in: { field: 'query' \| 'header' \| 'body' }`, because the same field is body in Create and query in List. | — | endpoints |
 | `ui` | `{ label?, placeholder?, helperText?, input?, autoComplete?, multiline?, order? }`. Text options are message keys that default to `<entity>.<field>[.placeholder\|.helper]`. Enum option labels default to `<entity>.<field>.<VALUE>`. Typed `options` overrides are special-cased in the strict `Prop.enum`, because an extension can't type them against the enum. | `{ label?, plural? }` (keys) | React fields |
 | *(no `orm` key)* | — | — | ORM mapping is server-only: `defineEntity` (3.1). Table, column and index names never reach the browser. |
+
+- [x] Export `crudExtension` from the apps root. Foundation's registry accepts the nine access presets and validates the optional boolean ID flag and the three PATCH modes. The registry keeps omitted keys absent. The resource model and service will interpret this metadata. [Registry tests](../../packages/apps/tests/model/crud.test.ts)
+- [x] Export `httpExtension` from the apps root. Foundation's registry resolves the optional field wire name and rejects type-level HTTP options and field-level locations. [Registry example](../../packages/apps/README.md#resource-model-primitives)
+- [x] Export `uiExtension` for field hints and resource labels. The registry validates metadata at each level and preserves omitted keys for later derivation. Enum option overrides belong to strict `Prop.enum`. [UI metadata tests](../../packages/apps/tests/model/ui.test.ts)
+- [x] Export `fieldMessageKeys()` to derive label, placeholder and helper text keys from the declared resource and field names. Each explicit field key overrides its own default. [Message key tests](../../packages/apps/tests/i18n/fieldMessageKeys.test.ts)
+- [x] Export `enumOptionMessageKey()` for default option labels. It appends the stored string or numeric value to the field key and preserves string casing, as in `offering.status.DRAFT`. [Enum label example](../../packages/apps/README.md#enum-option-labels) · [Tests](../../packages/apps/tests/i18n/enumOptionMessageKey.test.ts)
 
 ### 1.3 Tenancy, principals and access (`apps/src/tenancy/`, `apps/src/access/`)
 
 **Tenant context.**
 - **Names derive from the tenant resource** (`Organization` → header `X-Organization-Id`, `ctx.organization`, `ctx.membership`, field `organizationId`). Each can be overridden in `createResourceSystem({ tenant })`.
+  - [x] Export `tenantNames()` to derive the header, context key and ID field from the declared resource name. An override changes only the corresponding name. [Tenant naming example](../../packages/apps/README.md#tenant-names) · [Tests](../../packages/apps/tests/tenancy/tenantNames.test.ts)
 - **Resolution order:**
   1. the header;
   2. the principal's bound tenant (API keys and agent tokens are issued for one tenant);
@@ -584,6 +585,7 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 | `account` | none | the signed-in user, for their own data only | `WhoAmI`, `ListMyTenants`, `CreateTenant`, `AcceptInvitation`, `DeleteAccount`, profile, password, MFA and the user's sessions |
 | `public` | none | anyone, or the holder of a one-time token the endpoint checks itself | sign-in, refresh, sign-up, email verification, password reset, SSO, MFA verification, `/openapi.json` |
 
+- [x] Export `EndpointScope`, `DEFAULT_ENDPOINT_SCOPE` and `endpointScopeSchema`. The schema accepts the three scope values, defaults an omitted scope to `tenant` and rejects the reserved `platform` value. [Scope example](../../packages/apps/README.md#endpoint-scopes) · [Tests](../../packages/apps/tests/tenancy/endpointScope.test.ts)
 - **Why the exception exists:** a new user has no tenant until `CreateTenant` runs. Staff work across tenants through `apps-cli`, not the API (6.1). The scope value `platform` is reserved for a staff console later.
 - **The tenancy rule still holds.** Anything a tenant owns, and shared data, is reached only through a tenant. `endpoints()` gives `tenant` scope unless the resource's tenancy is `'account'`.
 - **`account` is never a default.** An endpoint gets one only by saying so, and declaring a resource's tenancy `'account'` counts as saying so for its endpoints.
@@ -642,7 +644,7 @@ export const ExportOfferings = endpoint({
 
 **`endpoints(C, options)`** builds the five CRUD endpoints. Its options:
 - `name`: a literal, and the source of truth.
-- `plural`: default `` `${name}s` ``, with the warning described above.
+- `plural` defaults to `` `${name}s` ``. See the [plural naming rules](../../packages/apps/docs/CONVENTIONS.md#from-a-resource-name-to-a-public-contract) for names that trigger a warning.
 - `parent`: a parent resource, for scoped paths.
 - `operations`: default all five, or Get and List for a `shared` resource. `{ Delete: false }` turns one off, and `{ Delete: { principals: ['user'] } }` sets options for one.
 - `access`.
@@ -653,11 +655,18 @@ export const ExportOfferings = endpoint({
 
 Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` `Update${N}` ``, `` `Delete${N}` ``, `` `List${P}` ``.
 
+- [x] Export `crudEndpointNames({ name, plural? })` to derive the five export names with matching TypeScript literal types. An explicit plural changes only the list name. [CRUD naming example](../../packages/apps/README.md#crud-endpoint-names) · [Naming tests](../../packages/apps/tests/endpoints/crudEndpointNames.test.ts)
+
 **Reserved names.** `bulk` and `restore` can't be path segments or transition verbs, and `softDelete`, `versioned`, `deprecated`, `suspended` and `impersonation` can't be option names. A definition that uses one fails, so the deferred features can arrive without breaking an app.
+
+- [x] Export `assertRouteNamesAvailable()` for path and verb declarations. It rejects complete static segments and verbs named `bulk` or `restore`, including case variants that match the same Express route. [Route naming example](../../packages/apps/README.md#reserved-route-names) · [Tests](../../packages/apps/tests/endpoints/assertRouteNamesAvailable.test.ts)
+- [x] Export `assertOptionNamesAvailable()` to reject the five reserved option names on a declaration. An own property set to `false` or `undefined` still claims the name. [Option validation example](../../packages/apps/README.md#reserved-route-names) · [Tests](../../packages/apps/tests/endpoints/assertOptionNamesAvailable.test.ts)
 
 **The tenant resource's own routes** drop the id: `/organization` instead of `/organizations/:organizationId`, and `POST /organization/<verb>` for its transitions. They act on the tenant from the header, so a path can never name another tenant.
 
 **Path parameters.** The item param is `` `${Uncapitalize<N>}Id` ``, mapped to the id field. A parent param comes from the parent's name. Each maps to a request field, and that field is excluded from bodies. The tenant id never appears in a path.
+
+- [x] Export `itemParamName()` to derive the item parameter from the singular resource name. The runtime value and TypeScript literal agree for `Offering` and `ApiKey`. A spelling that would produce different runtime and type names is rejected. [Item parameter example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/itemParamName.test.ts)
 
 **Operations:**
 
@@ -668,6 +677,9 @@ Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` 
 | `Update<E>` | patch | `/…/<plural>/:<e>Id` | parent + id + `UpdateInput` | `ReadModel` | 200 |
 | `Delete<E>` | delete | `/…/<plural>/:<e>Id` | parent + id | none | 200 |
 | `List<P>` | get | `/…/<plural>` | parent + `ListQuery` | `{ <camelPlural>: ReadModel[], count }` (cursor paging: `{ <camelPlural>, nextCursor }`) | 200 |
+
+- [x] Export `listResponseKey({ name, plural? })` for the collection field shared by offset and cursor responses. It camel-cases the same plural used by the list endpoint, preserving literal types for default and explicit plurals. [List key example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/listResponseKey.test.ts)
+- [x] Export `crudPaths({ name, plural? })` for ordinary unparented resources. The collection uses the kebab-case plural, and the item adds the singular ID parameter. [Path example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/crudPaths.test.ts)
 
 **`endpoint({...})`** builds one custom or action endpoint with the same members. It takes:
 - `name`, `method`, `path`;
@@ -735,13 +747,14 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   - A compile error names the group (`'"$gt"' is not assignable to type 'TextOperator'`), not an internal helper.
 - **Sort caps.** `list.sort` is `true` (every readable scalar field of the resource itself) or a list of paths, which may go through relations. Arrays, objects and json can't be sorted.
 - **Named constants.** Each is a const object plus a same-named type, like the response codes (1.8), so a constant and its literal are interchangeable at every call site:
-  - `FilterOperator`: `FilterOperator.ILike` is `'$ilike'`, `FilterOperator.Gte` is `'$gte'`, and so on.
-  - `SortDirection`: `SortDirection.Asc` is `'asc'` and `SortDirection.Desc` is `'desc'`.
-  - `FILTER_OPERATORS`: the table above, as data. The types, the server's 422 check and the UI's filter menus all read it, so they can't drift. maxleads kept three hand-synced copies (`AllowedComparisonOperator`, `UIFilterTypeToBackendFilterType` and a label map).
+  - [x] Export `FilterOperator` as a value and a type. All 13 wire operators have named values, including `FilterOperator.ILike` (`'$ilike'`) and `FilterOperator.Gte` (`'$gte'`). The field groups use those values directly. [Operator tests](../../packages/apps/tests/query/filterOperators.test.ts)
+  - [x] Export `SortDirection` as a value and a type. `SortDirection.Asc` is `'asc'` and `SortDirection.Desc` is `'desc'`. [Type tests](../../packages/apps/tests/query/sortDirection.test-d.ts)
+  - [x] Export `FILTER_OPERATORS` as the table above, with six base groups and the nullable additions. The six named operator types derive from their respective groups. The server's 422 check and the UI's filter menus will read the same data. maxleads kept three hand-synced copies (`AllowedComparisonOperator`, `UIFilterTypeToBackendFilterType` and a label map). [Operator tests](../../packages/apps/tests/query/filterOperators.test.ts)
 - **Descriptors on every list endpoint.** `ListX.Filters` and `ListX.Sorts` are frozen, typed objects describing what was declared. For example, `ListOfferings.Filters.type` is `{ path: 'type', kind: 'enum', operators: ['$eq', '$ne', '$in', '$nin'], values: [...], labelKey: 'offering.type' }`. The UI's DataTable builds its sort buttons and filter menus from them, choosing the input by `kind`, so a page declares nothing more (Phase 4). Operator labels are message keys (`filters.operator.<NAME>`).
+  - [x] Export `filterOperatorMessageKey()` to derive label keys from the `FilterOperator` table. All 13 wire operators have a catalog key, including `$ilike` → `filters.operator.ILike`. [Operator label tests](../../packages/apps/tests/i18n/filterOperatorMessageKey.test.ts)
 - **`OrderBy`** is `{ [sortable path]?: SortDirection }`, nested for dot paths, and every key applies.
 - **Capabilities are declared once**, in `endpoints(…, { list })`, and type-checked against `Paths<C>`. With nothing declared, there's no sort or filter, only paging. Only fields the caller can read can be filtered or sorted, because a filter on a hidden field leaks its value. Naming an unmarked, `Internal`, `WriteOnly` or `Secret` field is a definition-time error, and `true` never reaches one either.
-- **Exported defaults:** `DEFAULT_PAGE = 0`, `DEFAULT_PER_PAGE = 20`, `DEFAULT_MAX_PER_PAGE = 100`.
+- [x] Export `DEFAULT_PAGE = 0`, `DEFAULT_PER_PAGE = 20` and `DEFAULT_MAX_PER_PAGE = 100` from the apps root. [Package import test](../../packages/apps/tests/import.mjs)
 - **Query cost is capped.** The depth of a `where`, its number of conditions and the length of an `$in` list each have a limit (`DEFAULT_MAX_WHERE_DEPTH`, `DEFAULT_MAX_WHERE_NODES`, `DEFAULT_MAX_IN_LENGTH`). Going over is a 422.
 - **Wire format:** bracket encoding, with one encoder and decoder in core used by both sides. The decoder rejects the keys `__proto__`, `constructor` and `prototype`, and builds null-prototype objects (Security 2).
 
@@ -751,14 +764,18 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   - Lazies are memoized, and each recursive node is emitted as a lazy.
   - Registry metadata is copied onto replacement nodes.
   - Booleans use `z.stringbool()`. Numbers use a strict numeric parse, so an empty string is an error, not 0.
-  - Dates are `z.codec(z.iso.datetime({ offset: true }), z.date())`.
+  - [x] Export `booleanWireCodec` using `z.stringbool()`. It decodes case-insensitive boolean strings, rejects unknown values and encodes to `'true'` or `'false'`. [Boolean codec example](../../packages/apps/README.md#boolean-wire-codec) · [Round-trip tests](../../packages/apps/tests/wire/boolean.test.ts)
+  - [x] Export `numberWireCodec` for the number case. It accepts finite JavaScript numbers written in JSON number syntax, preserves negative zero, and rejects blank strings and overflow. [Number round-trip tests](../../packages/apps/tests/wire/number.test.ts)
+  - [x] Export `dateWireCodec` for the date case. It decodes ISO timestamps with a time zone to a `Date` and encodes in UTC at millisecond precision. The UTC year must fit the four-digit wire format in both directions. [Date round-trip tests](../../packages/apps/tests/wire/date.test.ts)
   - Multipart is reserved in the format, for a `file` field kind later.
 - **JSON Schema** (OpenAPI, agent tools) comes from the wire schemas with `io: 'input'`. A decoded `z.date()` has no JSON Schema.
 - **Supported kinds:** object, array, optional, nullable, default, enum, literal, union, lazy (`ref`), pipe, codec, and the primitives. Anything else is rejected at definition time with the field's path. Every kind has a round-trip test.
 
 ### 1.8 Responses and errors (`apps/src/responses/`)
 - **Codes:** `SUCCESS_CODES`, `CLIENT_FAILURE_CODES` and `SERVER_FAILURE_CODES`, each a const plus a same-named type.
+  - [x] Export the frozen `SUCCESS_CODES` object with `Ok` (200) and `Created` (201). Its values define the same-named type used by `SuccessResponse<Data>`. [Success code tests](../../packages/apps/tests/responses/success.test-d.ts)
 - **Success:** `{ code: 200 | 201, data, message? }`. `data` is required whenever the endpoint declares a response.
+  - [x] Export the type `SuccessResponse<Data>` for endpoints that declare response data. Type tests cover both success codes, payload inference and the optional string message, and reject missing data and failure codes. [Success response example](../../packages/apps/README.md#success-responses) · [Type tests](../../packages/apps/tests/responses/success.test-d.ts)
 - **Failures:**
 
   | Type | Code | Notes |
@@ -772,9 +789,13 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   | `ServerFailureResponse` | 500 | no detail beyond `traceId` |
   | `UnavailableFailureResponse` | 503 | the session store or another dependency is down; carries `Retry-After` |
 
+- [x] Export the type `ValidationFailureResponse<Field>` for code 422. It requires a namespaced error, a trace ID and field issues. The optional field-name type parameter restricts issue paths to the flat request fields. [Validation failure example](../../packages/apps/README.md#validation-failures) · [Type tests](../../packages/apps/tests/responses/validationFailure.test-d.ts)
+- [x] Export the type `AuthenticationFailureResponse` for code 401. It requires the request's trace ID and distinguishes `Auth.TOKEN_EXPIRED` from `Auth.UNAUTHENTICATED`. [Authentication failure example](../../packages/apps/README.md#authentication-failures) · [Type tests](../../packages/apps/tests/responses/authenticationFailure.test-d.ts)
+- [x] Export `AuthorizationFailureResponse` for a member who lacks a role or permission in the current tenant. It requires code 403, a namespaced error and the request’s trace ID. [Authorization failure example](../../packages/apps/README.md#authorization-failures) · [Type tests](../../packages/apps/tests/responses/authorizationFailure.test-d.ts)
 - **Handlers never build envelopes.** They return data, return `failure.notFound()` and friends, or throw.
 - **`defineErrors('OrgBilling', { UNPAID: { code: 402 }, … })`** produces `OrgBillingError` with `.Types` and the `OrgBillingErrors` union.
   - `error` on the wire is the namespaced type (`OrgBilling.UNPAID`), and the UI translates it through `errors.OrgBilling.UNPAID`.
+  - [x] Export `domainErrorMessageKey()` to derive that catalog key from a namespaced wire error, preserving its exact spelling in the value and type. [Error key example](../../packages/apps/README.md#domain-error-translation-keys) · [Tests](../../packages/apps/tests/i18n/domainErrorMessageKey.test.ts)
   - Workers use the same types for their ack/nack policy.
 
 ### 1.9 Client (`apps/src/client/`)
@@ -800,7 +821,7 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 - **Publishing, scheduling and notifying take `ctx`** in their options. It supplies the tenant, the principal, the trace and the transaction, so the outbox and the jobs table are written in the same unit of work.
 
 ### 1.11 Translation keys (`apps/src/i18n/`)
-- **Message keys** are derived (see the naming table). `messageKeys(resource)` lists every key a resource uses, so apps and tests can check their catalogs.
+- **Message keys** follow the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.md). `messageKeys(resource)` lists every key a resource uses, so apps and tests can check their catalogs.
 - **The framework ships English messages** for its own keys (errors, auth flows, validation). A missing key fails a test, and never fails silently at runtime.
 
 ### 1.12 Agent tools (`apps/src/tools/`)
@@ -816,6 +837,7 @@ Search is declared once, and is off until a list asks for it. The database side 
 
 It's declared as `list: { search: { fields: ['name', 'description'], mode? } }`.
 - `List<P>` gains `q`, a search string capped at `DEFAULT_MAX_SEARCH_LENGTH` (200). It combines with `where`, and the tenant constraint always applies.
+  - [x] Export `DEFAULT_MAX_SEARCH_LENGTH` and `searchQuerySchema` from the apps root. A search-enabled query can include `q: searchQuerySchema.optional()`. The schema accepts a string at the 200-character limit, preserves its text, and rejects longer input. [Query tests](../../packages/apps/tests/query/search.test.ts)
 - `mode: 'text'` (the default, and for now the only mode) uses Postgres full-text search over the listed fields, ranked by relevance unless `orderBy` is given. Search by meaning is deferred.
 - Only fields the caller can read can be searched, the same rule as for filters (1.6). Naming a server-only field is a definition-time error.
 
@@ -848,7 +870,8 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
   - `parts` picks a subset, and defaults to `APP_PARTS` from the env (`api,consumers,jobs,loops`), then to every part discovered. One image can then run as the API in one deployment and as the workers in another.
   - Splitting an app later changes only its entry points. The classes stay the same, and loop leases and job claims already keep one replica per loop and per job.
   - Without an API part, the health endpoints are served on `HEALTH_PORT` (`DEFAULT_HEALTH_PORT`).
-- **Drain:** on SIGINT/SIGTERM, the HTTP server calls `server.close()` and `closeIdleConnections()`, then `closeAllConnections()` when the timeout hits. `agents/api.py`'s `AsyncWorkerManager` is only a model here: it never reads its `stop_event`, and `asyncio.wait([])` raises when no workers are running.
+- **Drain.** On SIGINT/SIGTERM, fail readiness, call `server.close()` and close idle connections. During drain, call `server.closeIdleConnections()` again when a response emits `finish`. In S5, a response that had already sent keep-alive headers left an idle socket behind when the only sweep ran at the start. Call `closeAllConnections()` if the deadline expires. [Express shutdown fixture](../../packages/apps/tests/spikes/shutdown/server.fixture.ts)
+  - The existing `AsyncWorkerManager` in `agents/api.py` leaves `stop_event` unread, and `asyncio.wait([])` raises when no workers are running.
 - **Env:** `ApplicationEnv` uses foundation's `@Env` from `/env`, with `LOG_LEVEL` defaulting to `info`. It also reads `PORT`, `TRUST_PROXY` (2.2) and `APP_ENV`. Stack traces are never sent, whatever the environment says.
 - **`APP_ENV`** is `production`, `development` or `test`. Its default, `DEFAULT_APP_ENV`, is `production`, so an unset value never turns on a dev or test behaviour. Every dev-only and test-only check reads it, and nothing reads `NODE_ENV`.
 
@@ -883,7 +906,7 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
     update = handler(UpdateOffering, { use: [checkQuota], handle: async (request, ctx) => { /* … */ } });
   }
   ```
-- **`handler(Endpoint, { use?, handle })`** binds one handler, where `use` is route middleware and `handle` is the function. `request` is `RequestOf<E>`, `ctx` is typed from the group's and the route's `use`, and the return is checked. Nothing is annotated, because everything is inferred (T16). Spike S0 re-runs this against the real chain types. The trailing-function form is the verified fallback (T12).
+- **`handler(Endpoint, { use?, handle })`** binds one handler, where `use` is route middleware and `handle` is the function. `request` is `RequestOf<E>`, `ctx` is typed from the group's and the route's `use`, and the return is checked. S0 verified this inference without annotations on both compilers using command-line’s middleware types. Re-run the fixture against the §1.4 endpoint contracts when they land. The trailing-function form is the verified fallback (T12).
 - **`group({ use })`** returns `{ Routes, handler }` bound to that group's middleware: `@offerings.Routes()` on the class and `offerings.handler(…)` for its fields. The plain `Routes` and `handler` belong to the default group, which has no middleware of its own.
 - **`@Routes(options?)`** takes `defaults`, a handler set such as `crudHandlers(C)` or a list of them. A hand-written field wins over a default for the same endpoint. A pure-CRUD resource is the two-line class `@Routes({ defaults: crudHandlers(Offering) }) export class OfferingRoutes {}`. Defaults are never applied to a resource that has no routes class, so a routes file that was never loaded fails the startup check instead of quietly falling back to default behaviour.
 - **How it's built.** `createRouteSystem()` follows the `create*System` pattern on foundation's `createDecoratorRegistry`, and its default instance's members (`Routes`, `handler`, `group`) are exported directly. The registry records each decorated class. Handlers, endpoints and middleware are live values, so each record carries a closure instead of going through the registry's clone, as the type registry does. At startup the system creates each class once and reads its fields. A field that isn't a bound handler is left alone, so a class can hold helpers.
@@ -1012,6 +1035,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - The `Tenant` field is indexed by default.
   - Hooks are passed here, in API-only code.
 - **`EntityOf<C>`** maps the flavors to MikroORM's `Opt`/`Hidden` (unmarked fields are `Hidden`), so `ctx.em.create` is typed correctly in hand-written handlers (M6). The generic implementation uses one stated internal cast.
+  - S3 also names optional hidden fields through MikroORM’s `HiddenProps` marker. This keeps them out of the serialized DTO type, matching the runtime schema’s `hidden: true`. [Entity fixture](../../packages/apps/tests/spikes/orm/offering.fixture.ts)
 - **`defineOrm({ entities })` is a runtime service.**
   - Production is configured by `DATABASE_URL`, plus `DATABASE_USER`/`DATABASE_PASSWORD` when they aren't in the URI. Nothing provisions a database.
   - Outside tests, the driver must be Postgres.
@@ -1028,6 +1052,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - `toMikroOrmFind(listQuery, { tenant, parent })` returns `{ where, options }`.
 - Tenant and parent constraints are always merged in, and they win over client filters.
 - Array and json operators map to MikroORM's.
+  - For JSONB arrays of strings or numbers, translate `$overlap` to an OR of singleton `$contains` predicates. Empty input matches no rows. PostgreSQL 16 rejected the native SQL-array overlap operator on the JSONB column. [Verified queries](../../packages/apps/tests/spikes/orm/orm.test.ts)
 - No regex is ever built from user input.
 
 ### 3.3 Free services and unit of work
@@ -1338,7 +1363,7 @@ This generalizes maxleads' `RedisService`. That service had typed, namespaced ke
 | Order | Work | Notes |
 |---|---|---|
 | 1 | Phase 0 (0.0–0.5, except 0.3) | 0.3, the middleware chain, runs with Phase 2 |
-| 2 | Spikes S0, S1, S3, S4, S5, S6 | |
+| 2 | Spikes S0, S1, S3, S4, S5, S6 | All six verified. S0 runs again against the production endpoints in 1.4. |
 | 3 | Phase 1 | Includes 1.13 (search) |
 | 4 | Phase 1.5 | |
 | 5 | Phase 2 | Includes 0.3, the Redis layer (6.9), and the first `apps-cli` commands: `dev` (Postgres and Redis) and `api check`. The test kit's `createTestApp` (2.11) lands here. The rate-limit store stays single-process until Redis is registered |
@@ -1405,7 +1430,7 @@ None of these is in the first release. Each can be added later without reworking
 
 - **Root:**
   - New: `pnpm-workspace.yaml`
-  - Changed: root `package.json`, `.github/workflows/validate.yml`, `scripts/{release,bump_version}.sh`, and `docs/ARCHITECTURE_AND_PHILOSOPHY.md`, whose Processes section names `run_for_packages.sh`
+  - Changed: root `package.json`, `.github/workflows/validate.yml`, `scripts/{release,bump_version}.sh`, and the workspace commands in `docs/ARCHITECTURE_AND_PHILOSOPHY.md`
   - Removed: `scripts/run_for_packages.sh` and the per-package lockfiles
 - **foundation:**
   - New: `src/{naming,logging,chain}/`, and an `src/env/` entry for the subpath
@@ -1439,9 +1464,18 @@ None of these is in the first release. Each can be added later without reworking
 **Every package, every phase.**
 - CI runs `typecheck` (including type tests), `test`, `build` and `check:browser` on TS 5.9 and TS 7.
 - `check:browser` covers foundation's root, `apps`' root, every kit contract entry, and a fixture `common` package that imports every root export. It uses esbuild with `platform: 'browser'`, nothing external, and a metafile with no Node built-ins, express, `@mikro-orm`, `@google-cloud`, `@aws-sdk` or redis. Each entry also compiles with `tsconfig.browser.json` (`types: []`, DOM lib).
-- **Consumer view:** a fixture package type-checks against the built `.d.ts`, not against `src`.
+  - [x] Check the built `apps` root through a [browser consumer](../../packages/apps/tests/browser/common.ts). A [negative fixture](../../packages/apps/tests/browser/node-only.mjs) verifies that an optional `node:fs` import fails the metafile check. CI checks the consumer's declarations on TS 5.9 and TS 7 with `skipLibCheck: false`.
+  - [x] Bundle foundation’s browser-safe root by itself and alongside the apps root in the shared consumer. The packed foundation also passed the browser checks at the Zod 4.1.0 minimum.
+  - [ ] Extend the browser check to each kit contract entry as it ships.
+- **Consumer view.** A fixture package typechecks against the declarations shipped to consumers.
+  - [x] The foundation CI job runs the [consumer fixture](../../testing/foundation-consumer/consumer.ts) against each compiler’s production tarball at the Zod 4.1.0 peer minimum. Each artifact is consumed on TS 5.9 and 7. Its GCP log record contains a child’s request ID and a serialized error, with secrets removed by key and by hook. The fixture also reads an injected env value, rejects an invalid enum default at compile time and round-trips a date codec with a defaulted enum through `/files`.
+  - [x] The same CI job bundles and minifies a consumer of the packed ESM entry. It applies standard class and field decorators and reads both metadata records from the registry after tree-shaking. [Bundled consumer](../../testing/foundation-consumer/bundled-decorators.ts)
 - **Regression:** command-line's full vitest suite and both examples pass unchanged.
-- **Decorator mode:** a decorator from `createDecoratorRegistry` called the legacy way, as a class or as a member decorator, throws `DecoratorModeError` naming the decorator and `experimentalDecorators`. A fixture built with esbuild and `experimentalDecorators: true` fails at startup with that error, not with a property-read error.
+  - With child loggers, all 292 CLI tests and both examples passed. Logging tests cover exact text output from child loggers and compatibility with custom loggers that implement the four level methods.
+  - With foundation owning all five naming helpers, the CLI passed all 290 tests and both examples against the local package. Its public kebab and screaming snake exports resolve to the same functions as foundation’s. Legacy CLI decorator calls still throw `DecoratorModeError`.
+  - Against the locally packed native ESM foundation, command-line passed its typecheck, all 289 tests, its build and both examples on Node 22.17. System passed its package verification, and langgraph passed its 37 tests and build against the same tarball.
+  - [x] Run the simulated terminal's readline editing test with `TERM=dumb`, `TERM=xterm` and `TERM` unset. Backspace worked in all three, and the full 289-test suite passed with `TERM=dumb`. [Run the regression test](../../packages/command-line/README.md#scripts)
+- [x] Foundation tests cover legacy class and member calls. An [esbuild fixture](../../packages/foundation/tests/fixtures/decorator-mode.ts) registers class metadata in standard mode. With `experimentalDecorators: true`, the same fixture exits at startup with `DecoratorModeError` naming `Resource` and the compiler setting.
 
 **Contract drift.** In a fixture app, renaming a field must break compilation in each layer, with one `@ts-expect-error` per layer:
 - the handler;

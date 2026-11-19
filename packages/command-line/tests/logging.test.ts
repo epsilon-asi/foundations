@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import * as foundation from '@epsilon-asi/foundation';
 import {
   Command,
+  DEFAULT_LOG_LEVEL,
   DEFAULT_LOG_LEVEL_DESCRIPTION,
   LOG_LEVELS,
   Option,
@@ -25,7 +27,7 @@ describe('createLogger', () => {
 
     logger.debug('d');
     logger.info('i');
-    logger.warn('w');
+    logger.warn('w', { attempt: 2 });
     logger.error('e');
 
     expect(logger.level).toBe('warn');
@@ -41,12 +43,28 @@ describe('createLogger', () => {
     expect(write).not.toHaveBeenCalled();
   });
 
+  it('keeps the text format and threshold on a child logger', () => {
+    const lines: string[] = [];
+    const child = createLogger('warn', line => lines.push(line)).child({ requestId: 'abc' });
+
+    child.info('filtered');
+    child.warn('retry', { attempt: 2 });
+
+    expect(lines).toEqual(['[warn] retry\n']);
+  });
+
   it('is frozen', () => {
     expect(Object.isFrozen(createLogger('info', () => {}))).toBe(true);
   });
 });
 
 describe('log level helpers', () => {
+  it('re-exports the foundation log levels and guard', () => {
+    expect(LOG_LEVELS).toBe(foundation.LOG_LEVELS);
+    expect(isLogLevel).toBe(foundation.isLogLevel);
+    expect(DEFAULT_LOG_LEVEL).toBe(foundation.DEFAULT_LOG_LEVEL);
+  });
+
   it('lists the levels least to most severe', () => {
     expect(LOG_LEVELS).toEqual(['debug', 'info', 'warn', 'error', 'silent']);
   });

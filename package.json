@@ -1,14 +1,15 @@
 {
   "name": "@epsilon-asi/foundations",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.33.2",
   "description": "",
   "license": "SEE LICENSE IN LICENSE",
   "author": "",
   "main": "index.js",
   "scripts": {
-    "build": "./scripts/run_for_packages.sh npm run build",
-    "test": "./scripts/run_for_packages.sh npm run test",
-    "install": "./scripts/run_for_packages.sh npm install",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
     "release:all": "./scripts/release-all.sh",
     "release": "./scripts/release.sh"
   },
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.6.0",
+    "esbuild": "^0.27.7",
     "jest": "^30.3.0",
     "nodemon": "^3.1.14",
     "ts-jest": "^29.4.9",

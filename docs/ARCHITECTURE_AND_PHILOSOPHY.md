@@ -76,12 +76,16 @@ works, carry it to the next problem: `createCliSystem()` copies the shape of
 
 ### Processes
 
-Repeated processes get the same treatment. The root `npm run build`, `test` and
-`install` run in every package through
-[scripts/run_for_packages.sh](../scripts/run_for_packages.sh). Package `bump`
+Repeated processes get the same treatment. From the root, `corepack pnpm install --frozen-lockfile`
+installs all workspace packages and links their internal dependencies. Run
+`corepack pnpm run build` once to generate their public entries, then
+`corepack pnpm run typecheck` and `corepack pnpm test` to check each package
+and run its test suite. pnpm discovers the packages from the workspace manifest. Package `bump`
 scripts call the shared [scripts/bump_version.sh](../scripts/bump_version.sh),
 and [scripts/release.sh](../scripts/release.sh) bumps, commits and tags any set
-of packages in one command. Each tag then publishes its package through CI.
+of packages in one command. CI takes the package version from the tag and
+publishes through the workspace's pinned pnpm, which converts `workspace:`
+dependencies to registry version ranges when it packs the package.
 
 ## Inputs
 

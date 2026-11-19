@@ -1,7 +1,7 @@
 import * as z from "zod";
-import {SaveOptions} from "./types";
-import {serialize, serializeAsync} from "./serialize";
-import {resolveFormat, writeTextAsync, writeTextSync} from "./util";
+import {SaveOptions} from "./types.js";
+import {serialize, serializeAsync} from "./serialize.js";
+import {resolveFormat, writeTextAsync, writeTextSync} from "./util.js";
 
 export function saveFileSync<S extends z.ZodType>(
     filePath: string,

@@ -1,0 +1,34 @@
+import * as React from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Box, Typography } from '@mui/material';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
+import dayjs from 'dayjs';
+import { DatePicker } from './DatePicker';
+import { checkOverlayLayout } from '../../../.storybook/overlayExamples';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
+import { desktopPicker, exampleDate, mobilePicker, withDatePickers, withFrenchPickers } from '../../../.storybook/pickerExamples';
+
+const meta = { title: 'Components/DatePicker', component: DatePicker, decorators: [withDatePickers], play: checkOverlayLayout,
+  args: { label: 'Due date', reduceAnimations: true }, render: args => <DatePicker defaultValue={exampleDate()} referenceDate={exampleDate()} {...args} /> } satisfies Meta<typeof DatePicker>;
+export default meta; type Story = StoryObj<typeof meta>;
+export const Default: Story = {};
+export const Empty: Story = { render: args => <DatePicker {...args} referenceDate={exampleDate()} /> };
+export const Controlled: Story = { render: function ControlledExample(args) { const [value, setValue] = React.useState<dayjs.Dayjs | null>(exampleDate()); return <><DatePicker {...args} value={value} onChange={setValue} /><Typography variant="caption" component="p">Selected: {value?.isValid() ? value.format('YYYY-MM-DD') : 'none'}</Typography></>; } };
+export const HelperText: Story = { args: { helperText: 'Dates use your local calendar.' } };
+export const Required: Story = { args: { slotProps: { textField: { required: true } } } };
+export const Error: Story = { args: { error: true, helperText: 'Choose a delivery date before continuing.' } };
+export const Disabled: Story = { args: { disabled: true } };
+export const ReadOnly: Story = { args: { readOnly: true } };
+export const Comfortable: Story = { args: { density: 'comfortable', size: 'medium', open: true } };
+export const DesktopCalendar: Story = { args: { open: true, desktopModeMediaQuery: desktopPicker } };
+export const MobileCalendar: Story = { args: { open: true, desktopModeMediaQuery: mobilePicker } };
+export const MonthAndYear: Story = { args: { open: true, views: ['month', 'year'], openTo: 'month', format: 'MMMM YYYY' } };
+export const YearView: Story = { args: { open: true, openTo: 'year' } };
+export const WeekNumbers: Story = { args: { open: true, displayWeekNumber: true, showDaysOutsideCurrentMonth: true } };
+export const ConstrainedDates: Story = { render: args => <DatePicker {...args} defaultValue={exampleDate()} minDate={exampleDate().date(15)} maxDate={exampleDate().date(25)} shouldDisableDate={date => date.day() === 0 || date.day() === 6} open /> };
+export const French: Story = { decorators: [withFrenchPickers], args: { label: 'Date de livraison', open: true } };
+export const CustomActions: Story = { args: { open: true, slotProps: { actionBar: { actions: ['today', 'clear', 'cancel', 'accept'] } } } };
+export const NoClear: Story = { args: { clearable: false, open: true } };
+export const NarrowLongHelp: Story = { render: args => <Box sx={{ width: 240, maxWidth: '100%' }}><DatePicker {...args} defaultValue={exampleDate()} label="Delivery date" helperText="This date must allow enough time for the entire review and approval process." /></Box> };
+export const Keyboard: Story = { args: { selectedSections: 'day' }, play: async ({ canvasElement }) => { const canvas = within(canvasElement); const day = canvas.getByRole('spinbutton', { name: 'Day' }); day.focus(); await userEvent.keyboard('{ArrowUp}'); await expect(day).toHaveAttribute('aria-valuenow', '19'); const trigger = canvas.getByRole('button', { name: /choose date/i }); await userEvent.click(trigger); await userEvent.keyboard('{Escape}'); await waitFor(() => expect(trigger).toHaveFocus()); await waitFor(() => expect(within(canvasElement.ownerDocument.body).queryByRole('dialog')).not.toBeInTheDocument()); await checkOverlayLayout({ canvasElement }); } };
+export const Dark: Story = { decorators: [withDarkUi], args: { open: true } };

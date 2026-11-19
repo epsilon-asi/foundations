@@ -1,8 +1,8 @@
 import * as z from "zod";
-import {EXTENSIONS, SchemaFileError} from "../types";
+import {EXTENSIONS, SchemaFileError} from "../types.js";
 import os from "node:os";
 import {join} from "node:path";
-import {deepMerge, expandHome, formatFromExtension, isPlainObject, label, resolveFormat, safely, safelySync} from "../util";
+import {deepMerge, expandHome, formatFromExtension, isPlainObject, label, resolveFormat, safely, safelySync} from "../util.js";
 
 describe("resolveFormat", () => {
     test("returns an explicit format as-is", () => {

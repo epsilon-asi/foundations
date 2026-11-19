@@ -1,0 +1,31 @@
+import * as React from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Box, Typography } from '@mui/material';
+import dayjs, { type Dayjs } from 'dayjs';
+import { DateTimePicker } from './DateTimePicker';
+import { checkOverlayLayout } from '../../../.storybook/overlayExamples';
+import { withDarkUi } from '../../../.storybook/withDarkUi';
+import { desktopPicker, exampleDate, mobilePicker, withDatePickers, withFrenchPickers } from '../../../.storybook/pickerExamples';
+
+const meta = { title: 'Components/DateTimePicker', component: DateTimePicker, decorators: [withDatePickers], play: checkOverlayLayout,
+  args: { label: 'Publish at', ampm: false, reduceAnimations: true }, render: args => <DateTimePicker defaultValue={exampleDate()} referenceDate={exampleDate()} {...args} /> } satisfies Meta<typeof DateTimePicker>;
+export default meta; type Story = StoryObj<typeof meta>;
+export const Default: Story = {};
+export const Empty: Story = { render: args => <DateTimePicker {...args} referenceDate={exampleDate()} /> };
+export const Controlled: Story = { render: function ControlledExample(args) { const [value, setValue] = React.useState<Dayjs | null>(exampleDate()); return <><DateTimePicker {...args} value={value} onChange={setValue} /><Typography component="p" variant="caption">Selected: {value?.isValid() ? value.format('YYYY-MM-DD HH:mm') : 'none'}</Typography></>; } };
+export const Desktop: Story = { args: { open: true, desktopModeMediaQuery: desktopPicker } };
+export const Mobile: Story = { args: { open: true, desktopModeMediaQuery: mobilePicker } };
+export const TwelveHour: Story = { args: { ampm: true, open: true } };
+export const Seconds: Story = { args: { views: ['year', 'day', 'hours', 'minutes', 'seconds'], format: 'MM/DD/YYYY HH:mm:ss', open: true } };
+export const QuarterHours: Story = { args: { timeSteps: { minutes: 15 }, minutesStep: 15, open: true } };
+export const CombinedBoundaries: Story = { render: args => <DateTimePicker {...args} defaultValue={exampleDate().hour(15)} minDateTime={exampleDate().hour(14)} maxDateTime={exampleDate().add(2, 'day').hour(17)} open helperText="Nov 18, 14:30 through Nov 20, 17:30." /> };
+export const InvalidValue: Story = { render: args => <DateTimePicker {...args} defaultValue={exampleDate()} minDateTime={exampleDate().hour(14)} helperText="Choose a date and time after 14:30." /> };
+export const Error: Story = { args: { error: true, helperText: 'Choose an available publication time.' } };
+export const Disabled: Story = { args: { disabled: true } };
+export const ReadOnly: Story = { args: { readOnly: true } };
+export const Comfortable: Story = { args: { density: 'comfortable', size: 'medium', open: true } };
+export const French: Story = { decorators: [withFrenchPickers], args: { label: 'Date de publication', open: true } };
+export const Timezone: Story = { render: args => <DateTimePicker {...args} defaultValue={dayjs.utc('2026-11-18T18:30:00Z')} timezone="America/New_York" helperText="New York: 13:30. Value remains a UTC instant." /> };
+export const NoClear: Story = { args: { clearable: false, open: true } };
+export const Narrow: Story = { render: args => <Box sx={{ width: 270, maxWidth: '100%' }}><DateTimePicker {...args} defaultValue={exampleDate()} /></Box> };
+export const Dark: Story = { decorators: [withDarkUi], args: { open: true } };

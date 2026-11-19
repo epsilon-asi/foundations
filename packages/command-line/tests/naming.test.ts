@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import * as foundation from '@epsilon-asi/foundation';
 import { commandNameFromClass, parseFlags, toKebabCase, toScreamingSnakeCase } from '../src/index.js';
 
 describe('naming', () => {
+  it('re-exports the foundation naming helpers', () => {
+    expect(toKebabCase).toBe(foundation.toKebabCase);
+    expect(toScreamingSnakeCase).toBe(foundation.toScreamingSnakeCase);
+  });
+
   it('converts to kebab-case', () => {
     expect(toKebabCase('logLevel')).toBe('log-level');
     expect(toKebabCase('HTTPServer')).toBe('http-server');

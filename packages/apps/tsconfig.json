@@ -3,9 +3,7 @@
     "target": "es2016",
     "module": "nodenext",
     "lib": ["ES2022", "DOM", "esnext.decorators"],
-    "rootDir": "./src",
-    "declaration": true,
-    "outDir": "./build",
+    "noEmit": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,6 +13,5 @@
     "emitDecoratorMetadata": false,
     "moduleResolution": "nodenext"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.type-test.ts", "src/__tests__/**/*"]
+  "include": ["src/**/*.ts"]
 }

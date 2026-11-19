@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
-import { immutableClone } from '../clone';
-import { createDecoratorRegistry } from '../index';
+import { immutableClone } from '../clone.js';
+import { createDecoratorRegistry } from '../index.js';
 
 type ReferenceSchema = {
   class: {};

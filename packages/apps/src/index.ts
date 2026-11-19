@@ -1,85 +1,43 @@
-/*
-import { createDecoratorRegistry } from "@epsilon-asi/foundation/decorators/factory";
-
-
-type CrudController<TEntity, TCreateInput> = {
-    id: string;
-    get(id: string): Promise<TEntity>;
-    create(input: TCreateInput): Promise<TEntity>;
-};
-
-type UserDto = {
-    id: string;
-    email: string;
-};
-
-type CreateUserInput = {
-    email: string;
-};
-
-type UserCrudController = CrudController<UserDto, CreateUserInput>;
-
-type CrudDecorators = {
-    class: {
-        resource: {
-            metadata: { name: string };
-        };
-    };
-    property: {
-        idField: {
-            metadata: undefined;
-            target: string;
-        };
-    };
-    method: {
-        route: {
-            metadata: { method: 'GET' | 'POST'; path: string };
-            target: (...args: any[]) => Promise<unknown>;
-        };
-    };
-    accessor: {};
-};
-
-const registry = createDecoratorRegistry<CrudDecorators>({ namespace: 'crud-example' });
-const Crud = registry.for<UserCrudController>();
-
-const Resource = Crud.class('resource');
-const IdField = Crud.property('idField');
-const Route = Crud.method('route');
-
-@Resource({ name: 'users' })
-class UserCrud implements UserCrudController {
-    @IdField.on('id')
-    id = 'user-1';
-
-    @Route('get', { method: 'GET', path: '/users/:id' })
-    async get(id: string): Promise<UserDto> {
-        return { id, email: 'ray@example.com' };
-    }
-
-    @Route.on('create', { method: 'POST', path: '/users' })
-    async create(input: CreateUserInput): Promise<UserDto> {
-        return { id: 'new-id', email: input.email };
-    }
-}
-
-export function buildCrudSummary(): { resource: string; routes: string[]; idFields: Array<string | symbol> } {
-    const snapshot = registry.read(UserCrud);
-    const resource = snapshot.firstClass('resource');
-    if (resource === undefined) throw new Error('Missing @Resource metadata.');
-
-    return {
-        resource: (resource.metadata as { name: string }).name,
-        routes: snapshot.methodRecords('route').map((record) => {
-            const metadata = record.metadata as { method: 'GET' | 'POST'; path: string };
-            return `${metadata.method} ${metadata.path}`;
-        }),
-        idFields: snapshot.propertyRecords('idField').map((record) => {
-            if (record.memberName === undefined) throw new Error('Missing member name.');
-            return record.memberName;
-        }),
-    };
-}
-
-export { UserCrud, registry as crudRegistry };
-*/
+export { assertOptionNamesAvailable } from './endpoints/assertOptionNamesAvailable.js';
+export { assertRouteNamesAvailable, type RouteNamesOptions } from './endpoints/assertRouteNamesAvailable.js';
+export { crudEndpointNames, type CrudEndpointNamesOptions } from './endpoints/crudEndpointNames.js';
+export { CRUD_OPERATIONS } from './endpoints/crudOperations.js';
+export { crudPaths, type CrudPathsOptions } from './endpoints/crudPaths.js';
+export { itemParamName } from './endpoints/itemParamName.js';
+export { listResponseKey } from './endpoints/listResponseKey.js';
+export { domainErrorMessageKey } from './i18n/domainErrorMessageKey.js';
+export {
+  enumOptionMessageKey, fieldMessageKeys, type EnumOptionMessageKeyOptions, type FieldMessageKeysOptions,
+} from './i18n/fieldMessageKeys.js';
+export { filterOperatorMessageKey } from './i18n/filterOperatorMessageKey.js';
+export type {
+  CreateOnly, Defaulted, Editable, Id, Internal, Readable, Secret, Tenant, UpdateOnly, WriteOnly,
+} from './model/access.js';
+export { crudExtension } from './model/extensions/crud.js';
+export { httpExtension } from './model/extensions/http.js';
+export { uiExtension } from './model/extensions/ui.js';
+export { newId } from './model/newId.js';
+export type { CreateInput, Fields, IdOf, ReadModel, UpdateInput } from './model/types.js';
+export {
+  FILTER_OPERATORS,
+  FilterOperator,
+  type ArrayOperator,
+  type BooleanOperator,
+  type EnumOperator,
+  type IdOperator,
+  type RangeOperator,
+  type TextOperator,
+} from './query/filterOperators.js';
+export { DEFAULT_MAX_PER_PAGE, DEFAULT_PAGE, DEFAULT_PER_PAGE } from './query/pagination.js';
+export { DEFAULT_MAX_SEARCH_LENGTH, searchQuerySchema } from './query/search.js';
+export { SortDirection } from './query/sortDirection.js';
+export type { AuthenticationFailureResponse } from './responses/authenticationFailure.js';
+export type { AuthorizationFailureResponse } from './responses/authorizationFailure.js';
+export type { NotFoundFailureResponse } from './responses/notFoundFailure.js';
+export { SUCCESS_CODES, type SuccessResponse } from './responses/success.js';
+export type { ValidationFailureResponse } from './responses/validationFailure.js';
+export { DEFAULT_ENDPOINT_SCOPE, EndpointScope, endpointScopeSchema } from './tenancy/endpointScope.js';
+export { tenantNames, type TenantNamesOptions } from './tenancy/tenantNames.js';
+export { booleanWireCodec } from './wire/boolean.js';
+export { dateWireCodec } from './wire/date.js';
+export { numberWireCodec } from './wire/number.js';

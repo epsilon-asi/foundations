@@ -26,7 +26,7 @@ import {
     SchemaFileError,
     SerializeOptions,
     SerializeStrategy
-} from "./types";
+} from "./types.js";
 
 
 const MISSING = Symbol("missing");

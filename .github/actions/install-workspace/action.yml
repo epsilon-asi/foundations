@@ -1,0 +1,26 @@
+name: Install workspace
+description: Install the root tooling and build the selected package's local dependencies
+inputs:
+  package:
+    description: Package directory under packages/
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore pnpm store
+      uses: actions/cache@v4
+      with:
+        path: .pnpm-store
+        key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ inputs.package }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - name: Install from the workspace lockfile
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: |
+        corepack pnpm --filter @epsilon-asi/foundations --filter "@epsilon-asi/$PACKAGE..." \
+          install --frozen-lockfile --store-dir "$GITHUB_WORKSPACE/.pnpm-store"
+    - name: Build workspace dependencies in order
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: corepack pnpm --filter "@epsilon-asi/$PACKAGE^..." run build

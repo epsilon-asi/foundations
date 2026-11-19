@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "es2016",
-    "module": "commonjs",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["ES2022", "DOM", "esnext.decorators"],
+    "types": ["node"],
     "rootDir": "./src",
     "declaration": true,
     "outDir": "./build",
@@ -13,7 +15,7 @@
     "skipLibCheck": true,
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false,
-    "moduleResolution": "node"
+    "isolatedModules": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.type-test.ts"]

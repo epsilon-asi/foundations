@@ -1,6 +1,6 @@
-export { createDecoratorRegistry } from './decoratorRegistry';
-export { ensureSymbolMetadata, symbolMetadata } from './symbolMetadata';
-export * from "./types";
+export { createDecoratorRegistry, DecoratorModeError } from './decoratorRegistry.js';
+export { ensureSymbolMetadata, symbolMetadata } from './symbolMetadata.js';
+export * from "./types.js";
 
 export type {
   AccessorDecoratorDefinition,
@@ -19,4 +19,4 @@ export type {
   RegistryReadOptions,
   ScopedDecoratorBuilder,
   TargetOf,
-} from './types';
+} from './types.js';

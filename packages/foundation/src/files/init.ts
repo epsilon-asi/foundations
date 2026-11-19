@@ -1,10 +1,10 @@
 import * as z from "zod";
-import {LoadOptions, ParseOptions, SaveOptions, SerializeOptions} from "./types";
-import {isPlainObject} from "./util";
-import {serializeAsync} from "./serialize";
-import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync} from "./load";
-import {saveFile, saveFileSync} from "./save";
-import {parseString} from "./parse";
+import {LoadOptions, ParseOptions, SaveOptions, SerializeOptions} from "./types.js";
+import {isPlainObject} from "./util.js";
+import {serializeAsync} from "./serialize.js";
+import {loadFile, loadFileSync, safeLoadFile, safeLoadFileSync} from "./load.js";
+import {saveFile, saveFileSync} from "./save.js";
+import {parseString} from "./parse.js";
 
 /**
  * Bind a schema and default options once, reuse everywhere.

@@ -1,4 +1,4 @@
-import type { DecorationKind, DecorationRecord, RegistryMetadataSnapshot } from './types';
+import type { DecorationKind, DecorationRecord, RegistryMetadataSnapshot } from './types.js';
 
 function cloneRecords(records: readonly DecorationRecord[]): readonly DecorationRecord[] {
   return Object.freeze(records.slice());

@@ -40,11 +40,14 @@ async function openRunTask(runDirectory = 'pkg') {
     return {run: async (input: object) => String(await runTask!.invoke(input)), progress};
 }
 
-describe('run_task', () => {
+// These integration cases start real Git and npm processes alongside the other workspace suites.
+describe('run_task', {timeout: 30_000}, () => {
     it('runs a task in the run directory, installing dependencies there once', async () => {
         const {run, progress} = await openRunTask();
 
-        expect(await run({task: 'hello'})).toMatch(/^\$ npm run hello \(exit code 0\)\n[\s\S]*hello from pkg$/);
+        const output = (await run({task: 'hello'})).split(/\r?\n/);
+        expect(output[0]).toBe('$ npm run hello (exit code 0)');
+        expect(output).toContain('hello from pkg');
         await run({task: 'hello'});
         expect(progress.filter((text) => text.startsWith('installing'))).toEqual(['installing dependencies in pkg']);
         expect(progress).toContain('running hello in pkg');

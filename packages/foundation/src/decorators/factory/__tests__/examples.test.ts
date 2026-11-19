@@ -1,9 +1,9 @@
-import { buildAccessPolicy } from '../examples/authorization';
-import { buildCrudSummary } from '../examples/crud';
-import { buildUserTableSchema } from '../examples/orm';
-import { buildRouteTable } from '../examples/routing';
-import { serializeUser } from '../examples/serialization';
-import { buildValidationSchema } from '../examples/validation';
+import { buildAccessPolicy } from '../examples/authorization.js';
+import { buildCrudSummary } from '../examples/crud.js';
+import { buildUserTableSchema } from '../examples/orm.js';
+import { buildRouteTable } from '../examples/routing.js';
+import { serializeUser } from '../examples/serialization.js';
+import { buildValidationSchema } from '../examples/validation.js';
 
 describe('example implementations', () => {
   it('builds a validation schema from property metadata', () => {

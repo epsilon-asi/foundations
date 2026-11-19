@@ -1,6 +1,6 @@
 import * as z from "zod";
-import {SerializeOptions} from "./types";
-import {render, toWireAsync, toWireSync} from "./util";
+import {SerializeOptions} from "./types.js";
+import {render, toWireAsync, toWireSync} from "./util.js";
 
 /** Validate/encode a value with the schema and render it as JSON or YAML text. */
 export function serialize<S extends z.ZodType>(

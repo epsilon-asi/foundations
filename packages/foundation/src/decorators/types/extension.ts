@@ -1,5 +1,5 @@
 import type { z } from 'zod/v4';
-import type { TypeExtension } from './types';
+import type { TypeExtension } from './types.js';
 
 /**
  * Declares a type extension. Exists for inference: the key stays a literal and the

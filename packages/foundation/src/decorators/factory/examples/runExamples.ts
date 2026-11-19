@@ -1,10 +1,10 @@
-import { readAccessorMetadata } from './accessors';
-import { buildAccessPolicy } from './authorization';
-import { buildCrudSummary } from './crud';
-import { buildUserTableSchema } from './orm';
-import { buildRouteTable } from './routing';
-import { serializeUser } from './serialization';
-import { buildValidationSchema } from './validation';
+import { readAccessorMetadata } from './accessors.js';
+import { buildAccessPolicy } from './authorization.js';
+import { buildCrudSummary } from './crud.js';
+import { buildUserTableSchema } from './orm.js';
+import { buildRouteTable } from './routing.js';
+import { serializeUser } from './serialization.js';
+import { buildValidationSchema } from './validation.js';
 
 function stable(value: unknown): string {
   return JSON.stringify(value, (_key, innerValue) => {

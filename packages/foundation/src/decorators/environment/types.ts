@@ -4,8 +4,8 @@ import type {
     DecoratorRegistry,
     PropertyDecoratorDefinition,
     RegistryMetadataSnapshot,
-} from '../factory';
-import type {DotenvSetting} from './dotenv';
+} from '../factory/index.js';
+import type {DotenvSetting} from './dotenv.js';
 
 export type EnvPrimitive = string | number | boolean;
 export type EnvPrimitiveOrUndefined = EnvPrimitive | undefined;

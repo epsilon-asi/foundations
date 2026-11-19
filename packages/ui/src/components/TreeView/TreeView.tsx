@@ -26,6 +26,7 @@ export interface TreeViewProps extends Omit<BoxProps, 'onSelect'> {
   onItemActivate?: (item: TreeItemDefinition) => void;
   onVisibilityChange?: (visible: boolean, item: TreeItemDefinition) => void;
   getVisibilityLabel?: (item: TreeItemDefinition) => string;
+  descriptionPlacement?: 'below' | 'inline';
   multiSelect?: boolean;
   disabled?: boolean;
   emptyState?: React.ReactNode;
@@ -33,7 +34,7 @@ export interface TreeViewProps extends Omit<BoxProps, 'onSelect'> {
 type VisibleItem = { item: TreeItemDefinition; parent?: string; level: number; disabled: boolean };
 export const TreeView = React.forwardRef<HTMLUListElement, TreeViewProps>(function TreeView(
   { items, expandedIds, defaultExpandedIds = [], onExpandedChange, selectedIds, defaultSelectedIds = [], onSelectionChange,
-    onItemActivate, onVisibilityChange, getVisibilityLabel = item => `${item.label} visibility`, multiSelect = false, disabled = false, emptyState, sx, onKeyDown, ...props }, ref
+    onItemActivate, onVisibilityChange, getVisibilityLabel = item => `${item.label} visibility`, descriptionPlacement = 'below', multiSelect = false, disabled = false, emptyState, sx, onKeyDown, ...props }, ref
 ) {
   const theme = useTheme(); const root = React.useRef<HTMLUListElement>(null); const treeId = React.useId();
   React.useImperativeHandle(ref, () => root.current!);
@@ -107,7 +108,7 @@ export const TreeView = React.forwardRef<HTMLUListElement, TreeViewProps>(functi
           {branch ? <ChevronGlyph fontSize="small" sx={{ transform: open ? 'none' : theme.direction === 'rtl' ? 'rotate(90deg)' : 'rotate(-90deg)' }} /> : null}
         </Box>
         {item.icon != null ? <Box component="span" aria-hidden="true" sx={{ display: 'flex', flexShrink: 0 }}>{item.icon}</Box> : null}
-        <Box sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}><Typography variant="body2">{item.label}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', ...(descriptionPlacement === 'inline' ? { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 2 } : {}) }}><Typography variant="body2" sx={{ minWidth: 0 }}>{item.label}</Typography>
           {item.description != null ? <Typography id={`${treeId}-${encodeURIComponent(item.id)}-description`} variant="caption" color="text.secondary">{item.description}</Typography> : null}</Box>
         {onVisibilityChange && item.visible !== undefined ? <IconButton aria-label={getVisibilityLabel(item)} aria-pressed={item.visible} outlined={false}
           disabled={off} tabIndex={tabId === item.id ? 0 : -1} sx={{ flexShrink: 0 }} onClick={event => { event.stopPropagation(); onVisibilityChange(!item.visible, item); }}

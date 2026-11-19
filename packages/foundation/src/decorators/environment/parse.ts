@@ -1,11 +1,11 @@
-import {EnvParseError} from './errors';
+import {EnvParseError} from './errors.js';
 import type {
     EnvBooleanFalseValue,
     EnvBooleanTrueValue,
     EnvPrimitiveOrUndefined,
     EnvVarMetadata,
     NumberEnvVarMetadata,
-} from './types';
+} from './types.js';
 
 export function toEnvKey(propertyName: string): string {
     return propertyName

@@ -30,17 +30,17 @@
     "node": ">=20.19.0"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.60.2",
-    "@rollup/rollup-darwin-x64": "^4.60.2",
     "@rolldown/binding-darwin-x64": "1.0.0-rc.17",
-    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17"
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
+    "@rollup/rollup-darwin-x64": "^4.60.2",
+    "@rollup/rollup-linux-x64-gnu": "^4.60.2"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
-    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "typecheck": "tsc --project tsconfig.json --noEmit --declaration false --declarationMap false",
     "storybook": "storybook dev -p 6006",
     "dev": "storybook dev -p 6006",
     "pub": "",
@@ -53,7 +53,10 @@
   "peerDependencies": {
     "@emotion/react": "^11.0.0",
     "@emotion/styled": "^11.0.0",
-    "@mui/material": "^7.0.0",
+    "@mui/material": "^7.3.0",
+    "@mui/system": "^7.3.0",
+    "@mui/x-date-pickers": "^9.18.0",
+    "dayjs": "^1.11.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -61,7 +64,9 @@
     "@emotion/react": "^11.0.0",
     "@emotion/styled": "^11.0.0",
     "@mui/icons-material": "^7.0.0",
-    "@mui/material": "^7.0.0",
+    "@mui/material": "^7.3.0",
+    "@mui/system": "^7.3.11",
+    "@mui/x-date-pickers": "^9.18.0",
     "@storybook/addon-a11y": "^10.0.0",
     "@storybook/addon-docs": "^10.0.0",
     "@storybook/react-vite": "^10.0.0",
@@ -71,6 +76,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
+    "dayjs": "^1.11.23",
     "jsdom": "^29.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

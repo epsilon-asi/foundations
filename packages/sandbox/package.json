@@ -45,9 +45,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "repo-search": "./dist/repo-search/cli.js"
+    "repo-search": "./bin/repo-search.js"
   },
   "files": [
+    "bin",
     "dist",
     "src",
     "docs",

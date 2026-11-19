@@ -13,7 +13,7 @@
 #                            and marks the GitHub Release as a prerelease
 #
 # The version from the tag is written into the package's package.json before
-# `npm publish`. The committed version and scripts/bump_version.sh are not used
+# `pnpm publish`. The committed version and scripts/bump_version.sh are not used
 # here, so the tag is the single source of truth for what gets published.
 #
 # Required repository secrets:
@@ -29,7 +29,7 @@ on:
 
 permissions:
   contents: read
-  # NPM_PUBLISH_PROVENANCE=true needs an OIDC token on GitHub Actions.
+  # Allow the publish job to request a GitHub Actions OIDC token.
   id-token: write
 
 env:
@@ -143,17 +143,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore npm cache
-        uses: actions/cache@v4
-        with:
-          path: .npm
-          key: publish-${{ needs.resolve.outputs.package }}-${{ hashFiles('package-lock.json', format('packages/{0}/package-lock.json', needs.resolve.outputs.package)) }}
-          restore-keys: |
-            publish-${{ needs.resolve.outputs.package }}-
-
-      - name: Configure npm cache directory
-        run: npm config set cache "$GITHUB_WORKSPACE/.npm"
-
       - name: Require NPM_TOKEN
         run: |
           if [ -z "${NPM_TOKEN:-}" ]; then
@@ -175,25 +164,20 @@ jobs:
             exit 1
           fi
 
-      # The root package.json has an `install` lifecycle script that runs
-      # scripts/run_for_packages.sh with no arguments, which exits 1 and would
-      # fail `npm ci`. Only the root devDependencies are needed here.
-      - name: Install root dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Install package dependencies
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm ci
+      - name: Install workspace and build dependencies
+        uses: ./.github/actions/install-workspace
+        with:
+          package: ${{ needs.resolve.outputs.package }}
 
       - name: Test
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run test
+        run: npm test
 
       - name: Build
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm run build
+        run: corepack pnpm run build
 
-      # Write the tag's version into package.json (and package-lock.json)
+      # Write the tag's version into package.json
       # without creating a git commit or tag. --allow-same-version covers the
       # case where the committed version already matches the tag.
       - name: Set version from tag
@@ -202,9 +186,11 @@ jobs:
           npm version "${VERSION}" --no-git-tag-version --allow-same-version
           echo "package.json version: $(node -p "require('./package.json').version")"
 
+      # The tag checkout has a detached HEAD and the version step can modify
+      # the manifest. Corepack selects pnpm from the root packageManager pin.
       - name: Publish
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm publish --access public
+        run: corepack pnpm publish --no-git-checks --access public
 
   # ---------------------------------------------------------------------------
   # release: create the GitHub Release for this tag once the package is on npm

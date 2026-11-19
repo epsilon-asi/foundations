@@ -31,7 +31,7 @@
 #   1. check: on main, clean tree, in sync with origin, each package exists,
 #      is public, is in the workflow allowlist, and its tag and npm version
 #      are not already taken
-#   2. write each new version into packages/<package>/package.json (+ lockfile)
+#   2. write each new version into packages/<package>/package.json
 #   3. commit all of those together and push the branch
 #   4. create an annotated tag per package and push them one at a time
 #
@@ -185,9 +185,6 @@ To re-run its workflow instead:
 
   DIRS+=("$DIR"); NAMES+=("$NAME"); CURS+=("$CUR"); NEWS+=("$NEW"); TAGS+=("$TAG")
   FILES+=("$DIR/package.json")
-  if [[ -f "$DIR/package-lock.json" ]]; then
-    FILES+=("$DIR/package-lock.json")
-  fi
 done
 
 # ---------------------------------------------------------------------------

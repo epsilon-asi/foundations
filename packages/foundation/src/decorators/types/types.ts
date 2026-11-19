@@ -1,14 +1,18 @@
 import type { z } from 'zod/v4';
-import type { AnyFunction, Constructor } from '../factory';
+import type { AnyFunction, Constructor } from '../factory/index.js';
 
 export type ObjectMode = 'strip' | 'strict' | 'loose';
+
+// An optional method includes undefined, which can also be a data field on its own.
+type IsMethod<Value> = [Value] extends [undefined] ? false
+  : [Value] extends [AnyFunction | undefined] ? true : false;
 
 /**
  * The data portion of a class instance: string keys only, methods removed.
  * Modifiers (optional, readonly) are preserved.
  */
 export type TypeShape<T> = {
-  [K in keyof T as K extends string ? (T[K] extends AnyFunction ? never : K) : never]: T[K];
+  [K in keyof T as IsMethod<T[K]> extends true ? never : Extract<K, string>]: T[K];
 };
 
 /**
@@ -129,7 +133,7 @@ type RequiredField<TDefault> = { optional?: false; default?: TDefault };
 /** A supplied default fills undefined inputs, even when optional is also set. */
 type DefaultedField<TDefault> = { optional?: boolean; default: TDefault };
 
-type EnumSource = readonly string[] | z.util.EnumLike;
+type EnumSource = readonly string[] | z.core.util.EnumLike;
 type EnumValue<T extends EnumSource> = T extends readonly string[] ? T[number] : T[keyof T];
 
 interface Shorthand<TValue, TOptions> {
@@ -197,6 +201,9 @@ export interface ResolvedField<TExt extends ExtensionMap = {}> {
   readonly extensions: ResolvedFieldExtensions<TExt>;
 }
 
+// The registry overload has the same options as a single schema plus a URI resolver.
+export type JsonSchemaOptions = Omit<NonNullable<Parameters<typeof z.toJSONSchema>[1]>, 'uri'>;
+
 export interface ResolvedType<TInstance, TExt extends ExtensionMap = {}> {
   readonly target: Constructor<TInstance>;
   readonly name: string;
@@ -213,7 +220,7 @@ export interface ResolvedType<TInstance, TExt extends ExtensionMap = {}> {
 
   parse(input: unknown): TypeShape<TInstance>;
   safeParse(input: unknown): z.ZodSafeParseResult<TypeShape<TInstance>>;
-  jsonSchema(params?: z.core.ToJSONSchemaParams): z.core.JSONSchema.BaseSchema;
+  jsonSchema(params?: JsonSchemaOptions): z.core.JSONSchema.BaseSchema;
 }
 
 export interface CreateTypeRegistryOptions {

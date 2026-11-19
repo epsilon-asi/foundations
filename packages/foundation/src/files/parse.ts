@@ -1,6 +1,6 @@
 import * as z from "zod";
-import {ParseOptions} from "./types";
-import {decodeText, resolveFormat, runPreprocess, runPreprocessSync, validateAsync, validateSync} from "./util";
+import {ParseOptions} from "./types.js";
+import {decodeText, resolveFormat, runPreprocess, runPreprocessSync, validateAsync, validateSync} from "./util.js";
 
 /** Parse and validate a string already in memory. */
 export async function parseString<S extends z.ZodType>(

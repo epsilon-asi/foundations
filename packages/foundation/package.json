@@ -1,11 +1,16 @@
 {
   "name": "@epsilon-asi/foundation",
   "version": "0.0.13",
+  "type": "module",
+  "sideEffects": false,
   "description": "",
   "mainDir": "./",
   "types": "./build/index.d.ts",
   "typesVersions": {
     "*": {
+      "env": [
+        "./build/env/index.d.ts"
+      ],
       "files": [
         "./build/files/index.d.ts"
       ]
@@ -18,17 +23,21 @@
     "typecheck:tests": "npm run typecheck --",
     "examples": "npm run build && node build/decorators/factory/examples/runExamples.js",
     "start:dev": "npx nodemon --exec \"npx tsc\" --watch src -e ts",
-    "test": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles",
-    "test:watch": "export IS_TEST='true' && jest --clearCache && jest --coverage --detectOpenHandles --watchAll",
-    "verify": "npm run typecheck && npm run examples && npm run test && npm run build",
+    "test": "export IS_TEST='true' NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" && jest --clearCache && jest --coverage --detectOpenHandles",
+    "test:watch": "npm test -- --watchAll",
+    "check:browser": "npm run build && node tests/check-browser.mjs && tsc -p tsconfig.browser.json",
+    "verify": "npm run typecheck && npm run examples && npm run test && npm run check:browser",
     "bump": "../../scripts/bump_version.sh",
     "pub": "npm run build && npm run bump && npm publish --access public"
   },
   "jest": {
     "clearMocks": true,
     "maxWorkers": 1,
-    "preset": "ts-jest",
+    "preset": "ts-jest/presets/default-esm",
     "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
     "coverageThreshold": {
       "global": {
         "branches": 90,
@@ -58,6 +67,11 @@
       "import": "./build/index.js",
       "require": "./build/index.js"
     },
+    "./env": {
+      "types": "./build/env/index.d.ts",
+      "import": "./build/env/index.js",
+      "require": "./build/env/index.js"
+    },
     "./files": {
       "types": "./build/files/index.d.ts",
       "import": "./build/files/index.js",
@@ -77,6 +91,9 @@
     "yaml": "^2.9.1"
   },
   "peerDependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "30.3.0"
   }
 }
