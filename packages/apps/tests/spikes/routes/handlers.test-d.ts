@@ -1,10 +1,11 @@
 import { defineMiddleware, type AnyMiddleware, type ProvidedBy } from '@epsilon-asi/command-line';
 import { expectTypeOf } from 'vitest';
 import type { z } from 'zod';
+import { failure, type Failure } from '../../../src/responses/failure.js';
+import type { RequestOf, ResponseDataOf } from '../../../src/endpoints/endpointTypes.js';
 
 // S0 substitutes the Phase 1.4 endpoint and Phase 2.3 binding. The middleware
 // factory and the type that combines its contributions come from command-line.
-type Failure = { code: 404 };
 type WireContent = { params: object; query: object; body: object; headers: object };
 
 interface Endpoint<
@@ -27,10 +28,7 @@ interface Endpoint<
   Call(request: z.output<Request>): Promise<unknown>;
 }
 
-type RequestOf<E extends Endpoint> = z.output<E['Request']>;
-type HandlerResult<E extends Endpoint> =
-  | Failure
-  | (E['ResponseData'] extends undefined ? void : z.output<Exclude<E['ResponseData'], undefined>>);
+type HandlerResult<E extends Endpoint> = ResponseDataOf<E> | Failure;
 interface BoundHandler<E extends Endpoint = Endpoint> { readonly endpoint: E }
 type HandlerSet = readonly BoundHandler[];
 type MiddlewareList = readonly AnyMiddleware[];
@@ -101,7 +99,7 @@ const { Routes } = group({});
 @Routes({ defaults: crudHandlers(Offering) })
 class DefaultOfferingRoutes {}
 
-offerings.handler(CreateOffering, { handle: () => ({ code: 404 }) });
+offerings.handler(CreateOffering, { handle: () => failure.notFound() });
 offerings.handler(CreateOffering, {
   // @ts-expect-error The declared response needs both id and name.
   async handle(request, ctx) { return { id: ctx.organization.id, title: request.name }; },
@@ -126,4 +124,4 @@ offerings.handler(eitherOperation, {
 // @ts-expect-error Handlers require endpoint objects.
 offerings.handler('CreateOffering', { handle: () => undefined });
 // @ts-expect-error The generated endpoint collection has no misspelled member.
-offerings.handler(endpoints.CreateOfferring, { handle: () => ({ code: 404 }) });
+offerings.handler(endpoints.CreateOfferring, { handle: () => failure.notFound() });

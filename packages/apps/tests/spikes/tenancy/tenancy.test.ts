@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ResourceDefinitionError } from '../../../src/model/ResourceDefinitionError.js';
 import { can, defineResource, ScopedStore, type Context, type Resource, type Row } from './scope.fixture.js';
 
 const offering = defineResource({
@@ -101,9 +102,14 @@ describe('declaration-driven scoping', () => {
     expect(() => db.update(company, alice, 'directory-entry', { name: 'changed' })).toThrow('Access denied');
     expect(() => db.delete(company, alice, 'directory-entry')).toThrow('Access denied');
     expect(db.get(company, alice, 'directory-entry').name).toBe('directory-entry');
-    expect(() => defineResource({ name: 'InvalidShared', tenancy: 'shared' })).toThrow('require access');
+    expect(() => defineResource({ name: 'InvalidShared', tenancy: 'shared' })).toThrow(/InvalidShared.*Get.*access\.read/);
+    const listedDirectory = defineResource({ ...company, access: { read: 'VIEWER', list: { feature: 'directory' } } });
+    expect(can(listedDirectory, 'Get', bob)).toBe(true);
+    expect(can(listedDirectory, 'List', bob)).toBe(false);
+    expect(() => defineResource({ ...company, operations: { Update: true } })).toThrow(/Company.*Update.*access\.write/);
     const editDirectory = defineResource({
-      ...company, operations: { Update: true }, access: { read: { feature: 'directory' }, write: { feature: 'manageDirectory' } },
+      ...company, operations: { Update: true },
+      access: { read: { feature: 'directory' }, write: 'ADMINISTRATOR', update: { feature: 'manageDirectory' } },
     });
     const catalog = new ScopedStore(new Map([[editDirectory, [row('directory-entry')]]]));
     expect(() => catalog.update(editDirectory, alice, 'directory-entry', { name: 'new' })).toThrow('Access denied');
@@ -118,7 +124,9 @@ describe('declaration-driven scoping', () => {
     expect(() => db.list(mfa, alice)).toThrow('Access denied');
     expect(() => db.list(mfa, { principal: { kind: 'apiKey', id: 'alice' } })).toThrow('Access denied');
     expect(() => db.list(offering, aliceAccount)).toThrow('Access denied');
-    expect(() => defineResource({ name: 'InvalidAccount', tenancy: 'account' })).toThrow('require an owner');
+    const invalidAccount = () => defineResource({ name: 'InvalidAccount', tenancy: 'account' });
+    expect(invalidAccount).toThrow(ResourceDefinitionError);
+    expect(invalidAccount).toThrow(/InvalidAccount.*requires an owner/);
   });
 });
 

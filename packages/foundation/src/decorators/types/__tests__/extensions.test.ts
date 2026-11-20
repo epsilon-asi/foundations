@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
-import { createTypeRegistry, defineTypeExtension, TypeRegistryError } from '../index.js';
-import type { AnyTypeExtension } from '../index.js';
+import { createTypeRegistry, defineTypeExtension, typeObjectFields, TypeRegistryError } from '../index.js';
+import type { AnyTypeExtension, ExtensionFieldValidation } from '../index.js';
 
 const http = defineTypeExtension({
   key: 'http',
@@ -32,6 +32,69 @@ function compose() {
 }
 
 describe('type extensions', () => {
+  it('recovers inherited field declarations from a registry object inside a ref', () => {
+    const { Prop, ref, resolve } = compose().types;
+    class Base {
+      @Prop.string({ http: { name: 'display_name' } }) display!: string;
+    }
+    class Address extends Base {
+      @Prop.string() city!: string;
+    }
+    const reference = ref(() => Address);
+    if (!(reference instanceof z.ZodLazy)) throw new Error('Expected a lazy registry ref');
+    const declarations = typeObjectFields(reference.unwrap())!;
+    expect(declarations.map(field => field.name)).toEqual(['display', 'city']);
+    expect(declarations[0].schema).toBe(resolve(Address).fields.get('display')!.schema);
+    expect(declarations[0].extensions.http).toEqual({ name: 'display_name' });
+    expect(declarations[1].extensions.http).toBeUndefined();
+    // The registered input remains available even after a consumer edits the returned snapshot.
+    (declarations[0].extensions.http as { name: string }).name = 'different';
+    expect(typeObjectFields(resolve(Address).object.describe('Billing address'))![0].extensions.http)
+      .toEqual({ name: 'display_name' });
+    const city = resolve(Address).object.pick({ city: true }).partial();
+    expect(typeObjectFields(city)?.map(field => [field.name, field.schema._zod.def.type])).toEqual([['city', 'optional']]);
+  });
+
+  it('distinguishes a registered schema from an inline object with the same fields and title', () => {
+    const { Prop, resolve } = createTypeRegistry();
+    class Entry {
+      @Prop.string() name!: string;
+    }
+    const model = resolve(Entry);
+    expect(typeObjectFields(model.object)?.map(field => field.name)).toEqual(['name']);
+    expect(typeObjectFields(z.object(model.object.shape).meta({ title: model.name }))).toBeUndefined();
+  });
+
+  it('validates resolved field schemas with parsed options once per successful facade resolution', () => {
+    const seen: ExtensionFieldValidation<{ group: string }>[] = [];
+    const root = createTypeRegistry();
+    const options = z.object({ group: z.string().default('general') });
+    const plain = root.use(defineTypeExtension({ key: 'category' as const, field: options }));
+    const checked = root.use(defineTypeExtension({
+      key: 'category' as const, field: options,
+      validateField(field) { seen.push(field); },
+    }));
+    class Base {
+      @plain.Prop.string({ category: {}, description: 'Display label' }) label!: string;
+      @plain.Prop.string({ category: { group: 'base' } }) tag!: string;
+    }
+    @plain.Type({ name: 'Catalog' })
+    class Category extends Base {
+      @plain.Prop.string({ category: { group: 'override' } }) override tag!: string;
+      @plain.Prop.number() count!: number;
+    }
+
+    plain.resolve(Category);
+    expect(seen).toEqual([]);
+    const model = checked.resolve(Category);
+    checked.fields(Category, { pick: ['tag'] });
+    expect(seen.map(({ typeName, fieldName, options }) => [typeName, fieldName, options.group])).toEqual([
+      ['Catalog', 'label', 'general'], ['Catalog', 'tag', 'override'],
+    ]);
+    expect(seen[0].schema).toBe(model.fields.get('label')?.schema);
+    expect(seen[0].schema.description).toBe('Display label');
+  });
+
   it('validates inline options with the extension schema, applying its defaults', () => {
     const { types } = compose();
     const { Type, Prop, resolve } = types;

@@ -34,6 +34,12 @@ contact.parse({ id: '019305d4-ff69-7a9e-b66d-93d661ea8e2f', email: 'ray@example.
 
 The parsed value has type `TypeShape<Contact>`. It preserves the class's string-keyed data fields, including optional and readonly properties, and omits both required and optional methods.
 
+The same registry’s `fields(Contact, { pick: ['email'] })` returns a strict Zod object containing the original email validator. Use `{ omit: ['id'] }` to select the other fields. The package-root `fields(resolve(Contact), options)` also accepts an already resolved model. Both forms support inherited fields.
+
+A field extension can check its options against the field schema by supplying `validateField({ typeName, fieldName, schema, options })` to `defineTypeExtension()`. The registry passes the parsed extension options during model resolution. A subclass gets the check on its inherited fields as well. The apps CRUD extension uses this hook to identify fields with an incompatible PATCH mode.
+
+When walking an object schema, use `typeObjectFields(schema)` to look up its decorated fields and their declared extension options. This also works on the object returned by a lazy registry reference. An inline Zod object returns `undefined`. The apps list filters use this lookup to apply read access to resource fields nested inside arrays.
+
 ## Enum fields
 
 Use `Prop.enum()` with a TypeScript enum or a list of string literals. For a named list, `as const` preserves the allowed values so the field type can be derived from the same declaration. The parentheses around the decorator expression allow the workspace’s esbuild transform to parse the `enum` method name.

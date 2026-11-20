@@ -8,6 +8,7 @@ import type {
   PropertyDecoratorDefinition,
 } from '../factory/index.js';
 import { TypeRegistryError } from './errors.js';
+import { fields } from './fields.js';
 import type {
   AnyFieldDecorator,
   AnyTypeExtension,
@@ -81,6 +82,27 @@ interface FieldModel {
   readonly description?: string;
   readonly meta: Options;
   readonly extensions: ReadonlyMap<string, unknown>;
+}
+
+/** A decorated field's schema and its declared extension options, before extension parsing. */
+export interface TypeObjectField {
+  readonly name: string;
+  readonly schema: z.core.$ZodType;
+  readonly extensions: Readonly<Record<string, unknown>>;
+}
+
+// Zod carries definition properties through object modifiers. The symbol also works across package copies.
+const registeredFields = Symbol.for('@epsilon-asi/foundation/typeObjectFields');
+type RegistryObjectDef = z.core.$ZodObjectDef & {
+  [registeredFields]?: (shape: z.core.$ZodShape) => readonly TypeObjectField[];
+};
+
+/** Returns the field declarations behind a registry object. Inline Zod objects have no registry fields. */
+export function typeObjectFields(schema: z.core.$ZodType): readonly TypeObjectField[] | undefined {
+  const def = schema._zod.def;
+  if (def.type !== 'object' || !Object.hasOwn(def, registeredFields)) return;
+  const object = def as RegistryObjectDef;
+  return object[registeredFields]?.(object.shape);
 }
 
 interface TypeModel {
@@ -406,6 +428,17 @@ function createRoot(namespace: string): Root {
       ...meta,
     }) as z.ZodObject;
 
+    Object.defineProperty(object._zod.def, registeredFields, {
+      enumerable: true,
+      value: (currentShape: z.core.$ZodShape): readonly TypeObjectField[] => {
+        const declared = fields.filter(field => Object.hasOwn(currentShape, field.name));
+        return declared.map(({ name, extensions }) => {
+          const options: Record<string, unknown> = Object.create(null);
+          for (const [key, value] of extensions) options[key] = copyDefault(value);
+          return { name, schema: currentShape[name], extensions: options };
+        });
+      },
+    });
     return Object.freeze({
       target,
       name,
@@ -432,10 +465,12 @@ function createRoot(namespace: string): Root {
 function validateExtensionOptions(
   extensions: ReadonlyMap<string, AnyTypeExtension>,
   raw: ReadonlyMap<string, unknown>,
-  level: 'field' | 'type',
-  where: string,
-  details: { typeName: string; field?: string },
+  typeName: string,
+  field?: FieldModel,
 ): Readonly<Record<string, unknown>> {
+  const level = field ? 'field' : 'type';
+  const where = field ? `field "${field.name}" of ${typeName}` : typeName;
+  const details = { typeName, ...(field && { field: field.name }) };
   const result: Record<string, unknown> = {};
 
   for (const [key, options] of raw) {
@@ -464,6 +499,7 @@ function validateExtensionOptions(
       );
     }
 
+    if (field) extension.validateField?.({ typeName, fieldName: field.name, schema: field.schema, options: parsed.data });
     result[key] = parsed.data;
   }
 
@@ -510,8 +546,8 @@ function createFacade<TExt extends ExtensionMap>(
 ): TypeRegistry<TExt> {
   const resolved = new WeakMap<Constructor, ResolvedType<unknown, TExt>>();
 
-  function resolve(target: Constructor): ResolvedType<unknown, TExt> {
-    const cached = resolved.get(target);
+  function resolve<T>(target: Constructor<T>): ResolvedType<T, TExt> {
+    const cached = resolved.get(target) as ResolvedType<T, TExt> | undefined;
     if (cached !== undefined) return cached;
 
     const model = root.model(target);
@@ -525,13 +561,7 @@ function createFacade<TExt extends ExtensionMap>(
           schema: entry.schema,
           description: entry.description,
           meta: entry.meta,
-          extensions: validateExtensionOptions(
-            registered,
-            entry.extensions,
-            'field',
-            `field "${entry.name}" of ${model.name}`,
-            { typeName: model.name, field: entry.name },
-          ),
+          extensions: validateExtensionOptions(registered, entry.extensions, model.name, entry),
         }) as ResolvedField<TExt>,
       );
     }
@@ -545,13 +575,11 @@ function createFacade<TExt extends ExtensionMap>(
       object: model.object,
       schema: model.object,
       fields,
-      extensions: validateExtensionOptions(registered, model.extensions, 'type', model.name, {
-        typeName: model.name,
-      }),
+      extensions: validateExtensionOptions(registered, model.extensions, model.name),
       parse: (input: unknown) => model.object.parse(input),
       safeParse: (input: unknown) => model.object.safeParse(input),
       jsonSchema: (params?: JsonSchemaOptions) => z.toJSONSchema(model.object, params),
-    }) as unknown as ResolvedType<unknown, TExt>;
+    }) as unknown as ResolvedType<T, TExt>;
 
     resolved.set(target, result);
     return result;
@@ -574,6 +602,7 @@ function createFacade<TExt extends ExtensionMap>(
     );
   }
 
+  const classFields: TypeRegistry<TExt>['fields'] = (target, options) => fields(resolve(target), options);
   return Object.freeze({
     namespace: root.namespace,
     extensions: extensionDecorators,
@@ -581,6 +610,7 @@ function createFacade<TExt extends ExtensionMap>(
     Prop: root.Prop,
     ref: root.ref,
     resolve,
+    fields: classFields,
     use,
   }) as unknown as TypeRegistry<TExt>;
 }

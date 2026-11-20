@@ -1,5 +1,6 @@
 import type { z } from 'zod/v4';
 import type { AnyFunction, Constructor } from '../factory/index.js';
+import type { FieldsOptions, FieldsSchema } from './fields.js';
 
 export type ObjectMode = 'strip' | 'strict' | 'loose';
 
@@ -50,6 +51,14 @@ export interface ExtensionDecoratorApi<TFieldInput, TTypeInput> {
   type(options: TTypeInput): TypeClassDecorator;
 }
 
+/** Context for an extension's field check after its options have been parsed. */
+export interface ExtensionFieldValidation<TOptions> {
+  readonly typeName: string;
+  readonly fieldName: string;
+  readonly schema: z.ZodType;
+  readonly options: TOptions;
+}
+
 /**
  * A concern (http, orm, ai tools, ...) that attaches its own options to types.
  * Option schemas are zod schemas, validated when a type is resolved, never when it is decorated.
@@ -64,6 +73,8 @@ export interface TypeExtension<
   readonly field?: TField;
   readonly type?: TType;
   readonly decorators?: (api: ExtensionDecoratorApi<InputOf<TField>, InputOf<TType>>) => TDecorators;
+  /** Checks the declared extension options against the resolved field schema. */
+  validateField?(field: ExtensionFieldValidation<OutputOf<TField>>): void;
 }
 
 export type AnyTypeExtension = TypeExtension<string, any, any, any>;
@@ -238,6 +249,9 @@ export interface TypeRegistry<TExt extends ExtensionMap = {}> {
   ref<TClass extends Constructor>(target: () => TClass): z.ZodType<TypeShape<InstanceType<TClass>>>;
 
   resolve<TClass extends Constructor>(target: TClass): ResolvedType<InstanceType<TClass>, TExt>;
+
+  /** Builds an action or facet request schema from this registry's decorated class. */
+  fields<T, const Options extends FieldsOptions<NoInfer<T>>>(target: Constructor<T>, options: Options): FieldsSchema<T, Options>;
 
   /**
    * Returns a registry that also understands `extension`. Registries derived from the same

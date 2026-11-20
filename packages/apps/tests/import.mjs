@@ -1,15 +1,38 @@
 import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
+import { z } from 'zod/v4';
 import {
-  CRUD_OPERATIONS, DEFAULT_ENDPOINT_SCOPE, DEFAULT_MAX_PER_PAGE, DEFAULT_MAX_SEARCH_LENGTH, DEFAULT_PAGE, DEFAULT_PER_PAGE,
-  EndpointScope, FILTER_OPERATORS, FilterOperator, SUCCESS_CODES, SortDirection, assertOptionNamesAvailable,
-  assertRouteNamesAvailable, booleanWireCodec, crudEndpointNames, crudExtension, crudPaths, dateWireCodec, domainErrorMessageKey,
-  endpointScopeSchema, enumOptionMessageKey, fieldMessageKeys, filterOperatorMessageKey, httpExtension, itemParamName, newId,
-  listResponseKey, numberWireCodec, searchQuerySchema, tenantNames, uiExtension,
+  ApiDefinitionError, CLIENT_FAILURE_CODES, CRUD_OPERATIONS, DEFAULT_ENDPOINT_SCOPE, DEFAULT_LIST_PAGING, DEFAULT_MAX_PER_PAGE, DEFAULT_MAX_SEARCH_LENGTH, DEFAULT_PAGE, DEFAULT_PER_PAGE,
+  DomainError, EndpointScope, FILTER_OPERATORS, FilterOperator, FRAMEWORK_ENGLISH_MESSAGES, ResourceDefinitionError, SERVER_FAILURE_CODES, SUCCESS_CODES, SortDirection,
+  apiVersionHeaders, apiVersionSchema, assertFieldPatchModes, assertOptionNamesAvailable, assertPathRequestFields, assertResourceOwner, assertRouteNamesAvailable, assertUniqueRoutes,
+  bindCreateRequest, bindItemRequest, bindListRequest, bindUpdateRequest, booleanWireCodec, createEndpointContract, crudEndpointNames, crudExtension, crudPaths, crudRouteMetadata, crudSuccessResponseSchema, cursorListQuerySchema,
+  dateWireCodec, defaultEndpointScope, defaultFailureCodes, defineErrors, domainErrorMessageKey,
+  enabledCrudOperations, endpointRouteContract, endpointScopeSchema, enumOptionMessageKey, failure, fieldMessageKeys, fields, filterOperatorMessageKey, httpExtension,
+  isFailure, itemParamName, listQuerySchema, listResponseDataSchema, listResponseKey, messageKeys, newId, numberWireCodec, offsetListQuerySchema, offsetPaginationDefaults, offsetPaginationQuerySchema,
+  reassembleCreateRequest, reassembleItemRequest, reassembleListRequest, reassembleUpdateRequest, requestContentSchema, requestValidationIssues, resolveCrudIdField, resolveEndpointPrincipals, resolveFieldFilter, resolveFilterOperators, resolveFilters, resolveSorts, resolveTenantField, responseTypeUnion,
+  searchQuerySchema, selectOperationFields, serverOnlyFields,
+  splitCreateRequest, splitItemRequest, splitListRequest, splitUpdateRequest, successResponseSchema, tenantHeaders, tenantNames, tenantResourcePath, transitionRouteMetadata, uiExtension, updateFieldSchema, validationFailureResponse, wireInputJsonSchema,
 } from '@epsilon-asi/apps';
 import manifest from '@epsilon-asi/apps/package.json' with { type: 'json' };
 
 assert.equal(manifest.type, 'module');
+assert.equal(typeof fields, 'function');
+assert.equal(apiVersionSchema.parse('2026-11-16'), '2026-11-16');
+assert.deepEqual(apiVersionHeaders({ version: '2024-02-29', apiVersion: '2026-11-16' }), { 'X-Api-Version': '2024-02-29' });
+assert.deepEqual(tenantHeaders({ header: 'X-Organization-Id', tenant: () => 'org-a' }), { 'X-Organization-Id': 'org-a' });
+assert.equal(selectOperationFields({ fields: new Map(), operation: 'read' }).size, 0);
+assert.throws(() => resolveCrudIdField({ name: 'Offering', fields: new Map() }), ResourceDefinitionError);
+assert.throws(() => resolveTenantField({ name: 'Offering', fields: new Map() }), ResourceDefinitionError);
+assert.equal(serverOnlyFields({ fields: new Map() }).size, 0);
+assert.doesNotThrow(() => assertFieldPatchModes({ name: 'Report', fields: new Map() }));
+assert.deepEqual(Object.keys(resolveSorts({ name: 'Report', fields: new Map() })), []);
+const emptyReport = { name: 'Report', fields: new Map(), extensions: {} };
+assert.deepEqual(messageKeys(emptyReport), []);
+assert.ok(Object.isFrozen(resolveFilters({ model: emptyReport })));
+assert.throws(() => assertResourceOwner({ name: 'MfaFactor', tenancy: 'account' }), ResourceDefinitionError);
+const patch = z.object({ rank: updateFieldSchema({ schema: z.int().positive().catch(1) }) });
+assert.deepEqual(patch.parse({}), {});
+assert.equal(patch.safeParse({ rank: 0 }).success, false);
 await access(new URL(manifest.exports['.'].types, import.meta.resolve('@epsilon-asi/apps/package.json')));
 assert.equal(newId()[14], '7');
 assert.equal(crudEndpointNames({ name: 'Company', plural: 'Companies' }).List, 'ListCompanies');
@@ -17,14 +40,118 @@ assert.deepEqual(crudPaths({ name: 'ApiKey' }), { collection: '/api-keys', item:
 assert.equal(crudPaths({ name: 'SalesThread', parent: { name: 'SalesCampaign' } }).collection,
   '/sales-campaigns/:salesCampaignId/sales-threads');
 assert.deepEqual(CRUD_OPERATIONS.Delete, { method: 'delete', code: 200 });
+assert.deepEqual(crudRouteMetadata({ name: 'Offering', operations: { Delete: false } })[0], {
+  kind: 'crud', operation: 'Create', name: 'CreateOffering', method: 'post', path: '/offerings', code: 201, docs: true, scope: 'tenant',
+  principals: ['user', 'apiKey'],
+});
+assert.deepEqual(transitionRouteMetadata({ name: 'Offering', verb: 'archive' }), {
+  kind: 'transition', name: 'ArchiveOffering', method: 'post', path: '/offerings/:offeringId/archive', docs: true, scope: 'tenant',
+  principals: ['user', 'apiKey'],
+});
+assert.deepEqual(transitionRouteMetadata({ name: 'Offering', verb: 'archive', options: { archive: { principals: ['user'] } } }).principals, ['user']);
+const invitation = transitionRouteMetadata({ name: 'Invitation', verb: 'accept', options: { accept: { scope: 'account', docs: false } } });
+assert.equal(invitation.scope, 'account');
+assert.equal(invitation.docs, false);
+assert.deepEqual(invitation.principals, ['user']);
+assert.throws(() => transitionRouteMetadata({ name: 'Offering', verb: 'archive', options: { archive: { versioned: false } } }), /versioned/);
+assert.deepEqual(enabledCrudOperations({ tenancy: 'shared' }), ['Get', 'List']);
+assert.throws(() => crudRouteMetadata({ name: 'DirectoryItem', tenancy: 'shared' }), ApiDefinitionError);
+const sharedDirectory = crudRouteMetadata({ name: 'DirectoryItem', tenancy: 'shared', access: { read: 'VIEWER' } });
+assert.equal(sharedDirectory.find(route => route.operation === 'List').Access, 'VIEWER');
+const directoryContract = endpointRouteContract(sharedDirectory.find(route => route.operation === 'Get'));
+assert.equal(directoryContract.Route.method, directoryContract.Method);
+assert.equal(directoryContract.Access, 'VIEWER');
+const directoryList = crudSuccessResponseSchema({ route: sharedDirectory.find(route => route.operation === 'List'), row: z.object({ id: z.string() }) });
+assert.deepEqual(directoryList.decode({ code: 200, data: { directoryItems: [], count: 0 } }), { code: 200, data: { directoryItems: [], count: 0 } });
+const emptyContent = { params: {}, query: {}, body: {}, headers: {} };
+assert.deepEqual(requestContentSchema().decode(emptyContent), emptyContent);
+assert.equal(requestContentSchema().safeParse({ ...emptyContent, body: { unknown: true } }).success, false);
+assert.deepEqual(resolveEndpointPrincipals({ scope: 'account' }), ['user']);
+assert.deepEqual(offsetPaginationDefaults(), { page: 0, perPage: 20, maxPerPage: 100 });
+assert.deepEqual(offsetPaginationQuerySchema().parse({ page: '2' }), { page: 2, perPage: 20 });
+assert.deepEqual(cursorListQuerySchema().decode({ cursor: 'next+/=' }), { cursor: 'next+/=', perPage: 20 });
+assert.deepEqual(offsetListQuerySchema({ search: { fields: ['name'] } }).parse({ q: 'invoices' }), {
+  page: 0, perPage: 20, q: 'invoices',
+});
+assert.equal(DEFAULT_LIST_PAGING, 'offset');
+assert.deepEqual(listQuerySchema({ paging: 'cursor', perPage: { max: 5 } }).decode({ cursor: 'next' }), { cursor: 'next', perPage: 5 });
+const reportRoute = { method: 'get', path: '/reports' };
+assert.throws(() => assertUniqueRoutes([reportRoute, reportRoute]), ApiDefinitionError);
+assert.equal(wireInputJsonSchema(dateWireCodec).format, 'date-time');
+assert.throws(() => assertPathRequestFields({ path: '/reports/:period', request: z.object({}) }), ApiDefinitionError);
+assert.deepEqual(defaultFailureCodes({ scope: 'public', path: '/sign-in' }), [422, 429, 500]);
+assert.ok(defaultFailureCodes({ scope: 'account', path: '/chapters/:chapterId' }).includes(404));
+assert.deepEqual(defaultFailureCodes({ scope: 'public', path: '/export', requiresFeature: true }), [402, 422, 429, 500]);
+assert.equal(tenantResourcePath({ name: 'Organization', verb: 'archive' }), '/organization/archive');
 assert.throws(() => assertOptionNamesAvailable({ versioned: false }), /versioned/);
+assert.throws(() => crudRouteMetadata({ name: 'Offering', operations: { List: { versioned: false } } }), /versioned/);
 assert.equal(itemParamName('ApiKey'), 'apiKeyId');
+const chapterCollection = { path: '/books/:bookId/chapters' };
+const draft = { bookId: 'a', title: 'Introduction' };
+const createParts = splitCreateRequest({ ...chapterCollection, request: draft });
+assert.deepEqual(createParts, { params: { bookId: 'a' }, body: { title: 'Introduction' } });
+assert.deepEqual(reassembleCreateRequest({ ...chapterCollection, ...createParts }), draft);
+const chapters = crudRouteMetadata({ name: 'Chapter', parent: { name: 'Book' }, list: { paging: 'cursor' } });
+const createRoute = chapters.find(route => route.operation === 'Create');
+const boundCreate = bindCreateRequest({ route: createRoute, request: z.strictObject({ bookId: z.string(), publishedAt: dateWireCodec }) });
+const datedDraft = { bookId: 'a', publishedAt: new Date('2026-11-19T09:00:00Z') };
+const datedWire = boundCreate.toContent(datedDraft);
+assert.deepEqual(datedWire, { params: { bookId: 'a' }, body: { publishedAt: '2026-11-19T09:00:00.000Z' }, query: {}, headers: {} });
+assert.deepEqual(boundCreate.fromContent(datedWire), datedDraft);
+const createContract = createEndpointContract({ route: createRoute, request: boundCreate.Request, row: z.strictObject({ key: z.string() }) });
+assert.deepEqual(createContract.ResponseTypeUnion.decode({ code: 201, data: { key: 'b' } }), { code: 201, data: { key: 'b' } });
+const ids = z.strictObject({ bookId: z.string(), chapterId: z.string() });
+const chapterIds = { bookId: 'a', chapterId: 'b' };
+const readItem = bindItemRequest({ route: chapters.find(route => route.operation === 'Get'), request: ids });
+const patchItem = bindUpdateRequest({ route: chapters.find(route => route.operation === 'Update'), request: ids.extend({ title: z.string().default('Draft') }) });
+assert.deepEqual(patchItem.fromContent(readItem.toContent(chapterIds)), chapterIds);
+const listRequest = { bookId: 'a', cursor: 'next', perPage: 5 };
+const listChapters = bindListRequest({ route: chapters.find(route => route.operation === 'List'), query: cursorListQuerySchema() });
+assert.deepEqual(listChapters.fromContent(listChapters.toContent(listRequest)), listRequest);
+const listParts = splitListRequest({ ...chapterCollection, request: listRequest });
+assert.deepEqual(listParts, { params: { bookId: 'a' }, query: { cursor: 'next', perPage: 5 } });
+assert.deepEqual(reassembleListRequest({ ...chapterCollection, ...listParts }), listRequest);
+const itemRoute = { path: '/books/:bookId/chapters/:chapterId', paramFields: { chapterId: 'key' } };
+const invalidId = z.object({ params: z.object({ chapterId: z.uuid() }) }).safeParse({ params: { chapterId: 'invalid' } });
+assert.equal(invalidId.success, false);
+const keyIssues = requestValidationIssues({ ...itemRoute, issues: invalidId.error.issues });
+assert.equal(keyIssues[0].path, 'key');
+const validationReply = validationFailureResponse({ ...itemRoute, zodError: invalidId.error, error: 'Chapter.INVALID', traceId: 'request-17' });
+const chapterReplies = responseTypeUnion({ response: successResponseSchema({ code: 200 }), failures: [422] });
+assert.deepEqual(chapterReplies.decode(validationReply), { code: 422, error: 'Chapter.INVALID', traceId: 'request-17', issues: keyIssues });
+const itemParts = splitItemRequest({ ...itemRoute, request: { bookId: 'a', key: 'b' } });
+assert.deepEqual(itemParts, { params: { bookId: 'a', chapterId: 'b' }, body: {} });
+assert.deepEqual(reassembleItemRequest({ ...itemRoute, ...itemParts }), { bookId: 'a', key: 'b' });
+const update = splitUpdateRequest({
+  path: '/offerings/:offeringId', paramFields: { offeringId: 'id' }, request: { id: 'a', name: 'Acme' },
+});
+assert.equal(update.params.offeringId, 'a');
+assert.equal(update.body.name, 'Acme');
+assert.ok(!Object.hasOwn(update.body, 'id'));
+assert.deepEqual(reassembleUpdateRequest({ path: '/offerings/:offeringId', paramFields: { offeringId: 'id' }, ...update }), {
+  id: 'a', name: 'Acme',
+});
 assert.equal(listResponseKey({ name: 'ApiKey' }), 'apiKeys');
+const peoplePage = listResponseDataSchema({ name: 'Person', plural: 'People', row: z.object({ id: z.string() }), paging: 'cursor' });
+assert.deepEqual(peoplePage.decode({ people: [], nextCursor: null }), { people: [], nextCursor: null });
 assert.throws(() => assertRouteNamesAvailable({ path: '/offerings/bulk' }), /bulk/);
 assert.equal(DEFAULT_ENDPOINT_SCOPE, EndpointScope.Tenant);
+assert.equal(defaultEndpointScope({ tenancy: 'account' }), EndpointScope.Account);
 assert.equal(endpointScopeSchema.parse(undefined), DEFAULT_ENDPOINT_SCOPE);
 assert.equal(domainErrorMessageKey('OrgBilling.UNPAID'), 'errors.OrgBilling.UNPAID');
+assert.ok(isFailure(failure.notFound()));
+assert.equal(failure.notFound().code, CLIENT_FAILURE_CODES.NotFound);
+assert.equal(isFailure({ code: 404 }), false);
+const OrgBillingError = defineErrors('OrgBilling', { UNPAID: { code: 402 } });
+const unpaid = new OrgBillingError.Unpaid();
+assert.ok(unpaid instanceof DomainError);
+assert.equal(unpaid.error, OrgBillingError.Types.UNPAID);
+assert.equal(unpaid.code, 402);
 assert.deepEqual(SUCCESS_CODES, { Ok: 200, Created: 201 });
+assert.equal(CLIENT_FAILURE_CODES.BadRequest, 400);
+assert.equal(CLIENT_FAILURE_CODES.TooManyRequests, 429);
+assert.ok(Object.isFrozen(CLIENT_FAILURE_CODES));
+assert.deepEqual(SERVER_FAILURE_CODES, { InternalServerError: 500, ServiceUnavailable: 503 });
 assert.deepEqual(tenantNames({ resource: 'Organization' }), {
   header: 'X-Organization-Id', context: 'organization', field: 'organizationId',
 });
@@ -47,7 +174,27 @@ assert.equal(searchQuerySchema.parse('monthly invoices'), 'monthly invoices');
 assert.deepEqual(SortDirection, { Asc: 'asc', Desc: 'desc' });
 assert.equal(FilterOperator.ILike, '$ilike');
 assert.equal(filterOperatorMessageKey(FilterOperator.Gte), 'filters.operator.Gte');
+assert.equal(FRAMEWORK_ENGLISH_MESSAGES[filterOperatorMessageKey(FilterOperator.Gte)], 'Greater than or equal to');
+assert.equal(FRAMEWORK_ENGLISH_MESSAGES[domainErrorMessageKey('Auth.TOKEN_EXPIRED')], 'Your access token has expired.');
+const statusReply = responseTypeUnion({ response: successResponseSchema({ code: 200 }), failures: [404] });
+const publicStatus = responseTypeUnion({ response: successResponseSchema({ code: 200 }), scope: 'public', path: '/status' });
+assert.equal(publicStatus.safeParse({ code: 404, error: 'Record.MISSING', traceId: 'request' }).success, false);
+assert.deepEqual(statusReply.decode({ code: 200 }), { code: 200 });
+assert.equal(statusReply.decode({ code: 404, error: 'Record.MISSING', traceId: 'request' }).code, 404);
 assert.ok(FILTER_OPERATORS.text.includes(FilterOperator.ILike));
+assert.deepEqual(resolveFilterOperators({ kind: 'text', cap: [FilterOperator.ILike] }), ['$ilike']);
+assert.deepEqual(resolveFieldFilter({ schema: z.enum(['DRAFT', 'LIVE']), cap: true }), {
+  kind: 'enum', operators: FILTER_OPERATORS.enum,
+});
+assert.deepEqual(resolveFieldFilter({ schema: z.union([z.literal('draft'), z.literal('live')]), cap: ['$in'] }), {
+  kind: 'enum', operators: ['$in'],
+});
+assert.deepEqual(resolveFieldFilter({ schema: z.boolean(), cap: true }), { kind: 'boolean', operators: FILTER_OPERATORS.boolean });
+assert.deepEqual(resolveFieldFilter({ schema: z.date(), cap: ['$gte'] }), { kind: 'range', operators: ['$gte'] });
+assert.deepEqual(resolveFieldFilter({ schema: z.array(z.string()), cap: true }), { kind: 'array', operators: FILTER_OPERATORS.array });
+assert.deepEqual(resolveFieldFilter({ schema: z.array(z.string()).nullable(), cap: ['$exists', '$eq'] }), {
+  kind: 'array', operators: ['$exists', '$eq'],
+});
 assert.ok(!FILTER_OPERATORS.range.includes(FilterOperator.ILike));
 
 for (const peer of ['@google-cloud/pubsub', '@mikro-orm/core', '@mikro-orm/migrations', 'express', 'redis', 'stripe']) {

@@ -1,6 +1,7 @@
 import { createJsonLogWriter, createLogger } from '@epsilon-asi/foundation';
 import { expect, it } from 'vitest';
 import { z } from 'zod/v4';
+import { ResourceDefinitionError } from '../../../src/model/ResourceDefinitionError.js';
 import { derive, Prop, ref } from './variants.js';
 
 class Contact {
@@ -39,6 +40,13 @@ const readModel = {
   name: 'Research', links: ['https://example.test'], status: 'live', rank: 4,
   contacts: [{ name: 'Ada', source: 'inbound', revision: 'changed', status: 'active' }],
 };
+
+it('rejects incompatible PATCH modes while deriving an operation schema', () => {
+  class ContactNote {
+    @Prop.string({ crud: { access: 'editable', patch: 'append' } }) text!: string;
+  }
+  expect(() => derive(ContactNote, 'update')).toThrow(ResourceDefinitionError);
+});
 
 it('leaves unsent PATCH fields absent while create applies defaults', () => {
   const UpdateOffering = { Request: derive(Offering, 'update').schema };
@@ -88,6 +96,30 @@ it('excludes every server-only access preset from responses, messages and raw st
   });
   logger.info('offering saved', { offering: storedOffering });
   expect(JSON.parse(lines[0])).toStrictEqual({ level: 'info', message: 'offering saved', offering: readModel });
+});
+
+it('collects redaction keys even from a recursive resource reached only through a hidden field', () => {
+  class Credential {
+    @Prop.string({ crud: 'secret' }) passwordHash!: string;
+    @Prop(ref(() => Credential).optional(), { crud: 'readable' }) previous?: Credential;
+  }
+  class Account {
+    @Prop.string({ crud: 'readable' }) name!: string;
+    @Prop(ref(() => Credential), { crud: 'internal' }) credential!: Credential;
+  }
+
+  const { schema, serverOnlyFields } = derive(Account, 'read');
+  const credential = { passwordHash: 'current', previous: { passwordHash: 'old' } };
+  expect(schema.parse({ name: 'Ada', credential })).toStrictEqual({ name: 'Ada' });
+  expect(serverOnlyFields).toEqual(new Set(['credential', 'passwordHash']));
+
+  const lines: string[] = [];
+  const logger = createLogger({
+    redaction: { shouldRedact: key => serverOnlyFields.has(key) },
+    write: createJsonLogWriter({ write: line => lines.push(line) }),
+  });
+  logger.info('rotated', { history: [credential] });
+  expect(JSON.parse(lines[0]).history).toStrictEqual([{ previous: {} }]);
 });
 
 it('projects recursive references and rejects an unsupported container before it can expose a full model', () => {

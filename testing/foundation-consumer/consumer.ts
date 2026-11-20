@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createJsonLogWriter, createLogger, createTypeRegistry, type Logger } from '@epsilon-asi/foundation';
+import { createJsonLogWriter, createLogger, createTypeRegistry, defineTypeExtension, fields as modelFields, typeObjectFields, type Logger } from '@epsilon-asi/foundation';
 import { Env, EnvVar, loadEnv } from '@epsilon-asi/foundation/env';
 import { parseStringSync, serialize } from '@epsilon-asi/foundation/files';
 import { z } from 'zod';
@@ -28,7 +28,17 @@ class AppEnv {
 loadEnv(AppEnv, { source: { APP_PORT: '4312' }, dotenv: false });
 assert.equal(AppEnv.port, 4312);
 
-const { Prop, resolve } = createTypeRegistry();
+const checkedFields: string[] = [];
+const calendar = defineTypeExtension({
+  key: 'calendar',
+  field: z.literal('instant'),
+  validateField({ typeName, fieldName, schema, options }) {
+    const kind: 'instant' = options;
+    assert.ok(schema.parse('2025-01-02T03:04:05.000Z') instanceof Date);
+    checkedFields.push(`${typeName}.${fieldName}.${kind}`);
+  },
+});
+const { Prop, fields, resolve } = createTypeRegistry().use(calendar);
 const statuses = ['draft', 'active'] as const;
 const isoDate = z.codec(z.iso.datetime(), z.date(), {
   decode: value => new Date(value),
@@ -39,15 +49,25 @@ class Offering {
   @Prop.enum(statuses, { default: 'draft' })
   status!: (typeof statuses)[number];
 
-  @Prop(isoDate)
+  @Prop(isoDate, { calendar: 'instant' })
   createdAt!: Date;
 }
 
 const schema = resolve(Offering).schema;
+assert.deepEqual(checkedFields, ['Offering.createdAt.instant']);
 const createdAt = '2025-01-02T03:04:05.000Z';
 const offering = parseStringSync(schema, JSON.stringify({ createdAt }), { format: 'json' });
 assert.deepEqual(offering, { status: 'draft', createdAt: new Date(createdAt) });
 assert.deepEqual(JSON.parse(serialize(schema, offering, { format: 'json' })), { status: 'draft', createdAt });
+
+const dateOnly = fields(Offering, { pick: ['createdAt'] });
+assert.deepEqual(dateOnly.parse({ createdAt }), { createdAt: new Date(createdAt) });
+assert.deepEqual(z.encode(dateOnly, { createdAt: new Date(createdAt) }), { createdAt });
+const statusOnly = modelFields(resolve(Offering), { omit: ['createdAt'] });
+const declaredFields = typeObjectFields(resolve(Offering).object.describe('Offering contract'));
+assert.equal(declaredFields?.find(field => field.name === 'createdAt')?.extensions.calendar, 'instant');
+assert.deepEqual(statusOnly.parse({}), { status: 'draft' });
+assert.equal(statusOnly.safeParse({ createdAt }).success, false);
 
 // @ts-expect-error Only a declared enum member can be the default.
 Prop.enum(statuses, { default: 'archived' });

@@ -9,9 +9,11 @@ export type DefaultAxis = typeof defaulted;
 export type IdAxis = typeof id;
 export type ReadAxis = typeof read;
 export type SecretAxis = typeof secret;
+export type TenantAxis = typeof tenant;
 export type WriteAxis = typeof write;
 
 export type WriteOperation = 'create' | 'update';
+export type FieldOperation = 'read' | WriteOperation;
 
 // Optional phantom keys let fields accept plain values. Each grant carries the
 // underlying value type so a projection can recover it without the flavor.

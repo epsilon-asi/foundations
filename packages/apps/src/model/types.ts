@@ -1,12 +1,12 @@
 import type { Constructor, TypeShape } from '@epsilon-asi/foundation';
-import type { AccessAxis, DefaultAxis, Defaulted, IdAxis, ReadAxis, SecretAxis, WriteAxis, WriteOperation } from './access.js';
+import type { AccessAxis, DefaultAxis, Defaulted, FieldOperation, IdAxis, ReadAxis, SecretAxis, WriteAxis, WriteOperation } from './access.js';
 
 /** The declared data fields of a resource class or instance, including inherited fields. */
 export type Fields<C> = C extends Constructor<infer Instance> ? TypeShape<Instance> : TypeShape<C>;
 
 // Match the declared marker key. Plain values are assignable to an Id flavor
 // because its phantom properties are optional.
-type IdKey<Fields> = {
+export type IdKey<Fields> = {
   [K in keyof Fields]-?: Extract<keyof NonNullable<Fields[K]>, IdAxis> extends never ? never : K;
 }[keyof Fields];
 
@@ -28,14 +28,13 @@ type MarkedKeys<Model> = {
   [K in keyof Model]-?: MemberAxes<Model[K]> extends never ? never : K;
 }[keyof Model];
 
-type Variant = 'read' | WriteOperation;
-type ResourceVariant<Value, V extends Variant> =
+type ResourceVariant<Value, V extends FieldOperation> =
   V extends 'read' ? ReadModel<Value> :
   V extends 'create' ? CreateInput<Value> : UpdateInput<Value>;
 
 // Inline JSON records retain their plain keys. Nested resources use the same
 // variant as the containing resource, including inside arrays and tuples.
-type ProjectPlain<Value, V extends Variant> =
+type ProjectPlain<Value, V extends FieldOperation> =
   Value extends string | number | boolean | bigint | symbol | Date ? Value :
   Value extends readonly unknown[] ? { [K in keyof Value]: ProjectValue<Value[K], V> } :
   Value extends Record<string, unknown> ? MarkedKeys<Value> extends never
@@ -44,17 +43,17 @@ type ProjectPlain<Value, V extends Variant> =
   Value extends object ? ResourceVariant<Value, V> : Value;
 
 type WriteGrant<Value> = NonNullable<Value[WriteAxis & keyof Value]>;
-type GrantValue<Value, V extends Variant> = V extends 'read'
+type GrantValue<Value, V extends FieldOperation> = V extends 'read'
   ? Exclude<Value[ReadAxis & keyof Value], undefined>
   : WriteGrant<Value>[V & keyof WriteGrant<Value>];
 
-type ProjectMember<Value, V extends Variant> =
+type ProjectMember<Value, V extends FieldOperation> =
   FieldAxes<Value> extends never ? ProjectPlain<Value, V> :
   SecretAxis extends FieldAxes<Value> ? never :
   ProjectValue<GrantValue<Value, V>, V>;
 
 // An untyped element of an otherwise accessible container has unknown contents.
-type ProjectValue<Value, V extends Variant> = 0 extends (1 & Value) ? unknown
+type ProjectValue<Value, V extends FieldOperation> = 0 extends (1 & Value) ? unknown
   : Value extends unknown ? ProjectMember<WithoutDefault<Value>, V> : never;
 
 // A grant must be present on every non-null member of the field's type.
@@ -62,12 +61,14 @@ type GrantedVariants<Field> = SecretAxis extends MemberAxes<Field> ? never
   : (ReadAxis extends FieldAxes<Field> ? 'read' : never)
   | (WriteAxis extends FieldAxes<Field> ? Extract<WriteOperation, keyof WriteGrant<NonNullable<Field>>> : never);
 
-type ProjectFields<Model, V extends Variant> = {
+type ProjectFields<Model, V extends FieldOperation> = {
   [K in keyof Model as V extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], V>;
 };
 
 /** The readable data of a resource, with access flavors removed at each level. */
-export type ReadModel<C> = ProjectFields<Fields<C>, 'read'>;
+export type ReadModel<C, Model extends Fields<C> = Fields<C>> = {
+  [K in keyof Model as 'read' extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], 'read'>;
+};
 
 type OptionalDefaults<Model> = {
   [K in keyof Model as DefaultAxis extends FieldAxes<Model[K]> ? never : K]: Model[K];

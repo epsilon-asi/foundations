@@ -1,6 +1,21 @@
 import { expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod/v4';
-import { DEFAULT_ENDPOINT_SCOPE, EndpointScope, endpointScopeSchema } from '../../src/tenancy/endpointScope.js';
+import { DEFAULT_ENDPOINT_SCOPE, EndpointScope, defaultEndpointScope, endpointScopeSchema } from '../../src/tenancy/endpointScope.js';
+
+it('derives tenant scope when the resource omits its tenancy', () => {
+  expect(defaultEndpointScope()).toBe(EndpointScope.Tenant);
+});
+
+it.each([
+  ['owned', 'tenant'],
+  ['shared', 'tenant'],
+  ['self', 'tenant'],
+  ['account', 'account'],
+] as const)('derives %s resource tenancy as %s endpoint scope', (tenancy, expected) => {
+  const scope = defaultEndpointScope({ tenancy });
+  expect(scope).toBe(expected);
+  expectTypeOf(scope).toEqualTypeOf<'tenant' | 'account'>();
+});
 
 it('defaults an omitted endpoint scope to tenant', () => {
   const declaration = z.object({ scope: endpointScopeSchema });
