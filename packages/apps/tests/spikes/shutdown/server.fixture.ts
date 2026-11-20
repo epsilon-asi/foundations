@@ -1,33 +1,30 @@
+import { createHttpListener } from '@epsilon-asi/apps/runtime';
 import express from 'express';
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import type { Server, ServerResponse } from 'node:http';
 
 const shutdownTimeoutMs = Number(process.argv[2]);
 const app = express();
-const server = createServer(app);
-const drain = new AbortController();
+let server: Server;
+let pendingProbe: (() => void) | undefined;
+let work: ServerResponse | undefined;
 
-// Keep the idle timeout beyond the test deadline. A socket that stays open
-// after its last response would otherwise make a graceful stop look successful.
-server.keepAliveTimeout = 60_000;
-
-app.use((_req, res, next) => {
-  // A streaming request can become idle after the sweep at the start of drain.
-  res.once('finish', () => {
-    if (drain.signal.aborted) server.closeIdleConnections();
-  });
-  next();
+const listener = createHttpListener({
+  shutdownTimeoutMs,
+  handle(this: Server, req, res) {
+    server = this;
+    // An idle socket must outlive the test deadline unless the runtime drains it.
+    server.keepAliveTimeout = 60_000;
+    app(req, res);
+  },
 });
 
 app.get('/health/ready', (req, res) => {
-  const reply = () => res.status(drain.signal.aborted ? 503 : 200).end();
+  const reply = () => res.status(listener.draining ? 503 : 200).end();
   if (req.query.at === 'drain') {
-    // Hold an actual probe until the readiness transition so the test can
-    // observe its HTTP status and whether the listener is still accepting.
-    drain.signal.addEventListener('abort', () => {
+    pendingProbe = () => {
       process.send!({ listeningAtReadinessChange: server.listening });
       reply();
-    }, { once: true });
+    };
     process.send!('probe armed');
   } else {
     reply();
@@ -35,26 +32,19 @@ app.get('/health/ready', (req, res) => {
 });
 
 app.get('/work', (_req, res) => {
+  work = res;
   res.write('started\n');
   process.once('message', () => res.end('completed\n'));
 });
 
-function close() {
-  if (drain.signal.aborted) return;
-  drain.abort();
-  let timedOut = false;
-  const deadline = setTimeout(() => {
-    timedOut = true;
-    server.closeAllConnections();
-  }, shutdownTimeoutMs);
-  server.close(() => {
-    clearTimeout(deadline);
-    process.send!(timedOut ? 'deadline' : 'drained');
-    process.disconnect!();
-  });
-  server.closeIdleConnections();
+async function close() {
+  const stopped = listener.close();
+  pendingProbe?.();
+  await stopped;
+  process.send!(work?.writableFinished ? 'drained' : 'deadline');
+  process.disconnect!();
 }
 
 process.once('SIGTERM', close);
 process.once('SIGINT', close);
-server.listen(0, '127.0.0.1', () => process.send!((server.address() as AddressInfo).port));
+void listener.listen(0).then(address => process.send!(Number(address.port)));

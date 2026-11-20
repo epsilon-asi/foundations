@@ -12,3 +12,10 @@ export interface SuccessResponse<Data> {
   data: Data;
   message?: string;
 }
+
+/** A success envelope for an endpoint with no declared payload. Delete uses the default 200. */
+export interface EmptySuccessResponse<Code extends SUCCESS_CODES = typeof SUCCESS_CODES.Ok> {
+  code: Code;
+  data?: never;
+  message?: string;
+}

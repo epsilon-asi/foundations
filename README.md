@@ -1,5 +1,10 @@
 # Foundations
 
+## in progress work that can be picked back up by an agent
+
+- **Resource framework.** All five Offering CRUD operations pass through the typed client over real HTTP on both in-memory storage and PostgreSQL. Get is the first reusable database handler. The example still supplies Create, Update, Delete and List. [Weekly handoff](docs/plans/resource-framework.md#weekly-handoff)
+- **Pick up with Delete.** Move the tenant-scoped deletion into `ResourceService`, bind it through `crudHandlers(Offering)`, and rerun the existing tests for role checks, tenant isolation, repeated deletes and concurrent deletes. [End-to-end checkpoints](docs/plans/resource-framework-e2e.md#implementation-order-and-acceptance) · [PostgreSQL test instructions](packages/apps/README.md#persisting-offerings-in-postgresql)
+
 ## Workspace
 
 Use Node 24 for the full workspace. From the repository root, install the 12 packages and their shared tooling with the pinned pnpm 10.33.2.

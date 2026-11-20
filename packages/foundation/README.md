@@ -2,6 +2,10 @@
 
 Foundation requires Zod 4.1.0 or later within major version 4. Version 4.1.0 introduced the codecs used for two-way conversion between wire values and application types. [Zod codecs](https://zod.dev/codecs)
 
+## Middleware chains
+
+`createChainBinding()` supplies the shared execution machinery for the CLI and the apps HTTP adapter. Each binding owns its middleware identities, context keys and result policy. Resolve dependencies once when assembling a command or route, then run the ordered steps with a fresh context and cleanup stack on each invocation. Duplicate declared providers fail during resolution. [Chain implementation](src/chain/binding.ts) · [Binding tests](src/chain/binding.test.ts)
+
 ## Decorator mode
 
 Foundation uses standard TypeScript decorators. Leave `experimentalDecorators` unset or set it to `false` in the project that compiles your decorated classes. If a build emits legacy decorators, class definition throws `DecoratorModeError`. Its message names the registry decorator and the compiler setting to change. Rebuild the module containing the decorated class after changing the setting.
@@ -33,6 +37,10 @@ contact.parse({ id: '019305d4-ff69-7a9e-b66d-93d661ea8e2f', email: 'ray@example.
 `contact.jsonSchema()` describes these properties as strings with formats `uuid`, `email` and `uri`, respectively. Only `id` and `email` appear in its `required` list.
 
 The parsed value has type `TypeShape<Contact>`. It preserves the class's string-keyed data fields, including optional and readonly properties, and omits both required and optional methods.
+
+The same registry’s `fields(Contact, { pick: ['email'] })` returns a strict Zod object containing the original email validator. Use `{ omit: ['id'] }` to select the other fields. The package-root `fields(resolve(Contact), options)` also accepts an already resolved model. Both forms support inherited fields.
+
+A field extension can check its options against the field schema by supplying `validateField({ typeName, fieldName, schema, options })` to `defineTypeExtension()`. The registry passes the parsed extension options during model resolution. A subclass gets the check on its inherited fields as well. The apps CRUD extension uses this hook to identify fields with an incompatible PATCH mode.
 
 ## Enum fields
 

@@ -13,9 +13,11 @@ Give each resource a singular PascalCase name and write acronyms as words, as in
 | Collection and item paths | `/api-keys`, `/api-keys/:apiKeyId` |
 | Item parameter and list response key | `apiKeyId`, `apiKeys` |
 
-The default plural appends `s` to the literal name. A name ending in `s`, `x`, `y`, `ch` or `sh` raises a definition-time warning unless the declaration supplies `plural`. For example, `endpoints(Company, { name: 'Company', plural: 'Companies' })` gives `ListCompanies` and `/companies`.
+The default plural appends `s` to the literal name. A name ending in `s`, `x`, `y`, `ch` or `sh` produces one warning per CRUD declaration unless the declaration supplies `plural`. For example, `endpoints(Company, { name: 'Company', plural: 'Companies' })` gives `ListCompanies` and `/companies`. [CRUD route metadata](../README.md#crud-route-metadata)
 
-Collection paths use `/<kebab-plural>` and item paths add `/:<entity>Id`. A parent adds `/<parent-kebab-plural>/:<parent>Id` before the collection, as in `/campaigns/:campaignId/sales-threads/:salesThreadId`. Each path parameter maps to a flat request field. The framework reserves `bulk` and `restore` as path segments and transition verbs. It also reserves the option names `softDelete`, `versioned`, `deprecated`, `suspended` and `impersonation`.
+Collection paths use `/<kebab-plural>` and item paths add `/:<entity>Id`. A parent adds `/<parent-kebab-plural>/:<parent>Id` before the collection, as in `/campaigns/:campaignId/sales-threads/:salesThreadId`. Each path parameter maps to a flat request field. On a resolved CRUD model, the item parameter maps to the declared primary key, including an inherited field. For example, an `ApiKey` resource can use `key` in the flat request and `apiKeyId` in the path. [CRUD primary keys](../README.md#crud-primary-keys)
+
+The framework reserves `bulk` and `restore` as path segments and transition verbs. CRUD resource and operation settings also reserve `softDelete`, `versioned`, `deprecated`, `suspended` and `impersonation`. Resource fields can use these names. [Reserved names](../README.md#reserved-route-names)
 
 The tenant travels in a header. For tenant resource `Organization`, the default names are `X-Organization-Id`, `ctx.organization`, `ctx.membership` and `organizationId`. In general, these are `X-<Tenant>-Id`, `ctx.<tenant>`, `ctx.membership` and `<tenant>Id`. Set `header`, `context` or `field` in `createResourceSystem({ tenant: { resource, … } })` to override the corresponding name. The tenant's own route is singular (`/organization`), and its transitions use `POST /organization/<verb>`.
 
@@ -98,9 +100,15 @@ export class OfferingRoutes {}
 | Domain error | `errors.<Domain>.<TYPE>` | `errors.OrgBilling.UNPAID` for wire error `OrgBilling.UNPAID` |
 | Filter operator | `filters.operator.<NAME>` | `filters.operator.Gte` for `FilterOperator.Gte` |
 
+`messageKeys(resolve(Resource))` lists the catalog entries for the resource and its readable or writable fields. A field’s explicit text key replaces the corresponding default. The List filter and sort descriptors use that same field label. Operator menus use the English catalog’s `filters.operator.<NAME>` keys. Authentication failures use `errors.Auth.UNAUTHENTICATED` and `errors.Auth.TOKEN_EXPIRED` in the same catalog. [Resource catalog example](../README.md#resource-translation-keys) · [Operator labels](../README.md#sort-directions-and-filter-operators) · [Authentication messages](../README.md#authentication-failures)
+
 ## Checks
 
 Definitions must have unique method/path pairs. Every path parameter must map to a request field. Every tenant-owned resource must have exactly one `Tenant` field with the configured name (default `<tenant>Id`). Access rules must refer to declared roles, permissions and entitlements. Definition errors identify the offending declaration.
+
+For a model-backed CRUD route, `access.fields.<field>.write` requires a field that an enabled Create or Update accepts. A field rule can narrow who may write a value only within the model’s write grants. [Field write rules](../README.md#field-write-rules)
+
+To inspect the rule declared for a CRUD operation, read its descriptor’s `Access` member. It resolves the operation override and the applicable `read` or `write` fallback. [Shared resource access](../README.md#shared-resource-access)
 
 A routes class rejects two fields bound to the same endpoint and handlers for disabled operations. A webhook class rejects duplicate event types. Within one app, each topic has at most one consumer and each job at most one handler.
 

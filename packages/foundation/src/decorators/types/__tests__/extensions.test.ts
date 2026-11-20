@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
 import { createTypeRegistry, defineTypeExtension, TypeRegistryError } from '../index.js';
-import type { AnyTypeExtension } from '../index.js';
+import type { AnyTypeExtension, ExtensionFieldValidation } from '../index.js';
 
 const http = defineTypeExtension({
   key: 'http',
@@ -32,6 +32,36 @@ function compose() {
 }
 
 describe('type extensions', () => {
+  it('validates resolved field schemas with parsed options once per successful facade resolution', () => {
+    const seen: ExtensionFieldValidation<{ group: string }>[] = [];
+    const root = createTypeRegistry();
+    const options = z.object({ group: z.string().default('general') });
+    const plain = root.use(defineTypeExtension({ key: 'category' as const, field: options }));
+    const checked = root.use(defineTypeExtension({
+      key: 'category' as const, field: options,
+      validateField(field) { seen.push(field); },
+    }));
+    class Base {
+      @plain.Prop.string({ category: {}, description: 'Display label' }) label!: string;
+      @plain.Prop.string({ category: { group: 'base' } }) tag!: string;
+    }
+    @plain.Type({ name: 'Catalog' })
+    class Category extends Base {
+      @plain.Prop.string({ category: { group: 'override' } }) override tag!: string;
+      @plain.Prop.number() count!: number;
+    }
+
+    plain.resolve(Category);
+    expect(seen).toEqual([]);
+    const model = checked.resolve(Category);
+    checked.fields(Category, { pick: ['tag'] });
+    expect(seen.map(({ typeName, fieldName, options }) => [typeName, fieldName, options.group])).toEqual([
+      ['Catalog', 'label', 'general'], ['Catalog', 'tag', 'override'],
+    ]);
+    expect(seen[0].schema).toBe(model.fields.get('label')?.schema);
+    expect(seen[0].schema.description).toBe('Display label');
+  });
+
   it('validates inline options with the extension schema, applying its defaults', () => {
     const { types } = compose();
     const { Type, Prop, resolve } = types;

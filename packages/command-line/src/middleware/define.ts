@@ -1,4 +1,5 @@
 import { Option as CommanderOption } from 'commander';
+import { commandChain } from './binding.js';
 import { MiddlewareError } from '../errors.js';
 import { optionFlags } from '../naming.js';
 import type { OptionMetadata } from '../types.js';
@@ -12,13 +13,8 @@ import type {
 
 const OPTION_TYPES: ReadonlySet<string> = new Set(['string', 'number', 'boolean', 'choice']);
 
-/** Every middleware made by defineMiddleware(), so nothing else can pose as one. */
-const defined = new WeakSet<object>();
-
-/** Whether `value` was made by `defineMiddleware()`. */
-export function isMiddleware(value: unknown): value is AnyMiddleware {
-  return typeof value === 'object' && value !== null && defined.has(value);
-}
+/** Whether `value` was made by the CLI's middleware binding. */
+export const isMiddleware = commandChain.isMiddleware;
 
 /**
  * Defines a middleware: a named step that runs around every command it is
@@ -48,38 +44,9 @@ export function defineMiddleware<
   const TOptions extends MiddlewareOptionsSpec = {},
   TProvided extends object = {},
 >(spec: MiddlewareSpec<TUse, TOptions, TProvided>): Middleware<ProvidedBy<[Middleware<TProvided>, ...TUse]>> {
-  const name: unknown = spec.name;
-  if (typeof name !== 'string' || name.trim() === '') {
-    throw new MiddlewareError(String(name), 'needs a non-empty name.');
-  }
-  if (typeof spec.handle !== 'function') {
-    throw new MiddlewareError(name, 'needs a handle(ctx, next) function.');
-  }
-
-  const middleware = Object.freeze({
-    name,
-    use: checkUse(name, spec.use),
-    options: checkOptions(name, spec.options),
-    handle: spec.handle,
-  });
-
-  defined.add(middleware);
-  return middleware as Middleware<ProvidedBy<[Middleware<TProvided>, ...TUse]>>;
-}
-
-function checkUse(name: string, use: unknown): readonly AnyMiddleware[] {
-  if (use === undefined) return Object.freeze([]);
-  if (!Array.isArray(use)) {
-    throw new MiddlewareError(name, 'has a "use" that is not an array of middleware.');
-  }
-
-  use.forEach((entry: unknown, index) => {
-    if (!isMiddleware(entry)) {
-      throw new MiddlewareError(name, `has use[${index}], which is not a middleware made by defineMiddleware().`);
-    }
-  });
-
-  return Object.freeze([...(use as AnyMiddleware[])]);
+  return commandChain.define({
+    name: spec.name, use: spec.use, options: checkOptions(spec.name, spec.options), handle: spec.handle,
+  }) as Middleware<ProvidedBy<[Middleware<TProvided>, ...TUse]>>;
 }
 
 function checkOptions(name: string, options: unknown): MiddlewareOptionsSpec {

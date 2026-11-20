@@ -1,5 +1,5 @@
 import type { Constructor, TypeShape } from '@epsilon-asi/foundation';
-import type { AccessAxis, DefaultAxis, Defaulted, IdAxis, ReadAxis, SecretAxis, WriteAxis, WriteOperation } from './access.js';
+import type { AccessAxis, DefaultAxis, Defaulted, FieldOperation, IdAxis, ReadAxis, SecretAxis, WriteAxis, WriteOperation } from './access.js';
 
 /** The declared data fields of a resource class or instance, including inherited fields. */
 export type Fields<C> = C extends Constructor<infer Instance> ? TypeShape<Instance> : TypeShape<C>;
@@ -22,16 +22,20 @@ type IdFromFields<Model> = Model extends unknown ? PlainId<Model[IdKey<Model>]> 
 /** The plain value of the primary-key field on a resource class or instance. */
 export type IdOf<C> = IdFromFields<Fields<C>>;
 
+/** A flat item request with the declared primary key's name and decoded value. */
+export type GetInput<C> = { [Key in IdKey<Fields<C>>]-?: NonNullable<PlainId<Fields<C>[Key]>> };
+
 type FieldAxes<Field> = Extract<keyof NonNullable<Field>, AccessAxis>;
 type MemberAxes<Field> = Field extends unknown ? FieldAxes<Field> : never;
 type MarkedKeys<Model> = {
   [K in keyof Model]-?: MemberAxes<Model[K]> extends never ? never : K;
 }[keyof Model];
 
-type Variant = 'read' | WriteOperation;
+type Variant = FieldOperation | 'decodedCreate';
+
 type ResourceVariant<Value, V extends Variant> =
   V extends 'read' ? ReadModel<Value> :
-  V extends 'create' ? CreateInput<Value> : UpdateInput<Value>;
+  V extends 'create' ? CreateInput<Value> : V extends 'decodedCreate' ? CreatedFields<Value> : UpdateInput<Value>;
 
 // Inline JSON records retain their plain keys. Nested resources use the same
 // variant as the containing resource, including inside arrays and tuples.
@@ -46,7 +50,7 @@ type ProjectPlain<Value, V extends Variant> =
 type WriteGrant<Value> = NonNullable<Value[WriteAxis & keyof Value]>;
 type GrantValue<Value, V extends Variant> = V extends 'read'
   ? Exclude<Value[ReadAxis & keyof Value], undefined>
-  : WriteGrant<Value>[V & keyof WriteGrant<Value>];
+  : WriteGrant<Value>[(V extends 'decodedCreate' ? 'create' : V) & keyof WriteGrant<Value>];
 
 type ProjectMember<Value, V extends Variant> =
   FieldAxes<Value> extends never ? ProjectPlain<Value, V> :
@@ -63,7 +67,7 @@ type GrantedVariants<Field> = SecretAxis extends MemberAxes<Field> ? never
   | (WriteAxis extends FieldAxes<Field> ? Extract<WriteOperation, keyof WriteGrant<NonNullable<Field>>> : never);
 
 type ProjectFields<Model, V extends Variant> = {
-  [K in keyof Model as V extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], V>;
+  [K in keyof Model as (V extends 'decodedCreate' ? 'create' : V) extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], V>;
 };
 
 /** The readable data of a resource, with access flavors removed at each level. */
@@ -77,6 +81,9 @@ type OptionalDefaults<Model> = {
 
 // Distribute first so each resource in a union keeps its own keys and defaults.
 type CreateFromFields<Model> = Model extends unknown ? ProjectFields<OptionalDefaults<Model>, 'create'> : never;
+
+/** The decoded create request after schema defaults have been applied. */
+export type CreatedFields<C> = ProjectFields<Fields<C>, 'decodedCreate'>;
 
 /** The create-writable data of a resource, with schema-defaulted fields optional. */
 export type CreateInput<C> = CreateFromFields<Fields<C>>;

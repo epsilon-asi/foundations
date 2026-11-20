@@ -1,3 +1,4 @@
+import type { ChainCleanup, ChainContribution, ChainProvidedBy, ChainProvides, ChainProvidesOf } from '@epsilon-asi/foundation';
 import type {
   BaseCommandContext,
   CommandContext,
@@ -5,10 +6,6 @@ import type {
   OptionMetadata,
   OptionValue,
 } from '../types.js';
-
-/** Type-only markers. They are never set at runtime. */
-declare const providesMarker: unique symbol;
-declare const resultMarker: unique symbol;
 
 /**
  * Flags a middleware owns, keyed by the name its handler reads them under in
@@ -43,7 +40,7 @@ export type CheckedMiddlewareOptions<TOptions> = {
 export type ReservedContextKey = keyof BaseCommandContext | 'instance' | 'definition' | 'options' | 'defer';
 
 /** A cleanup registered with `ctx.defer()`. */
-export type Cleanup = () => unknown;
+export type Cleanup = ChainCleanup;
 
 /**
  * What a middleware handler receives: the command context, everything provided
@@ -67,11 +64,9 @@ export type MiddlewareContext<
 };
 
 /** What `next()` resolves to: the outcome of the rest of the chain. */
-export interface ChainResult<TProvided extends object = {}> {
+export interface ChainResult<TProvided extends object = {}> extends ChainContribution<TProvided> {
   /** The exit code the rest of the chain produced. */
   readonly exitCode: number;
-  /** Type-only: the values passed to the `next()` call that produced this result. */
-  readonly [resultMarker]?: TProvided;
 }
 
 /** Rejects values under a key the system owns. */
@@ -99,15 +94,13 @@ export type MiddlewareHandler<
 ) => MiddlewareReturn<TProvided> | Promise<MiddlewareReturn<TProvided>>;
 
 /** A middleware made by `defineMiddleware()`. Frozen; define it once at module level and reuse it. */
-export interface Middleware<TProvides extends object = {}> {
+export interface Middleware<TProvides extends object = {}> extends ChainProvides<TProvides> {
   readonly name: string;
   /** Middleware this one depends on. They run before it. */
   readonly use: readonly AnyMiddleware[];
   /** The flags this middleware owns. */
   readonly options: MiddlewareOptionsSpec;
   readonly handle: MiddlewareHandler<any, any, any>;
-  /** Type-only: what this middleware and its dependencies provide. */
-  readonly [providesMarker]?: TProvides;
 }
 
 export type AnyMiddleware = Middleware<any>;
@@ -126,19 +119,13 @@ export interface MiddlewareSpec<
   readonly handle: MiddlewareHandler<ProvidedBy<TUse>, TOptions, TProvided>;
 }
 
-type UnionToIntersection<T> = (T extends unknown ? (value: T) => void : never) extends (value: infer I) => void
-  ? I
-  : never;
-
 type Simplify<T> = { [K in keyof T]: T[K] };
 
 /** What one middleware provides, including its dependencies. */
-export type ProvidesOf<TMiddleware> = TMiddleware extends Middleware<infer TProvides> ? TProvides : never;
+export type ProvidesOf<TMiddleware> = TMiddleware extends AnyMiddleware ? ChainProvidesOf<TMiddleware> : never;
 
 /** What a list of middleware provides together. */
-export type ProvidedBy<TList extends readonly AnyMiddleware[]> = Simplify<
-  UnionToIntersection<ProvidesOf<TList[number]>>
->;
+export type ProvidedBy<TList extends readonly AnyMiddleware[]> = ChainProvidedBy<TList>;
 
 /**
  * The values a middleware, or a list of them, adds to the command context.

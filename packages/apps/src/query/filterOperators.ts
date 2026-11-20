@@ -34,9 +34,10 @@ export const FILTER_OPERATORS = Object.freeze({
   nullable: Object.freeze([FilterOperator.Exists, FilterOperator.Eq] as const),
 });
 
-export type TextOperator = (typeof FILTER_OPERATORS.text)[number];
-export type EnumOperator = (typeof FILTER_OPERATORS.enum)[number];
-export type RangeOperator = (typeof FILTER_OPERATORS.range)[number];
-export type BooleanOperator = (typeof FILTER_OPERATORS.boolean)[number];
-export type IdOperator = (typeof FILTER_OPERATORS.id)[number];
-export type ArrayOperator = (typeof FILTER_OPERATORS.array)[number];
+// Extract keeps the group names visible in TypeScript's declaration errors.
+export type TextOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.text)[number]>;
+export type EnumOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.enum)[number]>;
+export type RangeOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.range)[number]>;
+export type BooleanOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.boolean)[number]>;
+export type IdOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.id)[number]>;
+export type ArrayOperator = Extract<FilterOperator, (typeof FILTER_OPERATORS.array)[number]>;

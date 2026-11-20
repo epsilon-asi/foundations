@@ -2,6 +2,7 @@ import { Option as CommanderOption } from 'commander';
 import { CliDefinitionError } from '../errors.js';
 import { optionFlags, parseFlags } from '../naming.js';
 import type { CommandDefinition, OptionDefinition } from '../types.js';
+import { commandChain } from './binding.js';
 import { isMiddleware } from './define.js';
 import type { AnyMiddleware } from './types.js';
 
@@ -82,19 +83,8 @@ export function resolveMiddleware(
     inherited: readonly FlagEntry[],
     builtIn: readonly FlagEntry[],
   ): void => {
-    const seen = new Set(parentChain);
-    const chain = [...parentChain];
-    const attached: AnyMiddleware[] = [];
-
-    const add = (middleware: AnyMiddleware): void => {
-      if (seen.has(middleware)) return;
-      // defineMiddleware only accepts middleware that already exist, so dependencies cannot form a cycle.
-      for (const dependency of middleware.use) add(dependency);
-      seen.add(middleware);
-      chain.push(middleware);
-      attached.push(middleware);
-    };
-    for (const middleware of [...leading, ...definition.use]) add(middleware);
+    const chain = commandChain.resolve([...parentChain, ...leading, ...definition.use]);
+    const attached = chain.slice(parentChain.length);
 
     const flags = attached.flatMap((middleware) =>
       Object.entries(middleware.options).map(([key, metadata]): MiddlewareFlag => ({

@@ -1,3 +1,7 @@
+import { crudAccessRule, validatedCrudOperations, type CrudAccessMap } from '../../../src/access/crudAccess.js';
+import { enabledCrudOperations, type CrudOperation as Operation } from '../../../src/endpoints/enabledCrudOperations.js';
+import { assertResourceOwner } from '../../../src/model/assertResourceOwner.js';
+
 // S4 starts after authentication and membership resolution. The server binds
 // the tenant, role and entitlements. Only the flat request comes from the client.
 const roles = ['VIEWER', 'EDITOR', 'ADMINISTRATOR'] as const;
@@ -10,24 +14,19 @@ export interface AccessRequest { includeArchived?: boolean }
 type Grant = Role | 'own' | { feature: string };
 type When = { test: (request: AccessRequest) => boolean; rule: Grant };
 type Rule = Grant | readonly [...When[], Grant];
-type Operation = 'List' | 'Get' | 'Create' | 'Update' | 'Delete';
 
 export interface Resource {
   name: string;
   tenancy: 'owned' | 'shared' | 'self' | 'account';
-  access?: { read: Rule; write?: Rule };
+  access?: CrudAccessMap<Rule>;
   owner?: 'userId';
   parent?: { resource: Resource; field: 'salesCampaignId' };
   operations?: Partial<Record<Operation, boolean>>;
 }
 
 export function defineResource(resource: Resource): Resource {
-  if (resource.tenancy === 'shared' && !resource.access) throw new Error('Shared resources require access');
-  if (resource.tenancy === 'shared' && !resource.access?.write &&
-    (resource.operations?.Create || resource.operations?.Update || resource.operations?.Delete)) {
-    throw new Error('Shared write operations require an access rule');
-  }
-  if (resource.tenancy === 'account' && !resource.owner) throw new Error('Account resources require an owner');
+  validatedCrudOperations(resource);
+  assertResourceOwner(resource);
   return resource;
 }
 
@@ -43,12 +42,10 @@ function selectedGrant(rule: Rule, request: AccessRequest): Grant {
 // The UI and the service both evaluate this declaration. 'own' additionally
 // becomes a row constraint when the service queries or writes.
 function authorizedGrant(resource: Resource, op: Operation, ctx: Context, request: AccessRequest): Grant | undefined {
-  const read = op === 'List' || op === 'Get';
-  const defaultEnabled = resource.tenancy !== 'shared' || read;
-  if (!(resource.operations?.[op] ?? defaultEnabled)) return;
+  if (!enabledCrudOperations(resource).includes(op)) return;
   if (resource.tenancy === 'account') return !ctx.tenant && ctx.principal.kind === 'user' ? 'own' : undefined;
   if (!ctx.tenant) return;
-  const grant = selectedGrant(resource.access?.[read ? 'read' : 'write'] ?? 'ADMINISTRATOR', request);
+  const grant = selectedGrant(crudAccessRule({ access: resource.access, operation: op }) ?? 'ADMINISTRATOR', request);
   if (grant === 'own') return ctx.principal.kind === 'user' ? grant : undefined;
   if (typeof grant === 'object') return ctx.tenant.features.includes(grant.feature) ? grant : undefined;
   return roles.indexOf(ctx.tenant.role) >= roles.indexOf(grant) ? grant : undefined;

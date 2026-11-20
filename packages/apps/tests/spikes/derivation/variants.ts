@@ -1,18 +1,13 @@
-import { createTypeRegistry, defineTypeExtension, type Constructor } from '@epsilon-asi/foundation';
+import { createTypeRegistry, type Constructor } from '@epsilon-asi/foundation';
 import { z } from 'zod/v4';
+import { crudExtension } from '../../../src/model/extensions/crud.js';
+import { selectOperationFields, type FieldOperation } from '../../../src/model/selectOperationFields.js';
+import { serverOnlyFields } from '../../../src/model/serverOnlyFields.js';
+import { updateFieldSchema } from '../../../src/model/updateFieldSchema.js';
 
 // S1 fixture for deriving operation schemas from decorated field metadata.
-const access = z.enum(['readable', 'editable', 'createOnly', 'updateOnly', 'writeOnly', 'internal', 'secret']);
-const registry = createTypeRegistry({ namespace: 'spike-derivation' })
-  .use(defineTypeExtension({ key: 'crud' as const, field: access }));
+const registry = createTypeRegistry({ namespace: 'spike-derivation' }).use(crudExtension);
 export const { Prop } = registry;
-
-type Operation = 'read' | 'create' | 'update';
-const allowed: Record<Operation, readonly (z.output<typeof access> | undefined)[]> = {
-  read: ['readable', 'editable', 'createOnly', 'updateOnly'],
-  create: ['editable', 'createOnly', 'writeOnly'],
-  update: ['editable', 'updateOnly', 'writeOnly'],
-};
 
 function definition(schema: z.core.$ZodType) {
   return (schema as z.core.$ZodTypes)._zod.def;
@@ -29,11 +24,11 @@ export function ref<C extends Constructor>(target: () => C) {
   return schema;
 }
 
-export function derive(resource: Constructor, operation: Operation) {
+export function derive(resource: Constructor, operation: FieldOperation) {
   const cache = new Map<Constructor, z.ZodType<Record<string, unknown>>>();
-  const serverOnlyFields = new Set<string>();
+  const redactedNames = new Set<string>();
 
-  function fieldVariant(schema: z.core.$ZodType, stripFallbacks: boolean): z.core.$ZodType {
+  function fieldVariant(schema: z.core.$ZodType): z.core.$ZodType {
     const def = definition(schema);
     switch (def.type) {
       case 'lazy': {
@@ -42,16 +37,13 @@ export function derive(resource: Constructor, operation: Operation) {
         return build(target());
       }
       case 'array':
-        return z.clone(schema, z.core.util.mergeDefs(def, { element: fieldVariant(def.element, false) }));
+        return z.clone(schema, z.core.util.mergeDefs(def, { element: fieldVariant(def.element) }));
       case 'default':
       case 'prefault':
       case 'catch':
-        if (stripFallbacks) return fieldVariant(def.innerType, true);
-        // Preserve create defaults, including callbacks, around a retargeted ref.
-        return z.clone(schema, z.core.util.mergeDefs(def, { innerType: fieldVariant(def.innerType, false) }));
       case 'optional':
       case 'nullable':
-        return z.clone(schema, z.core.util.mergeDefs(def, { innerType: fieldVariant(def.innerType, stripFallbacks) }));
+        return z.clone(schema, z.core.util.mergeDefs(def, { innerType: fieldVariant(def.innerType) }));
       case 'string':
       case 'number':
       case 'enum':
@@ -67,14 +59,19 @@ export function derive(resource: Constructor, operation: Operation) {
     const shape: Record<string, z.core.$ZodType> = {};
     const object = z.lazy(() => operation === 'read' ? z.object(shape) : z.strictObject(shape));
     cache.set(target, object);
-    for (const field of registry.resolve(target).fields.values()) {
-      const preset = field.extensions.crud;
-      if (!allowed.read.includes(preset)) serverOnlyFields.add(field.name);
-      const schema = fieldVariant(field.schema, operation === 'update');
-      if (allowed[operation].includes(preset)) shape[field.name] = operation === 'update' ? z.optional(schema) : schema;
+    const model = registry.resolve(target);
+    const hidden = serverOnlyFields(model);
+    const writable = operation === 'read' ? undefined : selectOperationFields({ fields: model.fields, operation });
+    for (const field of model.fields.values()) {
+      const serverOnly = hidden.has(field.name);
+      if (serverOnly) redactedNames.add(field.name);
+      const schema = fieldVariant(field.schema);
+      if (writable ? writable.has(field.name) : !serverOnly) {
+        shape[field.name] = operation === 'update' ? updateFieldSchema({ schema }) : schema;
+      }
     }
     return object;
   }
 
-  return { schema: build(resource), serverOnlyFields };
+  return { schema: build(resource), serverOnlyFields: redactedNames };
 }

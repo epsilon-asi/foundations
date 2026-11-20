@@ -2,6 +2,27 @@
 
 > **Revised 2026-11-15.** This revision applies the findings of `docs/reviews/resource-framework-plan-review.md` and the answers to its open questions. Finding ids (C1–C7, M1–M14) and spike ids (S0–S6) refer to that review. Everything not listed under "Open decisions" is decided. A second pass the same day settled unmarked fields, cloud providers, ID generation and MFA. A third pass set sessions to bearer tokens with their state in Redis, made the API the public API, and applied a contradiction review. A fourth pass on 2026-11-16 settled local pub/sub and brought API versioning into scope. A fifth pass the same day closed every open decision. A sixth pass on 2026-11-17 applied an independent contradiction review, and the plan moved into the repo at `docs/plans/resource-framework.md`, which is now the copy to edit. A seventh pass the same day cut the first release: the features under "Deferred features" wait, each with a seam kept, and their designs moved to the appendix. An eighth pass on 2026-11-18 made filter caps accept `true`, with named operator constants and list descriptors (1.6), and made routes decorated classes that a zero-argument `runApi()` discovers (2.3, 2.7). The same pass applied that pattern to consumers, jobs, loops and webhooks (2.3, Phase 5), put loops in `/jobs`, required standard decorators with a clear error for legacy mode (0.1), and added a one-process `runApp()` (2.1).
 
+## Weekly handoff
+
+**As of 2026-11-19.**
+
+**The Offering example passes all five CRUD operations on both backends. The framework supplies one of the five database handlers.** The [end-to-end record](resource-framework-e2e.md#implementation-order-and-acceptance) has 12 completed checkpoints, from the first injected-fetch call through the reusable Get. These counts cover an unparented, tenant-owned resource accessed by authenticated users with ordered roles.
+
+| Area | Verified in this worktree | Remaining work |
+|---|---|---|
+| Offering over real HTTP | Create, Get, Update, Delete and List pass through the typed client on app-local memory and PostgreSQL. Tests cover membership and role checks, equivalent foreign-row and missing-row 404s, concurrent writes, offset pagination, equality filtering, two-key sorting and tenant-scoped counts. | All five operations have acceptance tests to reuse as their implementations move into the framework. [HTTP scenarios](resource-framework-e2e.md#what-the-http-tests-must-observe) |
+| Reusable persistence | The adapter derives the entity, binds a manager to the request tenant, and supplies the Get service and route default. An explicit handler can override it. | Create, Update, Delete and List still need defaults. The service also needs `getOrFail`, `ref` and `repository`. [Services and unit of work](#33-free-services-and-unit-of-work) · [Default handlers](#34-default-handlers) |
+
+Of the nine entries in the program order, two have met their acceptance criteria, three have working implementations with gaps, and four are still ahead. These milestones differ in size. [Program order](#program-order)
+
+- **Phase 0 and the spikes met their acceptance criteria.** The toolchain, browser-safe package roots and dual-compiler checks passed. All six scheduled spikes were verified. The shared middleware chain now serves the CLI and HTTP. Wiring the app’s server-only fields into production log redaction is still carried into Phase 1. [Phase 0 acceptance](#05-re-tool-epsilon-asiapps) · [Spikes](#spikes-about-a-day-each-after-phase-0-before-phase-1)
+- **Phases 1, 2 and 3 are partial.** Phase 1 has resource-derived contracts, projections, wire codecs and a typed client. Parent-scoped contracts, broader List queries and text search still need integration. Phase 2 has route discovery, an authenticated HTTP pipeline, a listener and the test kit. Other principal and ownership policies, middleware groups and service discovery remain. Phase 3 still needs the four defaults above, a general query translator, relations, migrations, encrypted fields and transactional audit/outbox writes. [Core contracts](#14-endpoints-appssrcendpoints) · [HTTP pipeline](#24-request-pipeline-per-route-compiled-once-at-startup) · [MikroORM adapter](#phase-3--mikroorm-adapter-epsilon-asiappsmikro-orm)
+- **Four first-release milestones remain ahead.** Phase 1.5 is the first Offering form, including mapping a server 422 to its field. Phases 4, 5 and 6 deliver the broader React layer, messaging and workers, and SaaS kits and scaffolding. The plan tracks deferred features separately from the first release. [Thin UI spike](#phase-15--thin-ui-spike) · [Program order](#program-order) · [Deferred features](#deferred-features)
+
+**Last verified build.** The workspace built and typechecked. Across 12 package suites, 3,238 tests passed and 18 were skipped. All 731 apps tests passed, including all 21 end-to-end tests, with PostgreSQL 16.15 enabled. The local tarball dry run compiled on TypeScript 5.9.3 and 7.0.2 and exercised the example on Node 22.17 and 24.15. [Checkpoint results](#38-tests)
+
+**Recommended next checkpoint.** Extract the reusable Delete. It is the smallest remaining database handler, and the existing test defines success. Move the tenant-scoped delete into `ResourceService(C)`, expose the Delete default through `crudHandlers(C)` and remove the example’s database delete. Run the existing typed-client tests on both backends. The owning administrator gets 200, an editor gets 403, a foreign or repeated delete gets 404, and two administrators racing get exactly one success. That brings reusable defaults to two of five. [Default handlers](#34-default-handlers) · [Delete acceptance test](../../packages/apps/tests/e2e/offeringDelete.fixture.ts)
+
 ## Context
 
 maxleads already works this way: one contract in `common` is shared by the API, the UI and the workers. Every app adds only its own pieces:
@@ -395,7 +416,7 @@ Use the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.m
   - [x] `child(bindings)` inherits the parent’s threshold, writer and redaction policy. Child bindings override inherited fields, and per-call fields win for that record. [Child logger example](../../packages/foundation/README.md#structured-logging)
   - [x] Serialize errors supplied as structured fields, including nested errors and causes. Both custom and JSON writers receive the error name, message, stack when available, and enumerable metadata.
   - [x] Omit matching fields recursively before invoking the writer. The logger accepts exact key names and a `shouldRedact` predicate. Tests cover child bindings, nested arrays and error details. [Redaction options](../../packages/foundation/README.md#structured-logging)
-  - [ ] In 1.1, have `apps` supply the server-only field names from `serverOnlyFields(C)` to the redaction hook.
+  - [ ] In 1.1, have `apps` supply the server-only field names from `serverOnlyFields(C)` to the redaction hook. The S1 fixture now feeds the foundation logger names collected across reachable models. [Redaction test](../../packages/apps/tests/spikes/derivation/derivation.test.ts)
   - [x] `createJsonLogWriter` emits one JSON line per record. The default generic preset writes `level`. The `gcp` preset writes `severity` using Cloud Logging values, including `WARNING` for `warn`. [Structured logging](../../packages/foundation/README.md#structured-logging)
   - [x] The CLI text writer emits `[level] message\n`.
 - [x] Export `toCamelCase`, `toPascalCase` and `toSnakeCase` from the foundation package root. Tests exercise all five input spellings for each of these three outputs. [Usage examples](../../packages/foundation/README.md#naming)
@@ -404,6 +425,7 @@ Use the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.m
 - command-line re-exports the moved names, so its public API and tests stay unchanged.
 
 ### 0.3 The typed middleware chain (built in Phase 2)
+- [x] Extract the browser-safe chain and bind both the CLI and the HTTP system steps to it. Each binding owns its middleware identities. Resolution orders dependencies and checks declared provider keys. Each invocation gets a fresh context and cleanup stack. The CLI retains its existing public middleware API. [Foundation binding](../../packages/foundation/src/chain/binding.ts) · [CLI binding](../../packages/command-line/src/middleware/binding.ts) · [HTTP pipeline](../../packages/apps/src/express/pipeline.ts)
 This work runs with 2.2, not in Phase 0, so the generic core is designed against two real users: the CLI and HTTP. It stays written here because it changes foundation and command-line.
 - **Source:** command-line's `middleware/{define,compose,types,resolve}.ts`.
 - **The generic core is generic over six things (M8):**
@@ -472,7 +494,9 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 
 ## Phase 1 — Core: model and contracts (browser-safe)
 
-The workspace build and typecheck passed on a frozen Node 24.15 install. With PostgreSQL enabled, the 12 package suites reported 2,680 tests passed and 18 skipped. An isolated consumer compiled and ran all 20 TypeScript examples in the apps README from local dry-run tarballs on Node 22.17 and 24.15 with TypeScript 5.9.3 and 7.0.2. The examples also ran in a browser-targeted bundle. [Resource models and UI metadata](../../packages/apps/README.md#resource-model-primitives) · [List queries](../../packages/apps/README.md#sort-directions-and-filter-operators) · [Search](../../packages/apps/README.md#search-queries) · [Date wire codec](../../packages/apps/README.md#date-wire-codec) · [Number wire codec](../../packages/apps/README.md#number-wire-codec)
+On 2026-11-19 the first `CreateOffering` checkpoint built and typechecked from a frozen workspace install on Node 24.15. With PostgreSQL 16.15 enabled, 3,162 tests passed and 18 were skipped across 12 package suites. All 660 apps tests and all 411 foundation tests passed. An isolated consumer used the locally packed apps and foundation entries, compiled the example and emitted declarations with TypeScript 5.9.3 and 7.0.2, and ran the client on Node 22.17, Node 24.15 and in a minified browser-targeted bundle. [Public client checkpoint](resource-framework-e2e.md#implementation-order-and-acceptance) · [Run the example test](../../packages/apps/README.md#creating-an-offering-through-the-typed-client)
+
+The preceding contract batch verified the release script with a dry run against a local Git replica. Offline publish dry runs matched the local tarballs for foundation, command-line and apps, and the tarballs were identical on Node 22.17 and 24.15. An isolated consumer compiled and ran all 68 apps README examples on both Node versions with TypeScript 5.9.3 and 7.0.2. All 68 also ran in a browser-targeted bundle. A second consumer compiled against the emitted query, CRUD access and response declarations on both compilers. The packed foundation consumer passed with the minimum supported Zod 4.1.0.
 
 ### 1.1 Resource system (`apps/src/model/`)
 - **`createResourceSystem(options)`** follows the `create*System` pattern and builds on `createTypeRegistry({ namespace: 'resources' })`. Its options:
@@ -481,6 +505,7 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
   - `permissions?`: named permissions mapped to roles.
   - `features?`: entitlement names, so `feature('x')` rules are checked at definition time. The billing kit's `definePlans` is typed against them.
   - `apiVersion?`: the current API version, a date (2.10). `api check` requires it to move forward whenever a breaking change is declared. Default: none, which turns the version header and pinning off; `api check` still guards changes.
+    - [x] Export `apiVersionSchema` for this option. An omitted version stays unset. A supplied string must be a real `YYYY-MM-DD` calendar date, including the leap-year rule. [API version example](../../packages/apps/README.md#api-version-dates) · [Tests](../../packages/apps/tests/model/apiVersion.test.ts)
   - `access?`: the default access for endpoints that declare none. Default: every operation requires the highest role, so forgetting `access` fails safe.
   - `extensions?`
 
@@ -509,13 +534,16 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
 - [x] Export `Id<T>` and `Tenant<T>` with distinct primary-key and tenant markers. Both grant read access, accept plain values and preserve nullable unions. Type tests check that neither grants a write operation. [Identity field tests](../../packages/apps/tests/model/access.test-d.ts)
 - [x] Export `Defaulted<T>` as an independent marker for schema defaults. It preserves nullable unions and the wrapped field's read and write grants. [Defaulted field example](../../packages/apps/README.md#resource-model-primitives)
 - [x] Export `Internal<T>` and `Secret<T>` as server-only field types. `Internal<T>` is equivalent to an unmarked field. `Secret<T>` carries a distinct marker for encryption and redaction. Neither grants read or write access. [Field type tests](../../packages/apps/tests/model/access.test-d.ts)
+- [x] Export `selectOperationFields()` to select a resolved model’s fields for `read`, `create`, or `update` using the preset table. Selection preserves the fields’ order, schemas and extension metadata. The derivation fixture uses this selector for its operation schemas. [Registry example](../../packages/apps/README.md#resource-model-primitives) · [Selection tests](../../packages/apps/tests/model/selectOperationFields.test.ts) · [Derivation fixture](../../packages/apps/tests/spikes/derivation/variants.ts)
 - **Flavors are stripped from derived types** (`RequestOf`, `ReadModel`, `CreateInput`, form values). Brands stay only on the class, so diagnostics read `string`, not `Defaulted<UpdateOnly<…>>` (M5).
 - **Server-only fields** are unmarked, `Internal`, `WriteOnly` and `Secret` fields. `serverOnlyFields(C)` lists them, and projection, log redaction, audit and the tests all use that one list.
+  - [x] Export `serverOnlyFields()` for a resolved model, including inherited fields. The derivation fixture uses the same names for read projection and log redaction, collecting names from nested and recursive models. [Redaction example](../../packages/apps/README.md#server-only-fields-and-log-redaction) · [Field tests](../../packages/apps/tests/model/serverOnlyFields.test.ts) · [Derivation tests](../../packages/apps/tests/spikes/derivation/derivation.test.ts)
 - **Strict `Prop` (`model/prop.ts`)** wraps foundation's `Prop` and every shorthand with `const` option generics. At compile time it requires:
   - The field's flavor equals the flavor implied by `crud`. Neither means hidden.
   - `Defaulted` is present exactly when the schema has a default. This is detected structurally: the outer wrapper chain contains `ZodDefault` or `ZodPrefault`, and shorthands carry a literal `default` key through `const` generics (M4).
   - Each mismatch produces a diagnostic that names the property.
 - **`patch` field option:** `'replace'` (the default), `'merge'` for objects, or `'append'` for arrays.
+  - [x] Check the PATCH mode when the CRUD registry resolves a model, including inherited fields. An incompatible `merge` or `append` raises `ResourceDefinitionError` before a route is built. The Offering checkpoint applies the default replacement behavior to stored data. General merge and append persistence belongs to the resource service in §3.3. [PATCH modes](../../packages/apps/README.md#patch-modes) · [Declaration tests](../../packages/apps/tests/model/assertFieldPatchModes.test.ts)
 - **Derived types (`model/types.ts`)** come from the class type alone:
   - `Fields`, `ReadModel`, `CreateInput` (required unless `?` or `Defaulted`), `UpdateInput` (all optional), `IdOf`.
   - [x] Export `Fields<C>` for a constructor or instance type. It uses foundation's `TypeShape` to preserve the original field declarations, including inherited, readonly and optional fields, and omit methods. [Data field tests](../../packages/apps/tests/model/fields.test-d.ts)
@@ -524,10 +552,12 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
   - [x] Export `CreateInput<C>` for a resource constructor or instance. It selects create-writable fields, including write-only fields, and applies the same projection to nested resources. Optional and schema-defaulted fields may be omitted. [Create input type tests](../../packages/apps/tests/model/createInput.test-d.ts)
   - [x] Export `UpdateInput<C>` for a constructor or instance. Every update-writable field is optional, including write-only fields. Nested resources follow the same update rules. Type tests cover empty patches, password changes and rejection of create-only fields. [Update input type tests](../../packages/apps/tests/model/updateInput.test-d.ts)
   - `Paths` (dot paths into nested resources, depth-limited).
+    - [x] Export `Paths<C>` for constructors and instances. It follows inherited and recursive data fields for up to three segments. Arrays, dates and open dictionaries end a path. [Field path example](../../packages/apps/README.md#resource-field-paths) · [Type tests](../../packages/apps/tests/model/paths.test-d.ts)
 - **Runtime model.** `resolveResource(C)` caches a `ResourceModel` per class, holding fields with their access, the id field, the tenancy and extension options. It also holds three schema **variants**: `read`, `create` and `update`.
   - A nested `ref` inside a variant points at the *same variant* of its target, so projection reaches nested types (C2). `ReadModel` recurses the same way.
   - S1 keeps the target thunk with each resource ref and caches each class’s operation schema before following its refs. This lets recursive models terminate and lets the logger collect hidden names from reachable models. A hidden name anywhere in that graph is redacted throughout a structured log. [Derivation fixture](../../packages/apps/tests/spikes/derivation/variants.ts)
   - `update` is built from each field's schema with the `default`, `prefault` and `catch` wrappers removed before `.optional()`, so an absent key stays absent (C1).
+    - [x] Export `updateFieldSchema()` and use it in the decorated-resource derivation fixture. An omitted PATCH key stays absent, a nullable field preserves an explicit `null`, and supplied values still run the field validators. The original create schema retains its fallbacks. [PATCH example](../../packages/apps/README.md#patch-field-schemas) · [Field tests](../../packages/apps/tests/model/updateFieldSchema.test.ts) · [Derivation tests](../../packages/apps/tests/spikes/derivation/derivation.test.ts)
   - Resource-level `refine` runs after the per-operation derivation, because zod can't `pick`/`partial` a refined object.
 - **Definition-time errors** (`ResourceDefinitionError`, naming the class and field):
   - A decorated override widens an inherited field’s access. S6 also checks the original kit field types at compile time, since a type-only override emits no runtime metadata.
@@ -535,9 +565,12 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
   - two `id` fields, or composite keys (memberships use a surrogate id);
   - an `Internal` or `Secret` field that is also an id;
   - a tenant-owned resource without exactly one `Tenant` field;
+  - [x] `resolveTenantField()` returns the original tenant field, including an inherited declaration. Deriving routes for a resolved model with `tenancy: 'owned'` raises `ResourceDefinitionError` for a missing or duplicate field, even with every operation disabled. [Owned resource example](../../packages/apps/README.md#tenant-fields-on-owned-resources) · [Field tests](../../packages/apps/tests/model/resolveTenantField.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
+  - [x] `resolveCrudIdField()` finds the single primary key in a resolved model, including an inherited ID. When generating routes from a model, `crudRouteMetadata()` checks the key for enabled CRUD operations. A missing, duplicate, or explicitly internal or secret key raises `ResourceDefinitionError`. [CRUD ID example](../../packages/apps/README.md#crud-primary-keys) · [ID tests](../../packages/apps/tests/model/resolveCrudIdField.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 - [x] Export `newId()` from the core. It uses Web Crypto to generate UUIDv7 IDs with a millisecond timestamp and 74 random bits. IDs from different milliseconds sort by creation time. [UUIDv7 tests](../../packages/apps/tests/model/newId.test.ts)
   - Services will call it when they create a row so the id exists before the flush. The database sets no default.
 - **Field helper:** `fields(C, { pick: ['name', 'description'] })` or `fields(C, { omit: [...] })` returns a typed zod object, for facet-update and action endpoints.
+  - [x] A type registry projects its decorated class with `fields(C, options)`, and the apps and foundation roots accept `fields(resolve(C), options)`. Both forms build a strict Zod object with the original selected field schemas, including inherited fields. [Projection example](../../packages/apps/README.md#picking-and-omitting-fields) · [Registry tests](../../packages/foundation/src/decorators/types/__tests__/fields.test.ts) · [Packed consumer](../../testing/foundation-consumer/consumer.ts)
 
 ### 1.2 Field and type extensions (definitions only, dependency-free)
 
@@ -548,7 +581,7 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
 | `ui` | `{ label?, placeholder?, helperText?, input?, autoComplete?, multiline?, order? }`. Text options are message keys that default to `<entity>.<field>[.placeholder\|.helper]`. Enum option labels default to `<entity>.<field>.<VALUE>`. Typed `options` overrides are special-cased in the strict `Prop.enum`, because an extension can't type them against the enum. | `{ label?, plural? }` (keys) | React fields |
 | *(no `orm` key)* | — | — | ORM mapping is server-only: `defineEntity` (3.1). Table, column and index names never reach the browser. |
 
-- [x] Export `crudExtension` from the apps root. Foundation's registry accepts the nine access presets and validates the optional boolean ID flag and the three PATCH modes. The registry keeps omitted keys absent. The resource model and service will interpret this metadata. [Registry tests](../../packages/apps/tests/model/crud.test.ts)
+- [x] Export `crudExtension` from the apps root. Foundation's registry accepts the nine access presets and validates the optional boolean ID flag and the three PATCH modes. The registry keeps omitted keys absent. `selectOperationFields()` uses the access preset to select fields for each operation. [Registry tests](../../packages/apps/tests/model/crud.test.ts)
 - [x] Export `httpExtension` from the apps root. Foundation's registry resolves the optional field wire name and rejects type-level HTTP options and field-level locations. [Registry example](../../packages/apps/README.md#resource-model-primitives)
 - [x] Export `uiExtension` for field hints and resource labels. The registry validates metadata at each level and preserves omitted keys for later derivation. Enum option overrides belong to strict `Prop.enum`. [UI metadata tests](../../packages/apps/tests/model/ui.test.ts)
 - [x] Export `fieldMessageKeys()` to derive label, placeholder and helper text keys from the declared resource and field names. Each explicit field key overrides its own default. [Message key tests](../../packages/apps/tests/i18n/fieldMessageKeys.test.ts)
@@ -570,9 +603,11 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
   - `'owned'` (the default when the system has a tenant): the row has the `Tenant` field. The layer filters by it and sets it.
   - **Under a parent:** a row under a parent (SalesThread under its campaign) is still `'owned'`. When it's created, the layer checks that the parent belongs to the tenant and copies the tenant id from it. So the tenant filter is always one column, never a join.
   - `'shared'`: no tenant owns the row (shared reference data such as Company). It still requires a tenant context, and its endpoints must name an access rule, usually an entitlement. Leaving the rule out is a definition-time error. Only Get and List are on by default, because a write would change what every tenant sees. A write operation needs an explicit opt-in. Otherwise shared data changes through seeds, migrations or `apps-cli`.
+    - [x] Validate shared access in CRUD route declarations and the S4 tenancy fixture. Get and List can share a read rule. A shared write must be enabled and covered by a write rule or its own operation rule. [Shared resource example](../../packages/apps/README.md#shared-resource-access) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts) · [Tenancy tests](../../packages/apps/tests/spikes/tenancy/tenancy.test.ts)
   - User-owned rows (a user's connected inbox) are tenant-owned rows that declare `@Resource({ owner: 'userId' })`. `own()` defaults to that field.
   - The tenant resource itself is `'self'`, set automatically.
   - `'account'`: the row belongs to one user and sits outside any tenant (the user's own profile, MFA factors). Only that user reaches it; staff reach it only through `apps-cli`. It needs `owner`, or the definition fails.
+    - [x] Validate account ownership in model-backed CRUD declarations and in the S4 tenancy fixture. `assertResourceOwner()` requires an owner for account resources and checks the declared field name against the resolved model, including inherited fields. [Account owner example](../../packages/apps/README.md#owners-of-account-resources) · [Model tests](../../packages/apps/tests/model/assertResourceOwner.test.ts)
 - **Parent scopes:** `endpoints(SalesThread, { name, parent: SalesCampaign })` gives `/sales-campaigns/:salesCampaignId/sales-threads`. The layer checks that the parent belongs to the tenant (404 otherwise) and constrains the rows to that parent.
   - [x] `crudPaths()` derives parent-scoped collection and item templates from the parent and child names. Each accepts a plural override. The helper rejects duplicate ID parameter names. [Parent path example](../../packages/apps/README.md#parent-scoped-paths) · [Tests](../../packages/apps/tests/endpoints/crudPaths.test.ts)
 - **Workers:** every job and message envelope carries the tenant id, and consumers and jobs run with the same scoping.
@@ -589,6 +624,7 @@ The workspace build and typecheck passed on a frozen Node 24.15 install. With Po
 - [x] Export `EndpointScope`, `DEFAULT_ENDPOINT_SCOPE` and `endpointScopeSchema`. The schema accepts the three scope values, defaults an omitted scope to `tenant` and rejects the reserved `platform` value. [Scope example](../../packages/apps/README.md#endpoint-scopes) · [Tests](../../packages/apps/tests/tenancy/endpointScope.test.ts)
 - **Why the exception exists:** a new user has no tenant until `CreateTenant` runs. Staff work across tenants through `apps-cli`, not the API (6.1). The scope value `platform` is reserved for a staff console later.
 - **The tenancy rule still holds.** Anything a tenant owns, and shared data, is reached only through a tenant. `endpoints()` gives `tenant` scope unless the resource's tenancy is `'account'`.
+  - [x] Export `defaultEndpointScope()` to derive the scope from resource tenancy. Only account resources default to `account`. [Scope example](../../packages/apps/README.md#endpoint-scopes) · [Tests](../../packages/apps/tests/tenancy/endpointScope.test.ts)
 - **`account` is never a default.** An endpoint gets one only by saying so, and declaring a resource's tenancy `'account'` counts as saying so for its endpoints.
 - **`account` scope reads across tenants for the user only.** `ctx.em` binds the signed-in user instead of a tenant (3.1), so `ListMyTenants` and `DeleteAccount` can read the user's own memberships in every tenant.
 
@@ -613,6 +649,7 @@ An endpoint can limit the kinds with `principals`. The defaults:
 - `tenant` endpoints accept users and API keys.
 - Agents reach only endpoints marked `tool: true` (1.12), whether they call in-process or over HTTP.
 - `account` endpoints accept users only.
+  - [x] Derive allowed principal kinds from each enabled CRUD route’s effective scope and tool setting. Tenant routes default to users and API keys, tenant tools also admit agents, account routes accept users, and public routes allow anonymous callers. Authenticated routes can narrow these defaults. [Principal examples](../../packages/apps/README.md#endpoint-principals) · [Principal tests](../../packages/apps/tests/tenancy/endpointPrincipals.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 - The identity kit's membership, invitation, API-key, ownership, billing and tenant-lifecycle endpoints accept users only, so a leaked key can't be used to create more access (Security 17).
 
 **Access maps.**
@@ -632,6 +669,7 @@ export const ExportOfferings = endpoint({
 - **What a rule can be:** a role, a named permission, `feature('x')` (an entitlement, 6.6), `own()`, `public`, `when({ test, rule })`, `all(...)` or `any(...)`. `staff()` is reserved for the staff console.
 - **Rule arrays:** an array applies the first `when` whose predicate matches, otherwise its plain rule.
 - **Where it's declared:** per operation in `endpoints()` (`read`, `write`, `create`, `update`, `delete`, `list`), per endpoint in `endpoint()`, and per transition in a state machine. Field-level rules go under `fields`.
+  - [x] Each enabled CRUD route exposes its selected declaration as `Access`. List uses its own rule or falls back to `read`. Create, Update and Delete use their own rule or fall back to `write`. A route omits the member when the declaration supplies no rule for it. [Access on a descriptor](../../packages/apps/README.md#shared-resource-access) · [Route access tests](../../packages/apps/tests/access/crudRouteAccess.test.ts)
 - **Server enforcement:**
   - Before the body is decoded, the pipeline checks the minimum role across all of the endpoint's rules. Rules that name no role (`own`, `feature`, `public`) add no floor.
   - `own()` is enforced as a row constraint, not only as a yes or no: a list returns only the caller's rows, and someone else's row is a 404 (3.1).
@@ -639,13 +677,22 @@ export const ExportOfferings = endpoint({
 - **UI:** `const can = useCan(); can(ExportOfferings, request)`. Field rules disable form fields.
 - **Escape hatch:** `requireAccess('ADMINISTRATOR')` is ordinary middleware. It comes from the HTTP binding, built from the access map, because middleware can't live in the browser-safe core. And `defineMiddleware` covers anything else.
 - **Definition-time errors:** an unknown role, permission or entitlement; a `shared` resource without a rule; a field rule on a field the operation can't write.
+  - [x] A model-backed CRUD declaration rejects `access.fields.<field>.write` when the field is unknown or neither enabled write operation accepts it. A create-only or update-only field can have a rule for its applicable operation, including when the field is inherited. [Field write rules](../../packages/apps/README.md#field-write-rules) · [Access tests](../../packages/apps/tests/access/fieldWriteAccess.test.ts)
+  - [x] TypeScript checks field write rules against the resolved class and the enabled Create and Update operations. Renaming a writable field flags a saved rule that still uses the old name. [Field write rules](../../packages/apps/README.md#field-write-rules) · [Contract-drift type test](../../packages/apps/tests/access/fieldWriteAccess.test-d.ts)
 - **Startup error:** a `feature()` rule on an API with no entitlement resolver. The billing kit registers one (6.6).
 
 ### 1.4 Endpoints (`apps/src/endpoints/`)
 
+- [x] Generate the first named Create contract from the actual resource declaration. `CreateOffering` derives its flat request, JSON sections, access, projected 201 response and scoped failure union. The contract applies defaults and strips hidden fields before encoding a response. [Offering declaration](../../packages/apps/examples/crud-api/common/src/resources/Offering.ts) · [Contract tests](../../packages/apps/tests/endpoints/createEndpoints.test.ts)
+- [x] Generate `GetOffering` from the same resource and read grant. Its flat request selects the declared primary key. On the wire the key travels in the item URL, and HTTP 200 returns the projected read model. [Reading a stored offering](../../packages/apps/README.md#reading-a-stored-offering)
+- [x] Generate `UpdateOffering` from the same resource. It derives a strict partial body from update grants, sends the primary key in the item URL and returns the projected read model with HTTP 200. [Contract](../../packages/apps/src/endpoints/createEndpoints.ts) · [Example](../../packages/apps/README.md#updating-an-offering)
+- [x] Generate `DeleteOffering` with the item ID as its only input. The contract takes its access rule from `delete` or the `write` fallback. The handler returns no data on success. The response schema accepts `{ code: 200 }` with an optional `message`. [Delete contract tests](../../packages/apps/tests/endpoints/deleteEndpoint.test.ts) · [Example](../../packages/apps/README.md#deleting-an-offering)
+- [x] Generate the offset-paged `ListOfferings` contract. The client sends numeric paging inputs as query parameters on the collection GET. The handler receives decoded paging defaults and the response projects each offering through its read model. [List usage](../../packages/apps/README.md#listing-offerings)
+
 **`endpoints(C, options)`** builds the five CRUD endpoints. Its options:
 - `name`: a literal, and the source of truth.
 - `plural` defaults to `` `${name}s` ``. See the [plural naming rules](../../packages/apps/docs/CONVENTIONS.md#from-a-resource-name-to-a-public-contract) for names that trigger a warning.
+  - [x] Warn once per CRUD resource declaration when its name has a listed ending and it uses the default plural. An explicit plural suppresses the warning. [Declaration options](../../packages/apps/README.md#crud-route-metadata) · [Tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 - `parent`: a parent resource, for scoped paths.
 - `operations`: default all five, or Get and List for a `shared` resource. `{ Delete: false }` turns one off, and `{ Delete: { principals: ['user'] } }` sets options for one.
 - `access`.
@@ -653,6 +700,10 @@ export const ExportOfferings = endpoint({
 - `list: { sort?, filter?, search?, perPage?: { default, max }, paging?: 'offset' | 'cursor' }`. `sort` is `true` or a list of paths, and each `filter` entry is `true` or a list of operators (1.6). `search` is 1.13.
 - `tool?`: agent tool exposure (1.12).
 - `scope`, `principals` and `docs`, as on `endpoint()`. They apply to every operation unless `operations` sets them for one.
+
+- [x] Export `enabledCrudOperations()` to select the five ordinary operations or the shared Get/List defaults. Explicit overrides enable or disable individual operations, including writes on shared resources. [Selection example](../../packages/apps/README.md#enabled-crud-operations) · [Tests](../../packages/apps/tests/endpoints/enabledCrudOperations.test.ts)
+- [x] Resolve `docs` on every enabled CRUD route. An operation setting overrides the resource setting, and the default is `true`. Hidden operations retain their route descriptors. [Visibility example](../../packages/apps/README.md#crud-route-metadata) · [Tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
+- [x] Carry the effective `scope` on every enabled CRUD route. An operation can override the resource-wide scope. Omitted settings use the tenancy default, and passing the resulting route to `defaultFailureCodes()` preserves that scope. [Route scope example](../../packages/apps/README.md#crud-route-metadata) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 
 Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` `Update${N}` ``, `` `Delete${N}` ``, `` `List${P}` ``.
 
@@ -662,12 +713,18 @@ Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` 
 
 - [x] Export `assertRouteNamesAvailable()` for path and verb declarations. It rejects complete static segments and verbs named `bulk` or `restore`, including case variants that match the same Express route. [Route naming example](../../packages/apps/README.md#reserved-route-names) · [Tests](../../packages/apps/tests/endpoints/assertRouteNamesAvailable.test.ts)
 - [x] Export `assertOptionNamesAvailable()` to reject the five reserved option names on a declaration. An own property set to `false` or `undefined` still claims the name. [Option validation example](../../packages/apps/README.md#reserved-route-names) · [Tests](../../packages/apps/tests/endpoints/assertOptionNamesAvailable.test.ts)
+- [x] Validate reserved options when declaring CRUD routes, both on the resource and in each operation’s settings. A model field named `suspended` remains available in field access rules and filters. [Reserved options](../../packages/apps/README.md#reserved-route-names) · [CRUD declaration tests](../../packages/apps/tests/endpoints/assertOptionNamesAvailable.test.ts)
 
 **The tenant resource's own routes** drop the id: `/organization` instead of `/organizations/:organizationId`, and `POST /organization/<verb>` for its transitions. They act on the tenant from the header, so a path can never name another tenant.
+
+- [x] Export `tenantResourcePath({ name, verb? })` for the tenant’s singular path and transition paths. Both the resource segment and optional verb must be static and available. [Tenant path example](../../packages/apps/README.md#tenant-resource-paths) · [Tests](../../packages/apps/tests/endpoints/tenantResourcePath.test.ts)
 
 **Path parameters.** The item param is `` `${Uncapitalize<N>}Id` ``, mapped to the id field. A parent param comes from the parent's name. Each maps to a request field, and that field is excluded from bodies. The tenant id never appears in a path.
 
 - [x] Export `itemParamName()` to derive the item parameter from the singular resource name. The runtime value and TypeScript literal agree for `Offering` and `ApiKey`. A spelling that would produce different runtime and type names is rejected. [Item parameter example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/itemParamName.test.ts)
+- [x] Export `splitUpdateRequest()` to move path fields from a flat update into `params` using the declared names or mappings. The other fields form the update body. [Update request example](../../packages/apps/README.md#update-path-parameters-and-body) · [Tests](../../packages/apps/tests/endpoints/splitUpdateRequest.test.ts)
+- [x] Export `reassembleUpdateRequest()` to recover a flat update from decoded path parameters and body fields. A nested update round-trips both parent and item IDs. A body that repeats a field assigned to the path is rejected. [Round-trip example](../../packages/apps/README.md#update-path-parameters-and-body) · [Tests](../../packages/apps/tests/endpoints/reassembleUpdateRequest.test.ts)
+- [x] Derive the item parameter mapping for Get, Update and Delete from the resolved model’s primary key. A parent-scoped PATCH sends an inherited `key` as `catalogItemId` and restores `key` when reassembled. [CRUD primary keys](../../packages/apps/README.md#crud-primary-keys) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 
 **Operations:**
 
@@ -680,8 +737,11 @@ Return keys are template-literal types: `` `Create${N}` ``, `` `Get${N}` ``, `` 
 | `List<P>` | get | `/…/<plural>` | parent + `ListQuery` | `{ <camelPlural>: ReadModel[], count }` (cursor paging: `{ <camelPlural>, nextCursor }`) | 200 |
 
 - [x] Export `listResponseKey({ name, plural? })` for the collection field shared by offset and cursor responses. It camel-cases the same plural used by the list endpoint, preserving literal types for default and explicit plurals. [List key example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/listResponseKey.test.ts)
+- [x] Export `OffsetListResponseData` for the offset-paged List result. It requires the derived collection key, an array of the resource’s read model and a numeric count. [List response example](../../packages/apps/README.md#offset-paged-list-responses) · [Type tests](../../packages/apps/tests/responses/offsetListResponseData.test-d.ts)
+- [x] Export `CursorListResponseData` with the derived collection key, readable rows and a required `nextCursor`. An opaque string continues the list and `null` marks the final page. [Cursor response example](../../packages/apps/README.md#cursor-paged-list-responses) · [Type tests](../../packages/apps/tests/responses/cursorListResponseData.test-d.ts)
 - [x] Export `crudPaths({ name, plural? })` for ordinary unparented resources. The collection uses the kebab-case plural, and the item adds the singular ID parameter. [Path example](../../packages/apps/README.md#crud-endpoint-names) · [Tests](../../packages/apps/tests/endpoints/crudPaths.test.ts)
 - [x] Export `CRUD_OPERATIONS` with the HTTP method and success code for each of the five operations above. The table preserves literal types and each entry is frozen. [CRUD method and status examples](../../packages/apps/README.md#crud-methods-and-success-codes) · [Tests](../../packages/apps/tests/endpoints/crudOperations.test.ts)
+- [x] Export `crudRouteMetadata()` to assemble each enabled operation’s name, method, path and success code. Create and List use the collection path. Get, Update and Delete use the item path, including the singular path for the tenant itself. [Route metadata example](../../packages/apps/README.md#crud-route-metadata) · [Tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 
 **`endpoint({...})`** builds one custom or action endpoint with the same members. It takes:
 - `name`, `method`, `path`;
@@ -705,6 +765,9 @@ The default failures are derived:
 - 500, always;
 - 503, unless the endpoint is public (the session store is down).
 
+- [x] Export `defaultFailureCodes()` to derive these defaults from the effective scope, route path, CRUD operation and applicable budget or feature checks. [Failure code examples](../../packages/apps/README.md#default-failure-codes) · [Tests](../../packages/apps/tests/endpoints/defaultFailureCodes.test.ts)
+- [x] A known scope narrows the statuses from `defaultFailureCodes()` in TypeScript, including when the list is used in `ResponseTypeUnion`. A public default union excludes 400, 401, 403 and 503. An account union excludes 400. [Default failure codes](../../packages/apps/README.md#default-failure-codes) · [Response union type tests](../../packages/apps/tests/endpoints/responseTypeUnion.test-d.ts)
+
 Cross-cutting headers (an idempotency key, for example) are endpoint presets declared in `common`, for example `endpoint({ …, headers: Idempotent })`, so the client, forms and OpenAPI see them (C6).
 
 **Endpoint kinds:**
@@ -712,11 +775,15 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 - `stream` (SSE, 2.6).
 - `proxy({ allow })` is reserved for later. It always needs an allow-list.
 
+- [x] Tag CRUD and transition route descriptors with literal `kind` values so TypeScript can distinguish them. [CRUD example](../../packages/apps/README.md#crud-route-metadata) · [Transition example](../../packages/apps/README.md#transition-routes) · [CRUD tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts) · [Transition tests](../../packages/apps/tests/state/transitionRouteMetadata.test.ts)
+
 **Members on every endpoint:**
 - **Contract:** `Name`, `Kind`, `Method`, `Path`, `Access`, `Route`.
 - **Schemas:** `Request` is the flat, decoded zod object. `RequestContent` is `{ params, query, body, headers }`, wire-shaped. `ResponseData` and `Response` are the success envelope. `ResponseTypeUnion` is every response the endpoint can send, success and failure.
+  - [x] Build `ResponseTypeUnion` with `responseTypeUnion({ response, failures })`. The success schema keeps its wire codecs, each declared failure keeps its own body, and a literal status list excludes undeclared responses. `ResponseTypeUnionOf<typeof Endpoint>` exposes the decoded result to callers. [Response unions](../../packages/apps/README.md#endpoint-response-unions) · [Contract tests](../../packages/apps/tests/endpoints/responseTypeUnion.test.ts)
 - **Helpers:** `toContent(request)` and `fromContent(content)`. `Call(request)` takes the flat request, adds the tenant header from the client, and splits the request into sections. A `stream` endpoint's `Call` returns an `AsyncIterable`.
 - **Types** come through `RequestOf<typeof X>` and friends. Every type that appears in an inferred signature is exported, or declaration emit fails (T9).
+  - [x] Export `RequestOf<E>` and `ResponseDataOf<E>` for the decoded request and success payload. A date codec gives the handler a `Date`, and an endpoint with no response data permits `void`. The S0 handler fixture consumes both types. [Endpoint type example](../../packages/apps/README.md#endpoint-request-and-response-types) · [Type tests](../../packages/apps/tests/endpoints/endpointTypes.test-d.ts)
 
 **Handler returns.** A handler returns `ResponseDataOf<E> | Failure`. It may return `void` only when the endpoint declares no response (M3).
 
@@ -725,11 +792,18 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 ### 1.5 State machines (`apps/src/state/`)
 - **`defineStateMachine(C, { field, transitions: { [verb]: { from, to, guard?, access? } } })`** declares the transitions. The field is never writable through CRUD (it's `Readable` when clients should see it), so a PATCH can't change it (M11).
 - **`transitions(machine, { name, options? })`** returns action endpoints named `<Verb><Entity>` (`POST /<plural>/:<e>Id/<verb>`). `options` sets endpoint options per verb, for example `{ archive: { principals: ['user'] } }`. It also returns domain events. The worker guard `inState(machine, { states: ['RUNNING'] })` is middleware, so it comes from the messaging and jobs bindings (Phase 5), not from the core.
+  - [x] Export `transitionRouteMetadata()` to derive a transition’s export name, POST method and item path. It reuses the CRUD item path rules and rejects reserved verbs. [Transition example](../../packages/apps/README.md#transition-routes) · [Tests](../../packages/apps/tests/state/transitionRouteMetadata.test.ts)
 - **Guards** run on the server. The UI gets `canTransition(machine, { row, verb })`, built from `from` and `access`.
 
 ### 1.6 List query (`apps/src/query/`)
 - **`ListQuery<C, Caps>`** is `{ page, perPage, where?, orderBy? }`, or `{ cursor?, perPage, where?, orderBy? }` with cursor paging. It adds `q?` when search is declared (1.13).
+  - [x] Export `cursorListQuerySchema()` to round-trip an optional opaque cursor and a bounded page size. Cursor lists share offset paging’s size defaults and search declaration. They reject an offset `page` and accept `q` only when search is declared. [Cursor query example](../../packages/apps/README.md#cursor-paged-list-queries) · [Query tests](../../packages/apps/tests/query/cursorListQuerySchema.test.ts)
 - **`Where`** is MikroORM-shaped and nested, and each field gets only its declared operators. `$and`/`$or` nest the same shape. MikroORM's own types allow `$like`/`$ilike` on dates; ours don't.
+  - [x] Offset and cursor list queries decode and encode immediate scalar `$eq` conditions from the resource's declared filter capabilities. They validate field values, reject undeclared fields or operators, and preserve explicit null on nullable scalars. [Equality examples](../../packages/apps/README.md#equality-in-list-queries) · [Query tests](../../packages/apps/tests/query/whereEquality.test.ts) · [Operand tests](../../packages/apps/tests/query/equalityOperand.test.ts)
+  - [x] Both pagers accept scalar `$ne` when declared, including on a field that allows only inequality. A field can take multiple declared comparisons. Each condition needs an operator, and `$ne` requires a non-null operand. [Equality and inequality](../../packages/apps/README.md#equality-in-list-queries) · [Query tests](../../packages/apps/tests/query/whereEquality.test.ts)
+  - [x] Number, bigint and date fields accept their declared `$gt`, `$gte`, `$lt` and `$lte` bounds in both pagers. Lower and upper bounds can be combined. Each decodes through the field's scalar codec and re-encodes to its wire form. [Date range example](../../packages/apps/README.md#range-comparisons-in-list-queries) · [Range tests](../../packages/apps/tests/query/whereRange.test.ts)
+  - [x] Both pagers accept declared `$like` and `$ilike` comparisons on text fields. Patterns preserve their wildcards, escapes and whitespace through decoding and encoding. Enum fields reject pattern comparisons. [Pattern example](../../packages/apps/README.md#text-patterns-and-nullable-fields) · [Pattern tests](../../packages/apps/tests/query/wherePatterns.test.ts)
+  - [x] A nullable field can declare `$exists` in either pager, including when the field holds an array. The decoded comparison is a boolean, and encoding produces `'true'` or `'false'`. A non-nullable field rejects the operator. [Presence example](../../packages/apps/README.md#text-patterns-and-nullable-fields) · [Presence tests](../../packages/apps/tests/query/whereExists.test.ts)
 - **Filter caps.** Each entry in `list.filter` is `true` or a list of operators:
   - `true` allows every operator the field's type allows. The groups come from one table, `FILTER_OPERATORS`:
 
@@ -744,21 +818,38 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
     | nullable, any of the above | adds `$exists` and `$eq: null` | — |
 
   - A list names a subset, and every operator in it is checked against the field's type. `name: ['$gt']` on a text field is a compile error, and so is `$ilike` on an enum.
+  - [x] Typed resource declarations check immediate filter field names, read access, tenant markers and operator groups. CRUD, both paging builders and the descriptor resolver reject misspellings and invalid operators at the call site. [Resource filter example](../../packages/apps/README.md#filters-on-a-resource) · [Declaration type tests](../../packages/apps/tests/query/filterDeclarations.test-d.ts)
+  - [x] Export `resolveFilterOperators()` to resolve `true` or an explicit subset from the field’s known kind and nullability. TypeScript and the runtime check both reject operators outside the field’s group. [Filter declaration example](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFilterOperators.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFilterOperators.test-d.ts)
   - Object and json fields have no group, so naming one is a definition-time error. The `Tenant` field can't be named, because every query is already scoped to the tenant.
+    - [x] Check `list.filter` when a resolved model is passed to CRUD routes or either list query builder. Inherited readable fields use their operator group. A field marked `tenant` raises a definition error even if its name is customized. [Filter example](../../packages/apps/README.md#filters-on-a-resource) · [Declaration tests](../../packages/apps/tests/query/assertFilterDeclaration.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
   - The compile-time check reads the field's TypeScript type, and the runtime check reads its zod schema. A type test fails if the two ever disagree, for every supported kind.
+    - [x] Export `resolveFieldFilter()` for Zod strings and string enums. It derives the field kind and uses its operator group to check `true` or an explicit subset. Both TypeScript and runtime validation allow `$ilike` on text and reject it on a string enum. [Filter examples](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFieldFilter.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFieldFilter.test-d.ts)
+    - [x] Extend schema inference to booleans and to number, bigint, and `Date` range fields. Both checks accept `$eq` and `$ne` on booleans and ordered comparisons such as `$gte` on range fields. When a schema could belong to either group, TypeScript accepts only shared operators until the type is narrowed. [Scalar filter examples](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFieldFilter.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFieldFilter.test-d.ts)
+    - [x] Infer the array group from a Zod array. `true` enables `$contains` and `$overlap`. TypeScript and runtime validation reject `$gte` and `$eq` on a non-nullable array. [Array filter example](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFieldFilter.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFieldFilter.test-d.ts)
+    - [x] Infer nullability from a Zod nullable wrapper. The field keeps its underlying kind and gains the nullable operators. A nullable array allows `$exists` and `$eq` for a `null` comparison in addition to `$contains` and `$overlap`. [Nullable array example](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFieldFilter.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFieldFilter.test-d.ts)
+    - [x] Infer the enum group from unions of string literals, including chained unions and multi-value literals. Both TypeScript and runtime validation accept `$in` and reject `$ilike`. [Filter examples](../../packages/apps/README.md#filter-operator-declarations) · [Runtime tests](../../packages/apps/tests/query/resolveFieldFilter.test.ts) · [Type tests](../../packages/apps/tests/query/resolveFieldFilter.test-d.ts)
   - A compile error names the group (`'"$gt"' is not assignable to type 'TextOperator'`), not an internal helper.
 - **Sort caps.** `list.sort` is `true` (every readable scalar field of the resource itself) or a list of paths, which may go through relations. Arrays, objects and json can't be sorted.
+  - [x] An explicit list of immediate readable scalars limits both the route's `Sorts` and the `orderBy` accepted by offset and cursor queries. Unlisted readable fields are rejected. Relation-path sorting remains to implement. [Ordering examples](../../packages/apps/README.md#ordering-list-queries) · [Sort tests](../../packages/apps/tests/query/resolveSorts.test.ts) · [Query tests](../../packages/apps/tests/query/orderBy.test.ts)
+  - [x] Resolve `sort: true` for a model-backed List into frozen `Sorts` descriptors. Each immediate readable scalar field contributes its path and UI label key. Inherited fields are included. Arrays, objects, JSON, resource references and unreadable fields are excluded. [Sort example](../../packages/apps/README.md#automatic-sort-fields) · [Sort tests](../../packages/apps/tests/query/resolveSorts.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
 - **Named constants.** Each is a const object plus a same-named type, like the response codes (1.8), so a constant and its literal are interchangeable at every call site:
   - [x] Export `FilterOperator` as a value and a type. All 13 wire operators have named values, including `FilterOperator.ILike` (`'$ilike'`) and `FilterOperator.Gte` (`'$gte'`). The field groups use those values directly. [Operator tests](../../packages/apps/tests/query/filterOperators.test.ts)
   - [x] Export `SortDirection` as a value and a type. `SortDirection.Asc` is `'asc'` and `SortDirection.Desc` is `'desc'`. [Type tests](../../packages/apps/tests/query/sortDirection.test-d.ts)
   - [x] Export `FILTER_OPERATORS` as the table above, with six base groups and the nullable additions. The six named operator types derive from their respective groups. The server's 422 check and the UI's filter menus will read the same data. maxleads kept three hand-synced copies (`AllowedComparisonOperator`, `UIFilterTypeToBackendFilterType` and a label map). [Operator tests](../../packages/apps/tests/query/filterOperators.test.ts)
 - **Descriptors on every list endpoint.** `ListX.Filters` and `ListX.Sorts` are frozen, typed objects describing what was declared. For example, `ListOfferings.Filters.type` is `{ path: 'type', kind: 'enum', operators: ['$eq', '$ne', '$in', '$nin'], values: [...], labelKey: 'offering.type' }`. The UI's DataTable builds its sort buttons and filter menus from them, choosing the input by `kind`, so a page declares nothing more (Phase 4). Operator labels are message keys (`filters.operator.<NAME>`).
+  - [x] Every enabled CRUD List exposes `Sorts`, including a frozen empty map when sorting is omitted, the allowlist is empty, or only the resource name is available. A paging-only request accepts its usual fields and rejects `orderBy`. [List sort examples](../../packages/apps/README.md#automatic-sort-fields) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
+  - [x] Every CRUD List has a frozen `Filters` object. Each validated immediate field supplies its path, kind, allowed operators and UI label key. String enums and literal unions also supply their stored values. [Filter descriptors](../../packages/apps/README.md#filters-on-a-resource) · [Descriptor tests](../../packages/apps/tests/query/resolveFilters.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
   - [x] Export `filterOperatorMessageKey()` to derive label keys from the `FilterOperator` table. All 13 wire operators have a catalog key, including `$ilike` → `filters.operator.ILike`. [Operator label tests](../../packages/apps/tests/i18n/filterOperatorMessageKey.test.ts)
 - **`OrderBy`** is `{ [sortable path]?: SortDirection }`, nested for dot paths, and every key applies.
+  - [x] Accept an optional `orderBy` in offset and cursor queries with `sort: true` and a resolved model. Both builders use the List sort descriptors, preserve the caller’s key priority and reject unknown keys or directions. [Ordering example](../../packages/apps/README.md#ordering-list-queries) · [Query tests](../../packages/apps/tests/query/orderBy.test.ts)
 - **Capabilities are declared once**, in `endpoints(…, { list })`, and type-checked against `Paths<C>`. With nothing declared, there's no sort or filter, only paging. Only fields the caller can read can be filtered or sorted, because a filter on a hidden field leaks its value. Naming an unmarked, `Internal`, `WriteOnly` or `Secret` field is a definition-time error, and `true` never reaches one either.
 - [x] Export `DEFAULT_PAGE = 0`, `DEFAULT_PER_PAGE = 20` and `DEFAULT_MAX_PER_PAGE = 100` from the apps root. [Package import test](../../packages/apps/tests/import.mjs)
+- [x] Export `offsetPaginationDefaults()` to resolve these settings for each list. The list can override its page size and maximum independently. A smaller maximum bounds the implicit page size. [Pagination examples](../../packages/apps/README.md#pagination-defaults) · [Tests](../../packages/apps/tests/query/pagination.test.ts)
+- [x] Export `offsetPaginationQuerySchema()` for incoming offset queries. Omitted fields take the list defaults. The schema decodes string inputs to a nonnegative page and a page size from one through the list maximum, and encodes the numbers back to strings. [Offset query example](../../packages/apps/README.md#offset-query-validation) · [Tests](../../packages/apps/tests/query/offsetPaginationQuerySchema.test.ts)
 - **Query cost is capped.** The depth of a `where`, its number of conditions and the length of an `$in` list each have a limit (`DEFAULT_MAX_WHERE_DEPTH`, `DEFAULT_MAX_WHERE_NODES`, `DEFAULT_MAX_IN_LENGTH`). Going over is a 422.
 - **Wire format:** bracket encoding, with one encoder and decoder in core used by both sides. The decoder rejects the keys `__proto__`, `constructor` and `prototype`, and builds null-prototype objects (Security 2).
+
+- [x] Carry declared scalar equality filters and immediate sort keys through generated offset List contracts, the typed client and Express. The shared bracket codec preserves field priority, rejects duplicate or conflicting paths and builds null-prototype objects. A bare parameter represents a null operand and an explicit empty value represents an empty string. The Offering example enables `type: ['$eq']` and `sort: ['name', 'createdAt']`. [Bracket codec](../../packages/apps/src/query/bracketQuery.ts) · [List contract tests](../../packages/apps/tests/endpoints/listEndpoint.test.ts)
 
 ### 1.7 Wire codec (`apps/src/wire/`)
 - **One schema, two directions.** Each variant has a wire form, built by walking the zod definition. The server decodes requests and encodes responses; the client does the reverse. Forms and handlers always see decoded values.
@@ -771,13 +862,17 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   - [x] Export `dateWireCodec` for the date case. It decodes ISO timestamps with a time zone to a `Date` and encodes in UTC at millisecond precision. The UTC year must fit the four-digit wire format in both directions. [Date round-trip tests](../../packages/apps/tests/wire/date.test.ts)
   - Multipart is reserved in the format, for a `file` field kind later.
 - **JSON Schema** (OpenAPI, agent tools) comes from the wire schemas with `io: 'input'`. A decoded `z.date()` has no JSON Schema.
+  - [x] Export `wireInputJsonSchema()` to generate this representation. Tests cover required and optional request fields, descriptions, date-time strings and numeric strings. [Wire schema example](../../packages/apps/README.md#json-schema-for-wire-inputs) · [Tests](../../packages/apps/tests/wire/wireInputJsonSchema.test.ts)
 - **Supported kinds:** object, array, optional, nullable, default, enum, literal, union, lazy (`ref`), pipe, codec, and the primitives. Anything else is rejected at definition time with the field's path. Every kind has a round-trip test.
 
 ### 1.8 Responses and errors (`apps/src/responses/`)
 - **Codes:** `SUCCESS_CODES`, `CLIENT_FAILURE_CODES` and `SERVER_FAILURE_CODES`, each a const plus a same-named type.
   - [x] Export the frozen `SUCCESS_CODES` object with `Ok` (200) and `Created` (201). Its values define the same-named type used by `SuccessResponse<Data>`. [Success code tests](../../packages/apps/tests/responses/success.test-d.ts)
+  - [x] Export the frozen `CLIENT_FAILURE_CODES` table and its literal union for 400, 401, 402, 403, 404, 409, 422 and 429. The default failure codes and specialized response types use these named values. [Client status example](../../packages/apps/README.md#client-failure-codes) · [Status tests](../../packages/apps/tests/responses/clientFailureCodes.test.ts)
+  - [x] Export the frozen `SERVER_FAILURE_CODES` object with `InternalServerError` (500) and `ServiceUnavailable` (503). Its values define the same-named type. [Server failure code example](../../packages/apps/README.md#server-failure-codes) · [Tests](../../packages/apps/tests/responses/serverFailureCodes.test.ts)
 - **Success:** `{ code: 200 | 201, data, message? }`. `data` is required whenever the endpoint declares a response.
   - [x] Export the type `SuccessResponse<Data>` for endpoints that declare response data. Type tests cover both success codes, payload inference and the optional string message, and reject missing data and failure codes. [Success response example](../../packages/apps/README.md#success-responses) · [Type tests](../../packages/apps/tests/responses/success.test-d.ts)
+  - [x] Export `EmptySuccessResponse` for endpoints with no payload. Delete accepts `{ code: 200 }` with an optional message. Type tests verify that Delete rejects a model payload and Get requires one. [Delete response example](../../packages/apps/README.md#success-responses) · [Type tests](../../packages/apps/tests/responses/success.test-d.ts)
 - **Failures:**
 
   | Type | Code | Notes |
@@ -795,14 +890,22 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 - [x] Export the type `AuthenticationFailureResponse` for code 401. It requires the request's trace ID and distinguishes `Auth.TOKEN_EXPIRED` from `Auth.UNAUTHENTICATED`. [Authentication failure example](../../packages/apps/README.md#authentication-failures) · [Type tests](../../packages/apps/tests/responses/authenticationFailure.test-d.ts)
 - [x] Export `AuthorizationFailureResponse` for a member who lacks a role or permission in the current tenant. It requires code 403, a namespaced error and the request’s trace ID. [Authorization failure example](../../packages/apps/README.md#authorization-failures) · [Type tests](../../packages/apps/tests/responses/authorizationFailure.test-d.ts)
 - [x] Export `NotFoundFailureResponse` for a missing or out-of-scope resource. The type requires code 404, a namespaced error and the request’s trace ID. [Not-found example](../../packages/apps/README.md#not-found-responses) · [Type tests](../../packages/apps/tests/responses/notFoundFailure.test-d.ts)
+- [x] Export `ConflictFailureResponse` with code 409, a namespaced error and the request’s trace ID. [Conflict example](../../packages/apps/README.md#conflict-responses) · [Type tests](../../packages/apps/tests/responses/conflictFailure.test-d.ts)
+- [x] Export `ClientFailureResponse` for the 95 remaining integer 4xx codes. It requires a namespaced error and trace ID and keeps 401, 403, 404, 409 and 422 available for their specialized types. Endpoints can restrict it to specific codes. [Client failure example](../../packages/apps/README.md#other-client-failures) · [Type tests](../../packages/apps/tests/responses/clientFailure.test-d.ts)
+- [x] Export `ServerFailureResponse` for status 500. It requires a public namespaced error and the request’s trace ID. Type tests reject exception messages, stacks, and database details on response literals. [Server failure example](../../packages/apps/README.md#internal-server-errors) · [Type tests](../../packages/apps/tests/responses/serverFailure.test-d.ts)
+- [x] Export `UnavailableFailureResponse` for the 503 JSON body and `UnavailableFailureHttpResponse` for its HTTP headers and body. The body includes the trace ID. A Fetch response carries the retry delay or HTTP date in its `Retry-After` header. [503 example](../../packages/apps/README.md#unavailable-dependencies) · [HTTP tests](../../packages/apps/tests/responses/unavailableFailure.test.ts) · [Type tests](../../packages/apps/tests/responses/unavailableFailure.test-d.ts)
 - **Handlers never build envelopes.** They return data, return `failure.notFound()` and friends, or throw.
+  - [x] A handler can return `failure.notFound()` for a missing or out-of-scope row. `isFailure()` recognizes the frozen return value and distinguishes it from success data with a numeric `code`. The HTTP adapter will add the trace ID. [Handler example](../../packages/apps/README.md#not-found-responses) · [Runtime tests](../../packages/apps/tests/responses/failure.test.ts) · [Type tests](../../packages/apps/tests/responses/failure.test-d.ts)
 - **`defineErrors('OrgBilling', { UNPAID: { code: 402 }, … })`** produces `OrgBillingError` with `.Types` and the `OrgBillingErrors` union.
+  - [x] `defineErrors()` builds throwable classes, a frozen `Types` table and a `DomainErrorsOf` union. The discriminator `OrgBilling.UNPAID` narrows to code 402 and supplies the UI translation key. [Named domain errors](../../packages/apps/README.md#named-domain-errors) · [Runtime tests](../../packages/apps/tests/responses/defineErrors.test.ts) · [Type tests](../../packages/apps/tests/responses/defineErrors.test-d.ts)
   - `error` on the wire is the namespaced type (`OrgBilling.UNPAID`), and the UI translates it through `errors.OrgBilling.UNPAID`.
   - [x] Export `domainErrorMessageKey()` to derive that catalog key from a namespaced wire error, preserving its exact spelling in the value and type. [Error key example](../../packages/apps/README.md#domain-error-translation-keys) · [Tests](../../packages/apps/tests/i18n/domainErrorMessageKey.test.ts)
   - Workers use the same types for their ack/nack policy.
 
 ### 1.9 Client (`apps/src/client/`)
+- [x] Call `CreateOffering` through an instance-owned typed client with injected fetch. The [public-entry test](../../packages/apps/tests/e2e/createOffering.test.ts) verifies tenant and bearer headers, request defaults, the raw 201 payload, decoded dates, typed 422 issues and transport rejection. The item Get client uses the route's declared path parameter, sends a bodyless request and decodes the endpoint's response union. [End-to-end plan](resource-framework-e2e.md#implementation-order-and-acceptance)
 - **`createClient({ baseUrl, headers?, tenant?, tokens?, refresh?, version?, fetch? })`** returns an instance with `client.call(endpoint, request)`. `tenant: () => string | undefined` supplies the tenant header. Each instance owns its headers, and nothing is global (Security 6).
+  - [x] Export `tenantHeaders()` to read the current tenant once per request and return the header under the contract’s configured name. Switching tenants changes the next request. An absent callback or an `undefined` result yields an empty header record. [Client tenant example](../../packages/apps/README.md#client-tenant-header) · [Tests](../../packages/apps/tests/client/tenantHeaders.test.ts)
 - **Tokens.** The client attaches `Authorization: Bearer`, refreshes shortly before the access token expires, and retries once after a 401 `Auth.TOKEN_EXPIRED`.
   - `refresh` is how it refreshes: a `RefreshStrategy`. The core defines only the interface, and the identity kit's contract entry supplies `sessionRefresh`, which calls `RefreshSession`. With no `refresh`, the client never refreshes. This keeps the core free of the kit.
   - `tokens` is where it keeps them (a `TokenStore` with `get`, `set` and `clear`).
@@ -810,6 +913,7 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   - A caller with an API key passes `tokens: apiKey('…')`.
   - One refresh runs at a time across tabs, under a Web Lock.
 - **`version`** is sent as `X-Api-Version`. Default: the `apiVersion` the contract was built with, so the client's types always match what the server answers.
+  - [x] Export `apiVersionHeaders()` to select and validate the header value. An explicit `version` wins, the contract’s `apiVersion` supplies the default, and omitting both yields an empty headers object. [Client header example](../../packages/apps/README.md#client-api-version-header) · [Tests](../../packages/apps/tests/client/apiVersionHeaders.test.ts)
 - **`configureClient({...})`** sets the default client used by every endpoint's `Call`.
 - **Results:** HTTP failures resolve to the typed `ResponseTypeUnion` member, and only network failures reject.
 
@@ -825,7 +929,10 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 
 ### 1.11 Translation keys (`apps/src/i18n/`)
 - **Message keys** follow the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.md). `messageKeys(resource)` lists every key a resource uses, so apps and tests can check their catalogs.
+  - [x] `messageKeys(resolve(Resource))` lists explicit resource labels, inherited field labels and hints, and enum option keys. It covers read and form fields, including write-only inputs. A catalog test reports the exact missing translation. [Catalog example](../../packages/apps/README.md#resource-translation-keys) · [Catalog tests](../../packages/apps/tests/i18n/messageKeys.test.ts)
 - **The framework ships English messages** for its own keys (errors, auth flows, validation). A missing key fails a test, and never fails silently at runtime.
+  - [x] Ship English labels for all 13 filter operators in `FRAMEWORK_ENGLISH_MESSAGES`. The catalog uses the same keys as the List descriptors, and the completeness test identifies a missing translation by key. [Operator labels](../../packages/apps/README.md#sort-directions-and-filter-operators) · [Catalog tests](../../packages/apps/tests/i18n/frameworkEnglishMessages.test.ts)
+  - [x] Provide English messages for both framework 401 errors. The response schema and catalog share the `Auth.UNAUTHENTICATED` and `Auth.TOKEN_EXPIRED` wire names, and tests identify a missing translation by its key. [Authentication messages](../../packages/apps/README.md#authentication-failures) · [Catalog tests](../../packages/apps/tests/i18n/frameworkEnglishMessages.test.ts)
 
 ### 1.12 Agent tools (`apps/src/tools/`)
 - **`toTools(endpoints, options?)`** returns tool definitions `{ name, description, inputSchema }`. The input schema is JSON Schema from the endpoint's wire request schema (`io: 'input'`). Descriptions come from field `description`s and message keys.
@@ -841,8 +948,11 @@ Search is declared once, and is off until a list asks for it. The database side 
 It's declared as `list: { search: { fields: ['name', 'description'], mode? } }`.
 - `List<P>` gains `q`, a search string capped at `DEFAULT_MAX_SEARCH_LENGTH` (200). It combines with `where`, and the tenant constraint always applies.
   - [x] Export `DEFAULT_MAX_SEARCH_LENGTH` and `searchQuerySchema` from the apps root. A search-enabled query can include `q: searchQuerySchema.optional()`. The schema accepts a string at the 200-character limit, preserves its text, and rejects longer input. [Query tests](../../packages/apps/tests/query/search.test.ts)
+  - [x] Export `offsetListQuerySchema()` to derive an offset list’s query from its declaration. A search declaration adds optional `q` to the paging fields. Paging-only lists reject `q`. [Search example](../../packages/apps/README.md#search-queries) · [Query tests](../../packages/apps/tests/query/offsetListQuerySchema.test.ts)
 - `mode: 'text'` (the default, and for now the only mode) uses Postgres full-text search over the listed fields, ranked by relevance unless `orderBy` is given. Search by meaning is deferred.
 - Only fields the caller can read can be searched, the same rule as for filters (1.6). Naming a server-only field is a definition-time error.
+  - [x] Validate `list.search.fields` against the resolved model in CRUD route declarations and both list query builders. An inherited readable field is valid. An unknown or server-only field raises `ApiDefinitionError` at definition time. [Search example](../../packages/apps/README.md#search-queries) · [Query tests](../../packages/apps/tests/query/search.test.ts) · [Route tests](../../packages/apps/tests/endpoints/crudRouteMetadata.test.ts)
+  - [x] TypeScript checks a search declaration against the readable keys of its resolved resource, including inherited fields. CRUD and both pagers catch a stale or hidden field even when the declaration is saved in a variable. [Search example](../../packages/apps/README.md#search-queries) · [Declaration type tests](../../packages/apps/tests/query/searchDeclarations.test-d.ts)
 
 ---
 
@@ -858,6 +968,12 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 ---
 
 ## Phase 2 — Express adapter and API factory (`@epsilon-asi/apps/express`)
+
+On 2026-11-19 the workspace built and typechecked for the Get checkpoint. With PostgreSQL 16.15 enabled for the existing database tests, the 12 package suites reported 3,202 passing and 18 skipped using the final apps rerun (695 passed). An isolated consumer compiled the example against local package tarballs with TypeScript 5.9.3 and 7.0.2. The emitted example discovered its routes and completed a typed HTTP Create followed by Get on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#reading-a-stored-offering)
+
+- [x] Complete the first HTTP checkpoint for `CreateOffering`. The example discovers `OfferingRoutes` or accepts it explicitly. Startup checks the resource system's independent endpoint inventory, verifier and membership resolver before listening. A user bearer token establishes identity. The live membership supplies the role and authorized tenant. The typed client receives a projected 201, or a traced 400, 401, 403, 404 or 422 for the tested failure cases. [HTTP acceptance tests](../../packages/apps/tests/e2e/createOfferingHttp.test.ts) · [Emitted example](../../packages/apps/tests/e2e/emittedOffering.test.ts)
+- [x] Complete the `GetOffering` HTTP checkpoint. The example stores created rows per app and organization. A viewer gets HTTP 200 for their organization's row. A viewer in another organization sees the same public 404 for that ID and an absent ID. [Tenant-isolation test](../../packages/apps/tests/e2e/getOfferingHttp.test.ts) · [Checkpoint plan](resource-framework-e2e.md#implementation-order-and-acceptance)
+- The Node entries serve all five tenant-owned CRUD operations with ordered user roles. List supports offset pagination, declared scalar equality and immediate sort keys. The runtime supports graceful HTTP shutdown and the test kit starts an isolated app. General service lifecycle, custom route middleware groups and other principal and ownership policies are tracked below.
 
 ### 2.1 Runtime lifecycle (`@epsilon-asi/apps/runtime`)
 - **Services:** `defineService({ name, start, stop })` declares a service, and `runApplication({ services, name?, env?, shutdownTimeoutMs? })` runs them in order and stops them in reverse. `name` defaults to the package name, `env` to `ApplicationEnv`, and `shutdownTimeoutMs` to `DEFAULT_SHUTDOWN_TIMEOUT_MS`.
@@ -944,7 +1060,9 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 
 **Definition-time checks** (`ApiDefinitionError`):
 - duplicate method and path;
+  - [x] Export `assertUniqueRoutes()` to check combined route declarations and reuse it when deriving CRUD routes. It detects duplicate method/path pairs, including templates that differ only in parameter names, and reports the conflicting endpoint names when available. [Route example](../../packages/apps/README.md#duplicate-routes) · [Tests](../../packages/apps/tests/endpoints/assertUniqueRoutes.test.ts)
 - a path param with no request field;
+  - [x] Export `assertPathRequestFields()` to check a route template against a flat request schema at definition time. It accepts explicit parameter-to-field mappings and raises `ApiDefinitionError` for a missing field. [Path validation example](../../packages/apps/README.md#path-parameters-and-request-fields) · [Tests](../../packages/apps/tests/endpoints/assertPathRequestFields.test.ts)
 - a non-public route on an app without an `authenticate` verifier (`createApi` refuses to start);
 - a middleware `needs` field missing from the contract;
 - a handler for a disabled operation, and two handlers for one endpoint (both when the routes class is defined, 2.3);
@@ -991,8 +1109,8 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 ### 2.8 Example app (`packages/apps/examples/crud-api/`)
 - `common/app.ts` and `common/resources/Offering.ts`, as shown above.
 - The API uses a stub `authenticate` verifier with a token map, plus stub memberships across two tenants and several roles.
-- `api/src/routes/OfferingRoutes.ts` is one `@Routes` class whose handlers return stub read models, and `api/src/main.ts` is `await runApi()`.
-- The end-to-end tests drive the real app through the typed client (see "Verification"). There is no database yet. From Phase 3, they run against a local Postgres.
+- The [Offering routes](../../packages/apps/examples/crud-api/api/src/routes/OfferingRoutes.ts) bind all five CRUD handlers to app-local memory or a host-supplied PostgreSQL pool. Create sets the owner from the authenticated tenant. Get, Update and Delete use the ID in that tenant’s scope. List returns the selected tenant’s page and total count. The example declares the administrator floor for Delete. The [API entry](../../packages/apps/examples/crud-api/api/src/main.ts) starts the app with `runApi()`.
+- The [end-to-end test plan](resource-framework-e2e.md#implementation-order-and-acceptance) records the in-memory and PostgreSQL checkpoints. Both exercise tenant isolation through the typed client and a listening server. The PostgreSQL tests use a second server connected to the same schema to verify committed creates, updates, deletes and collection reads.
 
 ### 2.9 The public API
 The API the UI calls is the API outside callers use. Nothing is built twice.
@@ -1021,6 +1139,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - Each old version has a support window (`DEFAULT_API_VERSION_SUPPORT_MONTHS`).
 
 ### 2.11 Test kit (`@epsilon-asi/apps/testing`)
+- [x] Start the actual dispatcher with `createTestApp({ resources, routes?, env })`, on loopback port zero, with independent user tokens and tenant memberships. The default client is anonymous. `as({ user, tenant, role })` arranges credentials and membership for a typed client. A test verifier requires an explicit test environment. [Test kit](../../packages/apps/src/testing/index.ts) · [Run the HTTP tests](../../packages/apps/README.md#calling-the-listening-example)
 - **`createTestApp({ routes?, ...createApiOptions })`** starts the real app on port 0. `routes` defaults to discovery, as in `runApi()`. In-memory stand-ins replace Redis, the session store and pub/sub. It returns `{ client, as, close }`.
 - **`as({ user?, tenant?, role? })`** returns a typed client acting as that principal. It signs in through a test verifier that only `createTestApp` registers. `createApi` refuses that verifier outside tests, so there is no back door in production code.
 - **A database from Phase 3 on:** each test file gets a fresh schema built from the entities, on SQLite by default, or on Postgres for anything that depends on Postgres.
@@ -1030,7 +1149,11 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 
 ## Phase 3 — MikroORM adapter (`@epsilon-asi/apps/mikro-orm`)
 
+The PostgreSQL Create/Get checkpoint passed on PostgreSQL 16.15. The workspace built, typechecked and ran all 12 package suites with 3,208 passing tests and 18 skipped, including all 701 apps tests passing. An isolated consumer compiled the example against local tarballs with TypeScript 5.9.3 and 7.0.2 and exercised PostgreSQL Create/Get over HTTP on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+
 ### 3.1 Entities from the same class
+
+- [x] Derive the server-side Offering schema from its resource declaration, including its UUID primary key, indexed tenant field, JSON links, enum fields, timestamps and hidden `vectorStoreId`. The entity’s default filter resolves the declared tenant field and requires a bound tenant ID. [Entity derivation](../../packages/apps/src/mikro-orm/defineEntity.ts) · [Offering binding](../../packages/apps/examples/crud-api/api/src/database.ts)
 - **`defineEntity(C, options?)`** is server-only. It builds `new EntitySchema({ class: C, properties })` from the resolved model.
   - Table, column and index names are derived, so most resources pass no options.
   - `options` overrides them (`table`, `columns`, `indexes`, `relations`) and takes `hooks`.
@@ -1059,6 +1182,9 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - No regex is ever built from user input.
 
 ### 3.3 Free services and unit of work
+
+- [x] For all five tenant-owned HTTP CRUD operations, bind a fresh entity manager to the verified tenant and commit each successful write after response projection. The example passes a host-owned ORM to `ormUnitOfWork(orm)`. Automatic service discovery and audit/outbox work remain planned. [Unit of work](../../packages/apps/src/mikro-orm/unitOfWork.ts) · [Rollback tests](../../packages/apps/tests/mikro-orm/unitOfWork.test.ts)
+- [x] Implement the `get({ ctx, id })` instance method on `ResourceService(C)` for tenant-owned resources without a separate owner field. It derives the key names and queries by the primary key and the verified tenant. A match returns the managed entity, and a miss returns `null`. A missing or mismatched manager rejects the lookup. [Service](../../packages/apps/src/mikro-orm/resourceService.ts) · [SQLite verification](../../packages/apps/tests/mikro-orm/resourceService.test.ts)
 - **`ResourceService(C)`** is a base-class factory with `get({ ctx, id })`, `getOrFail`, `list({ ctx, query })`, `create({ ctx, input })`, `update({ ctx, id, patch })`, `delete({ ctx, id })`, `ref(id)` and `repository`.
   - Every method takes the tenant, parent and principal from `ctx`, applies tenant scoping for every ownership kind, and respects access modes and `patch` behavior.
 - **`unitOfWork` is a transaction** (`em.transactional`) with one flush. The outbox, change events and audit events are written in it and dispatched after commit. `/mikro-orm` ships one binding-neutral implementation, plus the HTTP middleware. The consumer and job bindings (Phase 5) wrap the same implementation in their own middleware, because each binding keeps its own middleware identity (0.3), and so `/mikro-orm` never imports them.
@@ -1066,6 +1192,9 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **Error mappers:** `NotFoundError` → 404; `UniqueConstraintViolationException` → 409; not-null, foreign-key and check violations → 409/422. Postgres `detail` never reaches the response.
 
 ### 3.4 Default handlers
+
+- [x] Ship the Get default in `crudHandlers(C)`. Startup matches a default to the exact resource model and enabled operation. An explicit field overrides it. The PostgreSQL Offering example uses the default for Get and supplies Create, Update, Delete and List explicitly. Those four ORM defaults remain planned. [Route resolver](../../packages/apps/src/express/routes.ts) · [Offering routes](../../packages/apps/examples/crud-api/api/src/database.ts)
+
 `crudHandlers(C)` returns handlers keyed by operation (`Create`, `Get`, `Update`, `Delete`, `List`), because a class type carries no endpoint names. It's passed to a routes class as `@Routes({ defaults: crudHandlers(C) })`. At startup, the handlers bind to the endpoints registered for `C`. A hand-written field wins, endpoint by endpoint.
 
 ### 3.5 Relations
@@ -1100,6 +1229,21 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **First users:** the TOTP secret (6.1) and third-party credentials.
 
 ### 3.8 Tests
+
+The UpdateOffering checkpoint passed against PostgreSQL 16.15. All 709 apps tests passed. Across the 12 workspace package suites, 3,216 tests passed and 18 were skipped. The locally packed example compiled on TypeScript 5.9.3 and 7.0.2 and completed Create → Get → PATCH → Get on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+
+The DeleteOffering checkpoint passed against PostgreSQL 16.15. Across the 12 workspace suites, 3,222 tests passed and 18 were skipped. All 715 apps tests passed. The locally packed example exercised deletion on Node 22.17 and 24.15. [Run the Delete checkpoint](../../packages/apps/README.md#deleting-an-offering)
+
+The initial offset-pagination checkpoint for ListOfferings passed on both backends, including PostgreSQL 16.15. Across the 12 workspace suites, 3,230 tests passed and 18 were skipped. All 723 apps tests passed. The locally packed example compiled with TypeScript 5.9.3 and 7.0.2 and exercised List on Node 22.17 and 24.15. [Run the List checkpoint](../../packages/apps/README.md#listing-offerings)
+
+The ListOfferings filtering and two-key sorting checkpoint passed on memory and PostgreSQL 16.15. All 21 end-to-end tests and all 728 apps tests passed. Across 12 workspace suites, 3,235 tests passed and 18 were skipped. The local tarball consumer compiled on TypeScript 5.9.3 and 7.0.2 and ran filtered list calls on Node 22.17 and 24.15. [End-to-end acceptance](resource-framework-e2e.md#implementation-order-and-acceptance)
+
+- [x] Replay the typed-client Create/Get isolation scenario over real HTTP on PostgreSQL. Two servers with independent pools share one test schema. Each tenant reads its own committed row. Tenant B gets the same public 404 for A’s row and a missing ID. The dedicated CI job requires PostgreSQL. [Acceptance test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts) · [Run locally](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+- [x] Complete the Create → Get → PATCH → Get checkpoint for Offering. A one-field patch preserves omitted fields, including defaulted links. A supplied links array replaces the stored array. The PostgreSQL handler locks the tenant-filtered row before assignment. Two simultaneous updates to distinct fields survive, including when sent to different servers. [PostgreSQL binding](../../packages/apps/examples/crud-api/api/src/database.ts) · [Shared acceptance test](../../packages/apps/tests/e2e/offeringUpdate.fixture.ts)
+- [x] Complete the DeleteOffering checkpoint. The example removes the tenant’s row in one filtered delete inside the request transaction. Real HTTP tests verify administrator access, a 200 envelope with no data, cross-tenant 404s, and exactly one successful delete when two administrators race on the same row. The PostgreSQL test checks the remaining rows through the second pool. [Storage binding](../../packages/apps/examples/crud-api/api/src/database.ts) · [Delete acceptance test](../../packages/apps/tests/e2e/offeringDelete.fixture.ts)
+- [x] Verify `ListOfferings` through the typed client over real HTTP on memory and PostgreSQL. Two offerings in A span two one-row pages with a total of 2. An out-of-range page keeps that total. B sees its one row and an empty tenant sees zero. On PostgreSQL a second pool reads the committed rows, and the count and page share the entity’s tenant filter and one database snapshot. [Shared scenario](../../packages/apps/tests/e2e/offeringList.fixture.ts) · [PostgreSQL test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts)
+- [x] Run the filtered, two-key `ListOfferings` scenario through the typed client over HTTP on both backends. The PostgreSQL count and page use the same filter under the authenticated tenant’s snapshot. Reversing the two sort keys changes the order. A foreign service and a local product are both excluded from the service count. [HTTP scenario](../../packages/apps/tests/e2e/offeringList.fixture.ts) · [Usage guide](../../packages/apps/README.md#listing-offerings)
+- [x] Verify the reusable Get through the typed client and real HTTP. Two PostgreSQL listeners share the schema through independent pools. A’s viewer receives 200 with the readable offering. B’s viewer receives the same public 404 for that ID and a missing ID, and can read B’s own offering. The in-memory app passes the same assertions. On PostgreSQL 16.15 the workspace run passed 3,238 tests across 12 suites with 18 skipped, including all 731 apps tests and all 21 end-to-end tests. The local tarball consumer exported a service subclass on TypeScript 5.9.3 and 7.0.2 and exercised Get on Node 22.17 and 24.15. [PostgreSQL test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts) · [Checkpoint and scope](resource-framework-e2e.md#implementation-order-and-acceptance)
 - The adapter's unit and integration tests run on in-memory SQLite.
 - These run on Postgres: `ilike`, arrays and json, migrations and the linter, and encryption round-trips.
 - The example app's `OfferingRoutes` switches to `@Routes({ defaults: crudHandlers(Offering) })` and keeps one hand-written field as an override.

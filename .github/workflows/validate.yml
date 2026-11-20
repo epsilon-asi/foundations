@@ -105,6 +105,17 @@ jobs:
             echo "$venv/bin" >> "$GITHUB_PATH"
           done
 
+      # The example imports the public apps entry during typechecking and Vitest.
+      - name: Build apps and check the browser and Node entries
+        if: matrix.name == 'apps'
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          npm run check:browser
+          npm run test:import
+          # The package uses TS 7. Repeat the type checks with the root TS 5.9.
+          node ../../node_modules/typescript/bin/tsc -p tsconfig.type-tests.json
+          node ../../node_modules/typescript/bin/tsc -p tsconfig.browser.json
+
       # Builds compile src only and Vitest transpiles runtime test files.
       - name: Typecheck and verify type-test discovery
         working-directory: ${{ env.PACKAGE_DIR }}
@@ -136,16 +147,6 @@ jobs:
         if: matrix.name == 'system'
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm run test:package
-
-      - name: Build apps and check the browser and Node entries
-        if: matrix.name == 'apps'
-        working-directory: ${{ env.PACKAGE_DIR }}
-        run: |
-          npm run check:browser
-          npm run test:import
-          # The package uses TS 7. Repeat the type checks with the root TS 5.9.
-          node ../../node_modules/typescript/bin/tsc -p tsconfig.type-tests.json
-          node ../../node_modules/typescript/bin/tsc -p tsconfig.browser.json
 
       - name: Install the TypeScript 5.9 and 7 consumer fixture
         if: matrix.name == 'foundation' || matrix.name == 'langgraph' || matrix.name == 'system'
@@ -184,6 +185,40 @@ jobs:
             packages/*/dist/
           retention-days: 7
           if-no-files-found: ignore
+
+  validate-apps-postgres:
+    name: "validate:apps PostgreSQL"
+    runs-on: ubuntu-latest
+    container: node:24.15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: foundations_test
+          POSTGRES_PASSWORD: local_test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d foundations_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure npm auth
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+      - name: Install workspace and build dependencies
+        uses: ./.github/actions/install-workspace
+        with:
+          package: apps
+      - name: Build and run PostgreSQL acceptance tests
+        working-directory: packages/apps
+        env:
+          SPIKE_POSTGRES_URL: postgresql://postgres:local_test@postgres:5432/foundations_test
+          SPIKE_REQUIRE_POSTGRES: "1"
+        run: |
+          corepack pnpm run build
+          corepack pnpm exec vitest run tests/e2e/postgresOfferingHttp.test.ts tests/spikes/orm/orm.test.ts
 
   # ---------------------------------------------------------------------------
   # validate:automation:packages
