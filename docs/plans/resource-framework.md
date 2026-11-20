@@ -2,6 +2,28 @@
 
 > **Revised 2026-11-15.** This revision applies the findings of `docs/reviews/resource-framework-plan-review.md` and the answers to its open questions. Finding ids (C1–C7, M1–M14) and spike ids (S0–S6) refer to that review. Everything not listed under "Open decisions" is decided. A second pass the same day settled unmarked fields, cloud providers, ID generation and MFA. A third pass set sessions to bearer tokens with their state in Redis, made the API the public API, and applied a contradiction review. A fourth pass on 2026-11-16 settled local pub/sub and brought API versioning into scope. A fifth pass the same day closed every open decision. A sixth pass on 2026-11-17 applied an independent contradiction review, and the plan moved into the repo at `docs/plans/resource-framework.md`, which is now the copy to edit. A seventh pass the same day cut the first release: the features under "Deferred features" wait, each with a seam kept, and their designs moved to the appendix. An eighth pass on 2026-11-18 made filter caps accept `true`, with named operator constants and list descriptors (1.6), and made routes decorated classes that a zero-argument `runApi()` discovers (2.3, 2.7). The same pass applied that pattern to consumers, jobs, loops and webhooks (2.3, Phase 5), put loops in `/jobs`, required standard decorators with a clear error for legacy mode (0.1), and added a one-process `runApp()` (2.1).
 
+## Weekly handoff
+
+**As of 2026-11-19.**
+
+**The Offering example passes all five CRUD operations on both backends. The framework supplies one of the five database handlers.** The [end-to-end record](resource-framework-e2e.md#implementation-order-and-acceptance) has 12 completed checkpoints, from the first injected-fetch call through the reusable Get. These counts cover an unparented, tenant-owned resource accessed by authenticated users with ordered roles.
+
+| Area | Verified in this worktree | Remaining work |
+|---|---|---|
+| Offering over real HTTP | Create, Get, Update, Delete and List pass through the typed client on app-local memory and PostgreSQL. Tests cover membership and role checks, equivalent foreign-row and missing-row 404s, concurrent writes, offset pagination, equality filtering, two-key sorting and tenant-scoped counts. | All five operations have acceptance tests to reuse as their implementations move into the framework. [HTTP scenarios](resource-framework-e2e.md#what-the-http-tests-must-observe) |
+| Browser-safe CRUD contracts | Request bindings cover all five CRUD operations. The standalone Create contract combines route metadata, a flat request, wire conversion, a readable row and typed success and failure responses. | Reuse these helpers in the named endpoint factory, starting with Create. Cover a parent-scoped resource alongside the existing unparented Offering. [Endpoint contracts](#14-endpoints-appssrcendpoints) |
+| Reusable persistence | The adapter derives the entity, binds a manager to the request tenant, and supplies the Get service and route default. An explicit handler can override it. | Create, Update, Delete and List still need defaults. The service also needs `getOrFail`, `ref` and `repository`. [Services and unit of work](#33-free-services-and-unit-of-work) · [Default handlers](#34-default-handlers) |
+
+Of the nine entries in the program order, two have met their acceptance criteria, three have working implementations with gaps, and four are still ahead. These milestones differ in size. [Program order](#program-order)
+
+- **Phase 0 and the spikes met their acceptance criteria.** The toolchain, browser-safe package roots and dual-compiler checks passed. All six scheduled spikes were verified. The shared middleware chain now serves the CLI and HTTP. Wiring the app’s server-only fields into production log redaction is still carried into Phase 1. [Phase 0 acceptance](#05-re-tool-epsilon-asiapps) · [Spikes](#spikes-about-a-day-each-after-phase-0-before-phase-1)
+- **Phases 1, 2 and 3 are partial.** Phase 1 has resource-derived contracts, projections, wire codecs and a typed client. Parent-scoped contracts, broader List queries and text search still need integration. Phase 2 has route discovery, an authenticated HTTP pipeline, a listener and the test kit. Other principal and ownership policies, middleware groups and service discovery remain. Phase 3 still needs the four defaults above, a general query translator, relations, migrations, encrypted fields and transactional audit/outbox writes. [Core contracts](#14-endpoints-appssrcendpoints) · [HTTP pipeline](#24-request-pipeline-per-route-compiled-once-at-startup) · [MikroORM adapter](#phase-3--mikroorm-adapter-epsilon-asiappsmikro-orm)
+- **Four first-release milestones remain ahead.** Phase 1.5 is the first Offering form, including mapping a server 422 to its field. Phases 4, 5 and 6 deliver the broader React layer, messaging and workers, and SaaS kits and scaffolding. The plan tracks deferred features separately from the first release. [Thin UI spike](#phase-15--thin-ui-spike) · [Program order](#program-order) · [Deferred features](#deferred-features)
+
+**Integration verification.** The combined workspace passed 3,393 tests across 12 package suites, with 18 skipped. All 884 apps tests passed with PostgreSQL 16.15 enabled. The workspace typechecked, and the apps contract fixtures also compiled with TypeScript 5.9.3. The browser bundle and public-entry import checks passed. [Earlier Offering checkpoint results](#38-tests)
+
+**Recommended next checkpoint.** Extract the reusable Delete. It is the smallest remaining database handler, and the existing test defines success. Move the tenant-scoped delete into `ResourceService(C)`, expose the Delete default through `crudHandlers(C)` and remove the example’s database delete. Run the existing typed-client tests on both backends. The owning administrator gets 200, an editor gets 403, a foreign or repeated delete gets 404, and two administrators racing get exactly one success. That brings reusable defaults to two of five. [Default handlers](#34-default-handlers) · [Delete acceptance test](../../packages/apps/tests/e2e/offeringDelete.fixture.ts)
+
 ## Context
 
 maxleads already works this way: one contract in `common` is shared by the API, the UI and the workers. Every app adds only its own pieces:
@@ -404,6 +426,7 @@ Use the [resource framework naming guide](../../packages/apps/docs/CONVENTIONS.m
 - command-line re-exports the moved names, so its public API and tests stay unchanged.
 
 ### 0.3 The typed middleware chain (built in Phase 2)
+- [x] Extract the browser-safe chain and bind both the CLI and the HTTP system steps to it. Each binding owns its middleware identities. Resolution orders dependencies and checks declared provider keys. Each invocation gets a fresh context and cleanup stack. The CLI retains its existing public middleware API. [Foundation binding](../../packages/foundation/src/chain/binding.ts) · [CLI binding](../../packages/command-line/src/middleware/binding.ts) · [HTTP pipeline](../../packages/apps/src/express/pipeline.ts)
 This work runs with 2.2, not in Phase 0, so the generic core is designed against two real users: the CLI and HTTP. It stays written here because it changes foundation and command-line.
 - **Source:** command-line's `middleware/{define,compose,types,resolve}.ts`.
 - **The generic core is generic over six things (M8):**
@@ -472,6 +495,10 @@ S2 from the review (foundation packaging) became Phase 0.0 and 0.1.
 
 ## Phase 1 — Core: model and contracts (browser-safe)
 
+On 2026-11-19 the first `CreateOffering` checkpoint built and typechecked from a frozen workspace install on Node 24.15. With PostgreSQL 16.15 enabled, 3,162 tests passed and 18 were skipped across 12 package suites. All 660 apps tests and all 411 foundation tests passed. An isolated consumer used the locally packed apps and foundation entries, compiled the example and emitted declarations with TypeScript 5.9.3 and 7.0.2, and ran the client on Node 22.17, Node 24.15 and in a minified browser-targeted bundle. [Public client checkpoint](resource-framework-e2e.md#implementation-order-and-acceptance) · [Run the example test](../../packages/apps/README.md#creating-an-offering-through-the-typed-client)
+
+The preceding contract batch verified the release script with a dry run against a local Git replica. Offline publish dry runs matched the local tarballs for foundation, command-line and apps, and the tarballs were identical on Node 22.17 and 24.15. An isolated consumer compiled and ran all 68 apps README examples on both Node versions with TypeScript 5.9.3 and 7.0.2. All 68 also ran in a browser-targeted bundle. A second consumer compiled against the emitted query, CRUD access and response declarations on both compilers. The packed foundation consumer passed with the minimum supported Zod 4.1.0.
+
 On 2026-11-19 the workspace built and typechecked from a frozen install on Node 24.15. With PostgreSQL 16.15 enabled, 3,289 tests passed and 18 were skipped across 12 package suites. All 785 apps tests and all 413 foundation tests passed. [Create endpoint contract](../../packages/apps/README.md#assembling-a-create-endpoint) · [Bound Update](../../packages/apps/README.md#binding-an-update-request) · [Bound List](../../packages/apps/README.md#binding-a-list-request)
 
 The release script passed its dry run against a local Git replica. Offline publish dry runs matched the local tarballs for foundation, command-line and apps. Each package produced identical tarballs on Node 22.17 and 24.15. An isolated consumer compiled and ran all 87 apps README examples on both Node versions with TypeScript 5.9.3 and 7.0.2. All 87 also ran in a browser-targeted bundle. A second consumer imported the emitted declarations for bound Update, Get/Delete and List requests, route contract members, declared failure overrides and the assembled Create contract. Both compilers passed. The six cases also passed with the apps minimum Zod 4.4.3.
@@ -521,7 +548,7 @@ The release script passed its dry run against a local Git replica. Offline publi
   - `Defaulted` is present exactly when the schema has a default. This is detected structurally: the outer wrapper chain contains `ZodDefault` or `ZodPrefault`, and shorthands carry a literal `default` key through `const` generics (M4).
   - Each mismatch produces a diagnostic that names the property.
 - **`patch` field option:** `'replace'` (the default), `'merge'` for objects, or `'append'` for arrays.
-  - [x] Check the PATCH mode when the CRUD registry resolves a model, including inherited fields. An incompatible `merge` or `append` raises `ResourceDefinitionError` before a route is built. Applying a patch to stored data belongs to Phase 3. [PATCH modes](../../packages/apps/README.md#patch-modes) · [Declaration tests](../../packages/apps/tests/model/assertFieldPatchModes.test.ts)
+  - [x] Check the PATCH mode when the CRUD registry resolves a model, including inherited fields. An incompatible `merge` or `append` raises `ResourceDefinitionError` before a route is built. The Offering checkpoint applies the default replacement behavior to stored data. General merge and append persistence belongs to the resource service in §3.3. [PATCH modes](../../packages/apps/README.md#patch-modes) · [Declaration tests](../../packages/apps/tests/model/assertFieldPatchModes.test.ts)
 - **Derived types (`model/types.ts`)** come from the class type alone:
   - `Fields`, `ReadModel`, `CreateInput` (required unless `?` or `Defaulted`), `UpdateInput` (all optional), `IdOf`.
   - [x] Export `Fields<C>` for a constructor or instance type. It uses foundation's `TypeShape` to preserve the original field declarations, including inherited, readonly and optional fields, and omit methods. [Data field tests](../../packages/apps/tests/model/fields.test-d.ts)
@@ -660,6 +687,12 @@ export const ExportOfferings = endpoint({
 - **Startup error:** a `feature()` rule on an API with no entitlement resolver. The billing kit registers one (6.6).
 
 ### 1.4 Endpoints (`apps/src/endpoints/`)
+
+- [x] Generate the first named Create contract from the actual resource declaration. `CreateOffering` derives its flat request, JSON sections, access, projected 201 response and scoped failure union. The contract applies defaults and strips hidden fields before encoding a response. [Offering declaration](../../packages/apps/examples/crud-api/common/src/resources/Offering.ts) · [Contract tests](../../packages/apps/tests/endpoints/createEndpoints.test.ts)
+- [x] Generate `GetOffering` from the same resource and read grant. Its flat request selects the declared primary key. On the wire the key travels in the item URL, and HTTP 200 returns the projected read model. [Reading a stored offering](../../packages/apps/README.md#reading-a-stored-offering)
+- [x] Generate `UpdateOffering` from the same resource. It derives a strict partial body from update grants, sends the primary key in the item URL and returns the projected read model with HTTP 200. [Contract](../../packages/apps/src/endpoints/createEndpoints.ts) · [Example](../../packages/apps/README.md#updating-an-offering)
+- [x] Generate `DeleteOffering` with the item ID as its only input. The contract takes its access rule from `delete` or the `write` fallback. The handler returns no data on success. The response schema accepts `{ code: 200 }` with an optional `message`. [Delete contract tests](../../packages/apps/tests/endpoints/deleteEndpoint.test.ts) · [Example](../../packages/apps/README.md#deleting-an-offering)
+- [x] Generate the offset-paged `ListOfferings` contract. The client sends numeric paging inputs as query parameters on the collection GET. The handler receives decoded paging defaults and the response projects each offering through its read model. [List usage](../../packages/apps/README.md#listing-offerings)
 
 **`endpoints(C, options)`** builds the five CRUD endpoints. Its options:
 - `name`: a literal, and the source of truth.
@@ -848,6 +881,8 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
 - **Query cost is capped.** The depth of a `where`, its number of conditions and the length of an `$in` list each have a limit (`DEFAULT_MAX_WHERE_DEPTH`, `DEFAULT_MAX_WHERE_NODES`, `DEFAULT_MAX_IN_LENGTH`). Going over is a 422.
 - **Wire format:** bracket encoding, with one encoder and decoder in core used by both sides. The decoder rejects the keys `__proto__`, `constructor` and `prototype`, and builds null-prototype objects (Security 2).
 
+- [x] Carry declared scalar equality filters and immediate sort keys through generated offset List contracts, the typed client and Express. The shared bracket codec preserves field priority, rejects duplicate or conflicting paths and builds null-prototype objects. A bare parameter represents a null operand and an explicit empty value represents an empty string. The Offering example enables `type: ['$eq']` and `sort: ['name', 'createdAt']`. [Bracket codec](../../packages/apps/src/query/bracketQuery.ts) · [List contract tests](../../packages/apps/tests/endpoints/listEndpoint.test.ts)
+
 ### 1.7 Wire codec (`apps/src/wire/`)
 - **One schema, two directions.** Each variant has a wire form, built by walking the zod definition. The server decodes requests and encodes responses; the client does the reverse. Forms and handlers always see decoded values.
 - **The walker contract (M7):**
@@ -903,6 +938,7 @@ Cross-cutting headers (an idempotency key, for example) are endpoint presets dec
   - Workers use the same types for their ack/nack policy.
 
 ### 1.9 Client (`apps/src/client/`)
+- [x] Call `CreateOffering` through an instance-owned typed client with injected fetch. The [public-entry test](../../packages/apps/tests/e2e/createOffering.test.ts) verifies tenant and bearer headers, request defaults, the raw 201 payload, decoded dates, typed 422 issues and transport rejection. The item Get client uses the route's declared path parameter, sends a bodyless request and decodes the endpoint's response union. [End-to-end plan](resource-framework-e2e.md#implementation-order-and-acceptance)
 - **`createClient({ baseUrl, headers?, tenant?, tokens?, refresh?, version?, fetch? })`** returns an instance with `client.call(endpoint, request)`. `tenant: () => string | undefined` supplies the tenant header. Each instance owns its headers, and nothing is global (Security 6).
   - [x] Export `tenantHeaders()` to read the current tenant once per request and return the header under the contract’s configured name. Switching tenants changes the next request. An absent callback or an `undefined` result yields an empty header record. [Client tenant example](../../packages/apps/README.md#client-tenant-header) · [Tests](../../packages/apps/tests/client/tenantHeaders.test.ts)
 - **Tokens.** The client attaches `Authorization: Bearer`, refreshes shortly before the access token expires, and retries once after a 401 `Auth.TOKEN_EXPIRED`.
@@ -967,6 +1003,12 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 ---
 
 ## Phase 2 — Express adapter and API factory (`@epsilon-asi/apps/express`)
+
+On 2026-11-19 the workspace built and typechecked for the Get checkpoint. With PostgreSQL 16.15 enabled for the existing database tests, the 12 package suites reported 3,202 passing and 18 skipped using the final apps rerun (695 passed). An isolated consumer compiled the example against local package tarballs with TypeScript 5.9.3 and 7.0.2. The emitted example discovered its routes and completed a typed HTTP Create followed by Get on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#reading-a-stored-offering)
+
+- [x] Complete the first HTTP checkpoint for `CreateOffering`. The example discovers `OfferingRoutes` or accepts it explicitly. Startup checks the resource system's independent endpoint inventory, verifier and membership resolver before listening. A user bearer token establishes identity. The live membership supplies the role and authorized tenant. The typed client receives a projected 201, or a traced 400, 401, 403, 404 or 422 for the tested failure cases. [HTTP acceptance tests](../../packages/apps/tests/e2e/createOfferingHttp.test.ts) · [Emitted example](../../packages/apps/tests/e2e/emittedOffering.test.ts)
+- [x] Complete the `GetOffering` HTTP checkpoint. The example stores created rows per app and organization. A viewer gets HTTP 200 for their organization's row. A viewer in another organization sees the same public 404 for that ID and an absent ID. [Tenant-isolation test](../../packages/apps/tests/e2e/getOfferingHttp.test.ts) · [Checkpoint plan](resource-framework-e2e.md#implementation-order-and-acceptance)
+- The Node entries serve all five tenant-owned CRUD operations with ordered user roles. List supports offset pagination, declared scalar equality and immediate sort keys. The runtime supports graceful HTTP shutdown and the test kit starts an isolated app. General service lifecycle, custom route middleware groups and other principal and ownership policies are tracked below.
 
 ### 2.1 Runtime lifecycle (`@epsilon-asi/apps/runtime`)
 - **Services:** `defineService({ name, start, stop })` declares a service, and `runApplication({ services, name?, env?, shutdownTimeoutMs? })` runs them in order and stops them in reverse. `name` defaults to the package name, `env` to `ApplicationEnv`, and `shutdownTimeoutMs` to `DEFAULT_SHUTDOWN_TIMEOUT_MS`.
@@ -1102,8 +1144,8 @@ Build one form and the client against `Offering`, with a stub `fetch` and no Exp
 ### 2.8 Example app (`packages/apps/examples/crud-api/`)
 - `common/app.ts` and `common/resources/Offering.ts`, as shown above.
 - The API uses a stub `authenticate` verifier with a token map, plus stub memberships across two tenants and several roles.
-- `api/src/routes/OfferingRoutes.ts` is one `@Routes` class whose handlers return stub read models, and `api/src/main.ts` is `await runApi()`.
-- The end-to-end tests drive the real app through the typed client (see "Verification"). There is no database yet. From Phase 3, they run against a local Postgres.
+- The [Offering routes](../../packages/apps/examples/crud-api/api/src/routes/OfferingRoutes.ts) bind all five CRUD handlers to app-local memory or a host-supplied PostgreSQL pool. Create sets the owner from the authenticated tenant. Get, Update and Delete use the ID in that tenant’s scope. List returns the selected tenant’s page and total count. The example declares the administrator floor for Delete. The [API entry](../../packages/apps/examples/crud-api/api/src/main.ts) starts the app with `runApi()`.
+- The [end-to-end test plan](resource-framework-e2e.md#implementation-order-and-acceptance) records the in-memory and PostgreSQL checkpoints. Both exercise tenant isolation through the typed client and a listening server. The PostgreSQL tests use a second server connected to the same schema to verify committed creates, updates, deletes and collection reads.
 
 ### 2.9 The public API
 The API the UI calls is the API outside callers use. Nothing is built twice.
@@ -1132,6 +1174,7 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
   - Each old version has a support window (`DEFAULT_API_VERSION_SUPPORT_MONTHS`).
 
 ### 2.11 Test kit (`@epsilon-asi/apps/testing`)
+- [x] Start the actual dispatcher with `createTestApp({ resources, routes?, env })`, on loopback port zero, with independent user tokens and tenant memberships. The default client is anonymous. `as({ user, tenant, role })` arranges credentials and membership for a typed client. A test verifier requires an explicit test environment. [Test kit](../../packages/apps/src/testing/index.ts) · [Run the HTTP tests](../../packages/apps/README.md#calling-the-listening-example)
 - **`createTestApp({ routes?, ...createApiOptions })`** starts the real app on port 0. `routes` defaults to discovery, as in `runApi()`. In-memory stand-ins replace Redis, the session store and pub/sub. It returns `{ client, as, close }`.
 - **`as({ user?, tenant?, role? })`** returns a typed client acting as that principal. It signs in through a test verifier that only `createTestApp` registers. `createApi` refuses that verifier outside tests, so there is no back door in production code.
 - **A database from Phase 3 on:** each test file gets a fresh schema built from the entities, on SQLite by default, or on Postgres for anything that depends on Postgres.
@@ -1141,7 +1184,11 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 
 ## Phase 3 — MikroORM adapter (`@epsilon-asi/apps/mikro-orm`)
 
+The PostgreSQL Create/Get checkpoint passed on PostgreSQL 16.15. The workspace built, typechecked and ran all 12 package suites with 3,208 passing tests and 18 skipped, including all 701 apps tests passing. An isolated consumer compiled the example against local tarballs with TypeScript 5.9.3 and 7.0.2 and exercised PostgreSQL Create/Get over HTTP on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+
 ### 3.1 Entities from the same class
+
+- [x] Derive the server-side Offering schema from its resource declaration, including its UUID primary key, indexed tenant field, JSON links, enum fields, timestamps and hidden `vectorStoreId`. The entity’s default filter resolves the declared tenant field and requires a bound tenant ID. [Entity derivation](../../packages/apps/src/mikro-orm/defineEntity.ts) · [Offering binding](../../packages/apps/examples/crud-api/api/src/database.ts)
 - **`defineEntity(C, options?)`** is server-only. It builds `new EntitySchema({ class: C, properties })` from the resolved model.
   - Table, column and index names are derived, so most resources pass no options.
   - `options` overrides them (`table`, `columns`, `indexes`, `relations`) and takes `hooks`.
@@ -1170,6 +1217,9 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - No regex is ever built from user input.
 
 ### 3.3 Free services and unit of work
+
+- [x] For all five tenant-owned HTTP CRUD operations, bind a fresh entity manager to the verified tenant and commit each successful write after response projection. The example passes a host-owned ORM to `ormUnitOfWork(orm)`. Automatic service discovery and audit/outbox work remain planned. [Unit of work](../../packages/apps/src/mikro-orm/unitOfWork.ts) · [Rollback tests](../../packages/apps/tests/mikro-orm/unitOfWork.test.ts)
+- [x] Implement the `get({ ctx, id })` instance method on `ResourceService(C)` for tenant-owned resources without a separate owner field. It derives the key names and queries by the primary key and the verified tenant. A match returns the managed entity, and a miss returns `null`. A missing or mismatched manager rejects the lookup. [Service](../../packages/apps/src/mikro-orm/resourceService.ts) · [SQLite verification](../../packages/apps/tests/mikro-orm/resourceService.test.ts)
 - **`ResourceService(C)`** is a base-class factory with `get({ ctx, id })`, `getOrFail`, `list({ ctx, query })`, `create({ ctx, input })`, `update({ ctx, id, patch })`, `delete({ ctx, id })`, `ref(id)` and `repository`.
   - Every method takes the tenant, parent and principal from `ctx`, applies tenant scoping for every ownership kind, and respects access modes and `patch` behavior.
 - **`unitOfWork` is a transaction** (`em.transactional`) with one flush. The outbox, change events and audit events are written in it and dispatched after commit. `/mikro-orm` ships one binding-neutral implementation, plus the HTTP middleware. The consumer and job bindings (Phase 5) wrap the same implementation in their own middleware, because each binding keeps its own middleware identity (0.3), and so `/mikro-orm` never imports them.
@@ -1177,6 +1227,9 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **Error mappers:** `NotFoundError` → 404; `UniqueConstraintViolationException` → 409; not-null, foreign-key and check violations → 409/422. Postgres `detail` never reaches the response.
 
 ### 3.4 Default handlers
+
+- [x] Ship the Get default in `crudHandlers(C)`. Startup matches a default to the exact resource model and enabled operation. An explicit field overrides it. The PostgreSQL Offering example uses the default for Get and supplies Create, Update, Delete and List explicitly. Those four ORM defaults remain planned. [Route resolver](../../packages/apps/src/express/routes.ts) · [Offering routes](../../packages/apps/examples/crud-api/api/src/database.ts)
+
 `crudHandlers(C)` returns handlers keyed by operation (`Create`, `Get`, `Update`, `Delete`, `List`), because a class type carries no endpoint names. It's passed to a routes class as `@Routes({ defaults: crudHandlers(C) })`. At startup, the handlers bind to the endpoints registered for `C`. A hand-written field wins, endpoint by endpoint.
 
 ### 3.5 Relations
@@ -1211,6 +1264,21 @@ The API the UI calls is the API outside callers use. Nothing is built twice.
 - **First users:** the TOTP secret (6.1) and third-party credentials.
 
 ### 3.8 Tests
+
+The UpdateOffering checkpoint passed against PostgreSQL 16.15. All 709 apps tests passed. Across the 12 workspace package suites, 3,216 tests passed and 18 were skipped. The locally packed example compiled on TypeScript 5.9.3 and 7.0.2 and completed Create → Get → PATCH → Get on Node 22.17 and 24.15. [Run the checkpoint](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+
+The DeleteOffering checkpoint passed against PostgreSQL 16.15. Across the 12 workspace suites, 3,222 tests passed and 18 were skipped. All 715 apps tests passed. The locally packed example exercised deletion on Node 22.17 and 24.15. [Run the Delete checkpoint](../../packages/apps/README.md#deleting-an-offering)
+
+The initial offset-pagination checkpoint for ListOfferings passed on both backends, including PostgreSQL 16.15. Across the 12 workspace suites, 3,230 tests passed and 18 were skipped. All 723 apps tests passed. The locally packed example compiled with TypeScript 5.9.3 and 7.0.2 and exercised List on Node 22.17 and 24.15. [Run the List checkpoint](../../packages/apps/README.md#listing-offerings)
+
+The ListOfferings filtering and two-key sorting checkpoint passed on memory and PostgreSQL 16.15. All 21 end-to-end tests and all 728 apps tests passed. Across 12 workspace suites, 3,235 tests passed and 18 were skipped. The local tarball consumer compiled on TypeScript 5.9.3 and 7.0.2 and ran filtered list calls on Node 22.17 and 24.15. [End-to-end acceptance](resource-framework-e2e.md#implementation-order-and-acceptance)
+
+- [x] Replay the typed-client Create/Get isolation scenario over real HTTP on PostgreSQL. Two servers with independent pools share one test schema. Each tenant reads its own committed row. Tenant B gets the same public 404 for A’s row and a missing ID. The dedicated CI job requires PostgreSQL. [Acceptance test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts) · [Run locally](../../packages/apps/README.md#persisting-offerings-in-postgresql)
+- [x] Complete the Create → Get → PATCH → Get checkpoint for Offering. A one-field patch preserves omitted fields, including defaulted links. A supplied links array replaces the stored array. The PostgreSQL handler locks the tenant-filtered row before assignment. Two simultaneous updates to distinct fields survive, including when sent to different servers. [PostgreSQL binding](../../packages/apps/examples/crud-api/api/src/database.ts) · [Shared acceptance test](../../packages/apps/tests/e2e/offeringUpdate.fixture.ts)
+- [x] Complete the DeleteOffering checkpoint. The example removes the tenant’s row in one filtered delete inside the request transaction. Real HTTP tests verify administrator access, a 200 envelope with no data, cross-tenant 404s, and exactly one successful delete when two administrators race on the same row. The PostgreSQL test checks the remaining rows through the second pool. [Storage binding](../../packages/apps/examples/crud-api/api/src/database.ts) · [Delete acceptance test](../../packages/apps/tests/e2e/offeringDelete.fixture.ts)
+- [x] Verify `ListOfferings` through the typed client over real HTTP on memory and PostgreSQL. Two offerings in A span two one-row pages with a total of 2. An out-of-range page keeps that total. B sees its one row and an empty tenant sees zero. On PostgreSQL a second pool reads the committed rows, and the count and page share the entity’s tenant filter and one database snapshot. [Shared scenario](../../packages/apps/tests/e2e/offeringList.fixture.ts) · [PostgreSQL test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts)
+- [x] Run the filtered, two-key `ListOfferings` scenario through the typed client over HTTP on both backends. The PostgreSQL count and page use the same filter under the authenticated tenant’s snapshot. Reversing the two sort keys changes the order. A foreign service and a local product are both excluded from the service count. [HTTP scenario](../../packages/apps/tests/e2e/offeringList.fixture.ts) · [Usage guide](../../packages/apps/README.md#listing-offerings)
+- [x] Verify the reusable Get through the typed client and real HTTP. Two PostgreSQL listeners share the schema through independent pools. A’s viewer receives 200 with the readable offering. B’s viewer receives the same public 404 for that ID and a missing ID, and can read B’s own offering. The in-memory app passes the same assertions. On PostgreSQL 16.15 the workspace run passed 3,238 tests across 12 suites with 18 skipped, including all 731 apps tests and all 21 end-to-end tests. The local tarball consumer exported a service subclass on TypeScript 5.9.3 and 7.0.2 and exercised Get on Node 22.17 and 24.15. [PostgreSQL test](../../packages/apps/tests/e2e/postgresOfferingHttp.test.ts) · [Checkpoint and scope](resource-framework-e2e.md#implementation-order-and-acceptance)
 - The adapter's unit and integration tests run on in-memory SQLite.
 - These run on Postgres: `ilike`, arrays and json, migrations and the linter, and encryption round-trips.
 - The example app's `OfferingRoutes` switches to `@Routes({ defaults: crudHandlers(Offering) })` and keeps one hand-written field as an override.
@@ -1491,23 +1559,6 @@ This generalizes maxleads' `RedisService`. That service had typed, namespaced ke
 - Audit events are written by the unit of work from Phase 3 (3.3), so `unscoped` is audited from its first day. 6.8 adds the endpoints that read them, and the auth events.
 - Tenant status is always `ACTIVE` until 6.2.
 - API keys come from the example app's stub verifier until 6.1.
-
----
-
-### Weekly checkpoint · 2026-11-19
-
-**Two of the nine program stages have met their exit checks.** Phase 0 passed its five-package toolchain gate and all six architecture spikes passed. Phase 1 is in progress. The six stages after Phase 1 still need their deliverables. The stages differ substantially in size, so the stage count measures milestones rather than engineering effort.
-
-| Scope | Verified in the working tree | Remaining |
-|---|---|---|
-| Foundation and spikes | Browser-safe package entries, compiler matrix, decorator additions, logging and naming. All six spikes have passing fixtures. | Connect model-derived redaction in Phase 1, repeat S0 against the production endpoints, and move the middleware chain with Phase 2. |
-| Browser-safe core | Model field and access helpers, tenancy and principal defaults, route metadata, wire codecs, List queries, success and failure schemas. All five CRUD operations bind flat requests to wire sections. | Finish the resource system and runtime model variants, endpoint factories, state-machine behavior and the client that makes calls. The core also has remaining translation, tool and search integration work. |
-| CRUD schema contracts | Create combines the route, request conversions, readable row, success envelope and failure union on one public object. | Assemble Get, Update, Delete and List, then return the enabled operations under their declared export names. |
-| Application delivery | Fixtures exercise handler typing, tenancy, database behavior and shutdown. | Thin UI spike, Express API, MikroORM persistence, React resource UI, messaging and workers, then SaaS kits and scaffolding. |
-
-**Last verification.** The workspace passed 3,289 tests with PostgreSQL enabled, including all 785 apps tests. Eighteen tests were skipped elsewhere. All 87 packaged README examples ran on both supported Node and TypeScript versions and in the browser-targeted bundle. The release check was a local dry run. The latest contract implementation is in the working tree and still needs a commit for a fresh checkout to contain it.
-
-**Next acceptance milestone.** A consumer declares one resource, imports each enabled CRUD endpoint by name, and derives request and response types from the resulting objects. A disabled operation disappears at runtime and in TypeScript. This gives the production handler-inference check a real set of endpoints to exercise. [Endpoint contract](#14-endpoints-appssrcendpoints) · [Spike S0](#spikes-about-a-day-each-after-phase-0-before-phase-1)
 
 ---
 

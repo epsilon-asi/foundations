@@ -2,6 +2,10 @@
 
 Foundation requires Zod 4.1.0 or later within major version 4. Version 4.1.0 introduced the codecs used for two-way conversion between wire values and application types. [Zod codecs](https://zod.dev/codecs)
 
+## Middleware chains
+
+`createChainBinding()` supplies the shared execution machinery for the CLI and the apps HTTP adapter. Each binding owns its middleware identities, context keys and result policy. Resolve dependencies once when assembling a command or route, then run the ordered steps with a fresh context and cleanup stack on each invocation. Duplicate declared providers fail during resolution. [Chain implementation](src/chain/binding.ts) · [Binding tests](src/chain/binding.test.ts)
+
 ## Decorator mode
 
 Foundation uses standard TypeScript decorators. Leave `experimentalDecorators` unset or set it to `false` in the project that compiles your decorated classes. If a build emits legacy decorators, class definition throws `DecoratorModeError`. Its message names the registry decorator and the compiler setting to change. Rebuild the module containing the decorated class after changing the setting.

@@ -47,3 +47,8 @@ export function pathParameters(path: string) {
 export function pathParameterNames(path: string): string[] {
   return pathParameters(path).map(parameter => parameter.name);
 }
+
+/** URL construction treats empty and dot-only segments as navigation rather than item IDs. */
+export function isItemPathValue(value: unknown): value is string {
+  return typeof value === 'string' && value !== '' && value !== '.' && value !== '..';
+}

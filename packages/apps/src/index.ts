@@ -1,4 +1,15 @@
 export type { CrudAccessMap } from './access/crudAccess.js';
+export { createClient, type AccessTokenSource, type ClientEndpoint, type CreateClientOptions, type ResourceClient } from './client/createClient.js';
+export type {
+  CheckedListDeclaration, CreateEndpoint, CreateEndpoints, CreateEndpointsOptions, CreateRequestContent, DeleteEndpoint, DeleteRequestContent,
+  GetEndpoint, GetRequestContent, ListEndpoint, ListRequestContent, ResourceEndpoints, ResourceEndpointsOptions,
+  UpdateEndpoint, UpdateRequestContent,
+} from './endpoints/createEndpoints.js';
+export {
+  createResourceSystem, type CreateResourceSystemOptions, type ResourceExtensions, type ResourceModel,
+  type ResourceOptions, type ResourceProp, type ResourceSystem, type ResourceVariants,
+} from './model/createResourceSystem.js';
+export type { ResourceWire } from './model/resourceVariants.js';
 export { apiVersionHeaders, type ApiVersionHeadersOptions } from './client/apiVersionHeaders.js';
 export { tenantHeaders, type TenantHeadersOptions } from './client/tenantHeaders.js';
 export { ApiDefinitionError } from './endpoints/ApiDefinitionError.js';
@@ -58,7 +69,7 @@ export { resolveCrudIdField, type ResolveCrudIdFieldOptions } from './model/reso
 export { resolveTenantField, type ResolveTenantFieldOptions } from './model/resolveTenantField.js';
 export { selectOperationFields, type FieldOperation, type SelectOperationFieldsOptions } from './model/selectOperationFields.js';
 export { serverOnlyFields, type ServerOnlyFieldsOptions } from './model/serverOnlyFields.js';
-export type { CreateInput, Fields, IdOf, ReadModel, UpdateInput } from './model/types.js';
+export type { CreatedFields, CreateInput, Fields, GetInput, IdOf, ReadModel, UpdateInput } from './model/types.js';
 export { updateFieldSchema, type UpdateFieldSchemaOptions } from './model/updateFieldSchema.js';
 export { cursorListQuerySchema, type CursorListQueryOptions } from './query/cursorListQuerySchema.js';
 export {

@@ -2,13 +2,118 @@
 
 The browser-safe package root exports resource model types, the `newId()` UUID generator, and CRUD, HTTP and UI metadata. It derives CRUD endpoint names and paths, tenant names and translation keys. It also provides CRUD methods and success codes, typed success and failure responses, list query primitives, and date, number and boolean wire codecs. [Resource framework plan](https://github.com/epsilon-asi/foundations/blob/main/docs/plans/resource-framework.md)
 
+All five Offering operations run through the typed client over real HTTP on memory and PostgreSQL. The ORM adapter supplies the Get handler. The example supplies Create, Update, Delete and List. [Weekly handoff](../../docs/plans/resource-framework.md#weekly-handoff) · [End-to-end checkpoints](../../docs/plans/resource-framework-e2e.md#implementation-order-and-acceptance)
+
 The [naming guide](docs/CONVENTIONS.md) covers the planned file names, exports and discovery rules for application code. It ships with the package.
 
-The root depends on foundation and Zod. Express, Redis and Google Cloud Pub/Sub are optional peers for planned adapters. The planned billing adapter declares `stripe` (`^23.1.0`) as an optional peer. The planned ORM adapter declares `@mikro-orm/core` and `@mikro-orm/migrations` as optional peers with the same version range. PostgreSQL and SQLite are development drivers. An empty project can install and import the packed root with just foundation and Zod.
+The root depends on foundation and Zod. The Node-only `/express` and `/testing` entries use the Express 5 optional peer. The `/runtime` entry owns the HTTP listener and its drain. Redis and Google Cloud Pub/Sub are optional peers for planned adapters. The planned billing adapter declares `stripe` (`^23.1.0`) as an optional peer. The Node-only `/mikro-orm` entry uses the `@mikro-orm/core` optional peer. Applications supply their database driver. The workspace uses the PostgreSQL and SQLite drivers for tests. The migrations peer is reserved for the planned migration tooling. An empty project can install and import the packed root with just foundation and Zod.
+
+## Creating an offering through the typed client
+
+The [Offering example](examples/crud-api/common/src/resources/Offering.ts) declares its fields once. Its [application resource system](examples/crud-api/common/src/app.ts) supplies the tenant and ordered roles. The example enables all five CRUD operations. Each contract derives its flat request, wire sections, success envelope and declared failures.
+
+Call `createClient({ baseUrl, tenant, tokens, fetch }).call(CreateOffering, input)`. The example input contains `name`, `description` and `type`. The caller may omit `links`, and the decoded request supplies an empty array. The client reads the tenant and access token for each call. For Offering, it sends `POST /offerings` with `X-Organization-Id` and a bearer token. On success, `result.code === 201` narrows `result.data` to the readable offering, including decoded `Date` timestamps. A declared 422 resolves with its field issues. A rejected fetch rejects the call.
+
+The [public-consumer test](tests/e2e/createOffering.test.ts) injects fetch and inspects both sides. It decodes the posted body, encodes a row containing a server-only field, checks the outgoing response JSON, and checks what the typed caller receives. Run it from the repository root after installing workspace dependencies:
+
+```sh
+corepack pnpm --filter @epsilon-asi/apps... run build
+corepack pnpm --filter @epsilon-asi/apps exec vitest run tests/e2e/createOffering.test.ts
+```
+
+### Calling the listening example
+
+Install the Express 5 peer for the server. TypeScript consumers of the Node adapter also use the Node and Express 5 type declarations. The [API entry](examples/crud-api/api/src/main.ts) imports the common contract and calls `runApi` with its resource system, token verifiers and membership lookup. At startup the adapter discovers [OfferingRoutes](examples/crud-api/api/src/routes/OfferingRoutes.ts) beside the entry, checks the handlers against the enabled endpoints by identity, then opens the listener. Passing `routes: [OfferingRoutes]` selects the class explicitly. The default address is loopback port 3000. Pass `port: 0` to receive a free port in `api.url` and call `await api.close()` to drain the listener.
+
+For the tenant-owned Offering endpoints, a verifier resolves the bearer token to a user. The server checks the current membership for that user and the selected tenant on every request. The handlers receive the organization through `ctx.tenant.id`. A missing or invalid bearer yields 401, a missing tenant header yields 400, a tenant without a matching membership yields 404, and a member below the declared role receives 403. An authorized caller with invalid fields receives 422 with flat issue paths.
+
+The test kit starts the same API on loopback port zero. Use `createTestApp({ resources, routes: [OfferingRoutes], env: { APP_ENV: 'test' } })`, then call `app.as({ user, tenant, role: 'EDITOR' }).call(CreateOffering, input)`. Each app owns its test tokens and memberships. The API rejects test verifiers unless `APP_ENV` is explicitly `test`. Call `await app.close()` in teardown. [HTTP tests](tests/e2e/createOfferingHttp.test.ts)
+
+### Reading a stored offering
+
+After Create returns 201, pass its ID to `viewer.call(GetOffering, { id: created.data.id })`. The client sends a bodyless `GET /offerings/:offeringId` with the viewer’s bearer and tenant headers. The server maps the path parameter back to `id` using the resource’s primary-key declaration. HTTP 200 returns the same readable fields as Create, including timestamps decoded as `Date` values.
+
+By default the example stores rows in memory for the lifetime of one app. Get, Update and Delete select rows by the authenticated organization and offering ID. A viewer in tenant B receives the same `404 Resource.NOT_FOUND` envelope for tenant A’s ID and a missing ID, with a trace ID for each request. A second app starts with an empty store even when it serves the same organization. [Tenant-isolation tests](tests/e2e/getOfferingHttp.test.ts)
+
+The PostgreSQL routes class declares `@Routes({ defaults: crudHandlers(Offering) })`. Its Get handler calls `get({ ctx, id })` on an instance of `ResourceService(Offering)`. The service reads the primary key and tenant field from the resource declaration and uses the request’s tenant-bound entity manager. It returns a managed entity or `null`. The handler maps `null` to 404, and the HTTP pipeline projects a found entity through the readable schema. Create, Update, Delete and List still have explicit handlers. [Database routes](examples/crud-api/api/src/database.ts) · [Service implementation](src/mikro-orm/resourceService.ts)
+
+Server code can reuse the lookup in a service of its own:
+
+```ts
+import { ResourceService } from '@epsilon-asi/apps/mikro-orm';
+import { Offering } from './common/src/resources/Offering.js';
+
+class Offerings extends ResourceService(Offering) {}
+const offerings = new Offerings();
+
+// Inside a tenant-bound unit of work
+const row = await offerings.get({ ctx, id });
+```
+
+Run the socket and emitted-discovery tests from the repository root:
+
+```sh
+corepack pnpm --filter @epsilon-asi/apps... run build
+corepack pnpm --filter @epsilon-asi/apps exec vitest run tests/e2e
+```
+
+### Updating an offering
+
+An editor calls `client.call(UpdateOffering, { id, name: 'Professional' })`. The client sends `PATCH /offerings/:offeringId` with the JSON body `{ "name": "Professional" }`. HTTP 200 returns the full readable offering. A viewer in the same tenant can read that version immediately with `GetOffering`.
+
+Only `name`, `description` and `links` are writable on Update. Omitted fields retain their stored values, including nonempty links. Supplying `links` replaces the array, and sending only the ID is a no-op. The example preserves its timestamps during PATCH. Supplying the ID again in the body, a create-only field such as `type`, or a server-owned field produces a 422 identifying the field. A viewer’s update receives 403. Another tenant’s editor receives the same public 404 for a foreign ID and a missing ID. [HTTP acceptance scenario](tests/e2e/offeringUpdate.fixture.ts)
+
+### Deleting an offering
+
+A tenant administrator calls `client.call(DeleteOffering, { id })`. The client sends a bodyless `DELETE /offerings/:offeringId`. A successful delete removes the row and returns HTTP 200 with exactly `{ "code": 200 }`. A subsequent Get or Delete returns `404 Resource.NOT_FOUND`.
+
+The Offering declaration grants Delete to `ADMINISTRATOR` and higher. An editor can create and update an offering but receives 403 on Delete. An administrator from a different tenant receives the same public 404 for that ID and a missing ID. Concurrent authorized deletes of one row yield one success and one 404. [Shared HTTP acceptance test](tests/e2e/offeringDelete.fixture.ts) · [PostgreSQL test](tests/e2e/postgresOfferingHttp.test.ts)
+
+### Listing offerings
+
+A viewer can call `client.call(ListOfferings, { page: 1, perPage: 1 })` to get the second offering in their organization. The client sends a bodyless `GET /offerings?page=1&perPage=1` with the viewer’s credentials and tenant header. Passing `{}` uses page 0 and a page size of 20. The maximum page size is 100.
+
+On HTTP 200, `result.data.offerings` contains the readable rows for that page, ordered by ascending ID by default, and `result.data.count` is the number of rows in the selected tenant that match the filter across all pages. A page beyond the last row returns an empty array with the same total. A tenant with no offerings receives `{ code: 200, data: { offerings: [], count: 0 } }`. Each returned row uses the same projection and date decoding as Get. [Shared HTTP acceptance test](tests/e2e/offeringList.fixture.ts)
+
+The Offering declaration allows equality on `type` and sorting by `name` and `createdAt`. To order service offerings by name, newest first within each name, pass both keys in priority order.
+
+```ts
+const page = await viewer.call(ListOfferings, {
+  where: { type: { $eq: OfferingType.Service } },
+  orderBy: { name: 'asc', createdAt: 'desc' },
+  perPage: 1,
+});
+```
+
+The client encodes `where[type][$eq]=SERVICE`, `orderBy[name]=asc` and `orderBy[createdAt]=desc` in the URL. Both stores filter before counting and paging. They order names by UTF-8 byte value and use ascending ID to break remaining ties. The server returns 422 for an undeclared filter, operator or sort field. [Offering declaration](examples/crud-api/common/src/resources/Offering.ts) · [HTTP scenario](tests/e2e/offeringList.fixture.ts)
+
+The memory store pages the authenticated organization’s entries. PostgreSQL applies the entity’s tenant filter to both the filtered count and the page query in one read-only, repeatable-read transaction. [Database binding](examples/crud-api/api/src/database.ts) · [PostgreSQL acceptance test](tests/e2e/postgresOfferingHttp.test.ts)
+
+### Persisting offerings in PostgreSQL
+
+Install matching versions of `@mikro-orm/core` and `@mikro-orm/postgresql` in the API. The example derives `OfferingEntity` from the common `Offering` class with `defineEntity(Offering)`. Register that entity when initializing MikroORM, then pass the pool to the example. The host supplies the database URL and authentication configuration. [Example database binding](examples/crud-api/api/src/database.ts)
+
+```ts
+import { MikroORM } from '@mikro-orm/postgresql';
+import { OfferingEntity, offeringDatabase } from './api/src/database.js';
+import { startOfferingApi } from './api/src/main.js';
+
+const orm = await MikroORM.init({ clientUrl, entities: [OfferingEntity] });
+const api = await startOfferingApi({ verifiers, membership, ...offeringDatabase(orm) });
+```
+
+Provision the table before starting the API. During shutdown, drain the listener with `await api.close()`, then release the host’s pool with `await orm.close()`. After authentication, membership and input checks, each request gets a fresh entity manager bound to the verified tenant. Create takes ownership from that context and commits after the handler’s result passes response projection. Update locks the matching row in its write transaction and assigns the validated patch. Concurrent updates to different fields both survive. Delete uses a single tenant-filtered SQL delete in the request transaction. Its affected-row count determines whether the handler succeeds or returns 404. A query on a fresh, unbound manager fails. [Unit of work](src/mikro-orm/unitOfWork.ts) · [Transaction rollback tests](tests/mikro-orm/unitOfWork.test.ts)
+
+To run the PostgreSQL checkpoint locally, set `SPIKE_POSTGRES_URL` to a test database where the user can create schemas, then run the following from the repository root. The test starts two HTTP servers with independent database pools, creates a unique schema and drops it during teardown. The dedicated CI job sets `SPIKE_REQUIRE_POSTGRES=1` so a missing connection fails the check. [PostgreSQL acceptance test](tests/e2e/postgresOfferingHttp.test.ts)
+
+```sh
+corepack pnpm --filter @epsilon-asi/apps... run build
+SPIKE_REQUIRE_POSTGRES=1 corepack pnpm --filter @epsilon-asi/apps exec vitest run tests/e2e/postgresOfferingHttp.test.ts
+```
 
 ## Resource model primitives
 
-Field types declare which operations may use a value. They accept ordinary values and preserve `null` and `undefined` in unions. Runtime request validation and response projection are planned separately.
+Field types declare which operations may use a value. They accept ordinary values and preserve `null` and `undefined` in unions. The resource system derives Create and Update validation and read projection from the corresponding field metadata.
 
 | Field type | Read | Create | Update |
 |---|---|---|---|
@@ -1181,7 +1286,7 @@ const wireInvoice = offsetInvoices.encode(paidPage);
 const outstanding = offsetInvoices.decode({ where: { status: { $ne: 'PAID' } } });
 ```
 
-Pass the nested wire object to these schemas. Numbers, bigints, booleans and dates round-trip through strings. A field with a two-way string codec can use its own wire format. Enum comparisons use the stored choices shown in `List.Filters`. On a nullable scalar, `$eq: null` matches a null value and `$ne` takes a non-null operand. Each condition requires a value even when the field has a create default. The shared URL bracket encoder and decoder are planned in [§1.6 of the resource framework plan](../../docs/plans/resource-framework.md#16-list-query-appssrcquery).
+Pass the nested wire object to these schemas. Numbers, bigints, booleans and dates round-trip through strings. A field with a two-way string codec can use its own wire format. Enum comparisons use the stored choices shown in `List.Filters`. On a nullable scalar, `$eq: null` matches a null value and `$ne` takes a non-null operand. Each condition requires a value even when the field has a create default. The typed client and Express adapter use the shared bracket codec for generated offset lists with declared scalar equality filters and sort keys. [Listing offerings](#listing-offerings)
 
 ## Range comparisons in list queries
 
@@ -1529,7 +1634,7 @@ const forbidden: AuthorizationFailureResponse = {
 
 ## Not-found responses
 
-`failure.notFound()` lets a handler return a typed 404. `isFailure()` recognizes that result even when an ordinary success payload also has a `code` field. The Phase 2 HTTP adapter will supply the request’s trace ID when it produces the response.
+`failure.notFound()` lets a handler return a typed 404. `isFailure()` recognizes that result even when an ordinary success payload also has a `code` field. The HTTP adapter includes the request’s trace ID in the 404 response.
 
 ```ts
 import { failure, isFailure, type Failure } from '@epsilon-asi/apps';

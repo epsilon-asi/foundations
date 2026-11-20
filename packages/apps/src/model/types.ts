@@ -22,19 +22,24 @@ type IdFromFields<Model> = Model extends unknown ? PlainId<Model[IdKey<Model>]> 
 /** The plain value of the primary-key field on a resource class or instance. */
 export type IdOf<C> = IdFromFields<Fields<C>>;
 
+/** A flat item request with the declared primary key's name and decoded value. */
+export type GetInput<C> = { [Key in IdKey<Fields<C>>]-?: NonNullable<PlainId<Fields<C>[Key]>> };
+
 type FieldAxes<Field> = Extract<keyof NonNullable<Field>, AccessAxis>;
 type MemberAxes<Field> = Field extends unknown ? FieldAxes<Field> : never;
 type MarkedKeys<Model> = {
   [K in keyof Model]-?: MemberAxes<Model[K]> extends never ? never : K;
 }[keyof Model];
 
-type ResourceVariant<Value, V extends FieldOperation> =
+type Variant = FieldOperation | 'decodedCreate';
+
+type ResourceVariant<Value, V extends Variant> =
   V extends 'read' ? ReadModel<Value> :
-  V extends 'create' ? CreateInput<Value> : UpdateInput<Value>;
+  V extends 'create' ? CreateInput<Value> : V extends 'decodedCreate' ? CreatedFields<Value> : UpdateInput<Value>;
 
 // Inline JSON records retain their plain keys. Nested resources use the same
 // variant as the containing resource, including inside arrays and tuples.
-type ProjectPlain<Value, V extends FieldOperation> =
+type ProjectPlain<Value, V extends Variant> =
   Value extends string | number | boolean | bigint | symbol | Date ? Value :
   Value extends readonly unknown[] ? { [K in keyof Value]: ProjectValue<Value[K], V> } :
   Value extends Record<string, unknown> ? MarkedKeys<Value> extends never
@@ -43,17 +48,17 @@ type ProjectPlain<Value, V extends FieldOperation> =
   Value extends object ? ResourceVariant<Value, V> : Value;
 
 type WriteGrant<Value> = NonNullable<Value[WriteAxis & keyof Value]>;
-type GrantValue<Value, V extends FieldOperation> = V extends 'read'
+type GrantValue<Value, V extends Variant> = V extends 'read'
   ? Exclude<Value[ReadAxis & keyof Value], undefined>
-  : WriteGrant<Value>[V & keyof WriteGrant<Value>];
+  : WriteGrant<Value>[(V extends 'decodedCreate' ? 'create' : V) & keyof WriteGrant<Value>];
 
-type ProjectMember<Value, V extends FieldOperation> =
+type ProjectMember<Value, V extends Variant> =
   FieldAxes<Value> extends never ? ProjectPlain<Value, V> :
   SecretAxis extends FieldAxes<Value> ? never :
   ProjectValue<GrantValue<Value, V>, V>;
 
 // An untyped element of an otherwise accessible container has unknown contents.
-type ProjectValue<Value, V extends FieldOperation> = 0 extends (1 & Value) ? unknown
+type ProjectValue<Value, V extends Variant> = 0 extends (1 & Value) ? unknown
   : Value extends unknown ? ProjectMember<WithoutDefault<Value>, V> : never;
 
 // A grant must be present on every non-null member of the field's type.
@@ -61,8 +66,8 @@ type GrantedVariants<Field> = SecretAxis extends MemberAxes<Field> ? never
   : (ReadAxis extends FieldAxes<Field> ? 'read' : never)
   | (WriteAxis extends FieldAxes<Field> ? Extract<WriteOperation, keyof WriteGrant<NonNullable<Field>>> : never);
 
-type ProjectFields<Model, V extends FieldOperation> = {
-  [K in keyof Model as V extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], V>;
+type ProjectFields<Model, V extends Variant> = {
+  [K in keyof Model as (V extends 'decodedCreate' ? 'create' : V) extends GrantedVariants<Model[K]> ? K : never]: ProjectValue<Model[K], V>;
 };
 
 /** The readable data of a resource, with access flavors removed at each level. */
@@ -78,6 +83,9 @@ type OptionalDefaults<Model> = {
 
 // Distribute first so each resource in a union keeps its own keys and defaults.
 type CreateFromFields<Model> = Model extends unknown ? ProjectFields<OptionalDefaults<Model>, 'create'> : never;
+
+/** The decoded create request after schema defaults have been applied. */
+export type CreatedFields<C> = ProjectFields<Fields<C>, 'decodedCreate'>;
 
 /** The create-writable data of a resource, with schema-defaulted fields optional. */
 export type CreateInput<C> = CreateFromFields<Fields<C>>;

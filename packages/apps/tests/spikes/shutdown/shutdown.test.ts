@@ -65,8 +65,10 @@ it('closes the active connection at the deadline if work never completes', async
   const { child, exited, nextMessage, request } = await startServer(100);
   const { response } = await request('/work');
   const interrupted = expect(text(response)).rejects.toMatchObject({ code: 'ECONNRESET' });
+  const started = performance.now();
   child.kill('SIGINT');
   expect(await nextMessage()).toBe('deadline');
   await interrupted;
+  expect(performance.now() - started).toBeGreaterThanOrEqual(90);
   expect(await exited).toEqual([0, null]);
 }, 15_000);

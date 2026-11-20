@@ -8,7 +8,7 @@ import { cursorPaginationQuerySchema, offsetPaginationQuerySchema, type OffsetPa
 import { resolveFilters, type CheckedFilters, type ResolveFiltersOptions } from './resolveFilters.js';
 import { declaredSorts, type CheckedSort, type ResolvedSorts, type ResolveSortsOptions, type SortSource } from './resolveSorts.js';
 import { searchQuerySchema } from './search.js';
-import { whereComparisonSchema, type WhereComparisonSchema } from './whereComparisonSchema.js';
+import { whereComparisonSchema, type WhereComparisonOptions, type WhereComparisonSchema } from './whereComparisonSchema.js';
 
 const searchDeclaration = z.object({
   fields: z.array(z.string()).readonly(),
@@ -88,6 +88,21 @@ type CheckedList<Instance, Name extends string, FilterPath extends string> =
 type ListQueryArguments<Options, Instance, Name extends string, FilterPath extends string> =
   [options: Options & (CheckedList<Instance, Name, FilterPath> | undefined)] | (undefined extends Options ? [] : never);
 
+interface ListQueryFieldsOptions extends WhereComparisonOptions {
+  sorts?: Readonly<object>;
+  search?: ListQueryOptions['search'];
+}
+
+/** Both paging builders and the HTTP contract use the same resolved capabilities. */
+export function listQueryFields({ sorts, search, ...comparison }: ListQueryFieldsOptions) {
+  const where = whereComparisonSchema(comparison);
+  return {
+    ...(search === undefined ? {} : { q: searchQuerySchema.optional() }),
+    ...(sorts ? { orderBy: orderBySchema(sorts).optional() } : {}),
+    ...(where ? { where: where.optional() } : {}),
+  };
+}
+
 /** Adds the declared search, sort and filter fields to either paging mode. */
 export function createListQuerySchema<Shape extends z.core.$ZodShape>(
   pagingSchema: (options: OffsetPaginationDefaultsOptions) => z.ZodObject<Shape, z.core.$strict>,
@@ -98,14 +113,9 @@ export function createListQuerySchema<Shape extends z.core.$ZodShape>(
   function schema(options: ListQueryOptions = {}) {
     const paging = pagingSchema(options);
     assertSearchDeclaration(options);
-    const filters = resolveFilters(options);
-    const where = whereComparisonSchema({ model: options.model, filters });
-    const sorts = declaredSorts(options);
-    return paging.extend({
-      ...(options.search === undefined ? {} : { q: searchQuerySchema.optional() }),
-      ...(sorts ? { orderBy: orderBySchema(sorts).optional() } : {}),
-      ...(where ? { where: where.optional() } : {}),
-    });
+    return paging.extend(listQueryFields({
+      model: options.model, filters: resolveFilters(options), sorts: declaredSorts(options), search: options.search,
+    }));
   }
   return schema;
 }

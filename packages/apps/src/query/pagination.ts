@@ -36,15 +36,27 @@ export function offsetPaginationDefaults({ perPage = {} }: OffsetPaginationDefau
   return { page: DEFAULT_PAGE, perPage: defaultPerPage, maxPerPage };
 }
 
+const pageNumber = z.int().nonnegative();
+
+function pageSize(max: number) {
+  return z.int().min(1).max(max);
+}
+
+/** Validates a caller's numeric offset request and resolves the handler's defaults. */
+export function offsetPaginationRequestSchema(options: OffsetPaginationDefaultsOptions = {}) {
+  const { page, perPage, maxPerPage } = offsetPaginationDefaults(options);
+  return z.strictObject({ page: pageNumber.default(page), perPage: pageSize(maxPerPage).default(perPage) });
+}
+
 function perPageQueryField(options: OffsetPaginationDefaultsOptions) {
   const { perPage, maxPerPage } = offsetPaginationDefaults(options);
-  return numberWireCodec.pipe(z.int().min(1).max(maxPerPage)).prefault(String(perPage));
+  return numberWireCodec.pipe(pageSize(maxPerPage)).prefault(String(perPage));
 }
 
 /** Decodes the wire query to numeric paging fields and encodes it back to strings. */
 export function offsetPaginationQuerySchema(options: OffsetPaginationDefaultsOptions = {}) {
   return z.strictObject({
-    page: numberWireCodec.pipe(z.int().nonnegative()).prefault(String(DEFAULT_PAGE)),
+    page: numberWireCodec.pipe(pageNumber).prefault(String(DEFAULT_PAGE)),
     perPage: perPageQueryField(options),
   });
 }

@@ -1,6 +1,7 @@
 import type { Constructor } from '@epsilon-asi/foundation';
 import { z } from 'zod/v4';
 import type { ReadModel } from '../model/types.js';
+import { ApiDefinitionError } from '../endpoints/ApiDefinitionError.js';
 import { booleanWireCodec } from '../wire/boolean.js';
 import { arrayOperand, ownArrayValues } from './arrayOperand.js';
 import { equalityOperand } from './equalityOperand.js';
@@ -105,10 +106,12 @@ function conditionSchema(comparisons: Record<string, z.ZodType>) {
 export interface WhereComparisonOptions {
   model?: ResolveFiltersOptions['model'];
   filters: Readonly<Record<string, FilterDescriptor | undefined>>;
+  /** An enabled HTTP endpoint must accept every operator it advertises. */
+  requireDeclaredOperators?: boolean;
 }
 
 /** Builds the comparisons enabled by the List declaration. */
-export function whereComparisonSchema({ model, filters }: WhereComparisonOptions) {
+export function whereComparisonSchema({ model, filters, requireDeclaredOperators }: WhereComparisonOptions) {
   if (!model) return;
   const shape: Record<string, z.ZodType> = Object.create(null);
   for (const field of Object.values(filters)) {
@@ -131,6 +134,9 @@ export function whereComparisonSchema({ model, filters }: WhereComparisonOptions
       }
     }
     if (field.operators.includes(FilterOperator.Exists)) comparisons[FilterOperator.Exists] = booleanWireCodec;
+    if (requireDeclaredOperators && field.operators.some(operator => !Object.hasOwn(comparisons, operator))) {
+      throw new ApiDefinitionError(`List filter "${field.path}" requires an unsupported comparison on "${model.name}".`);
+    }
     const condition = conditionSchema(comparisons);
     if (condition) shape[field.path] = condition;
   }
