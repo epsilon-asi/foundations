@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { Box, useTheme } from '@mui/material';
+import { Panel } from '../Panel';
 import { TextArea } from '../TextArea';
 import { Stack } from '../Stack';
 import { ActionButton } from '../ActionButton';
 import { useControllableValue } from '../../internal/useControllableValue';
-import { identityColor } from '../../theme/category';
+import { identityStripe } from '../../theme/category';
 import { styles, type SurfaceProps } from '../../internal/presentation';
 export interface MessageComposerHandle {
   focus(): void;
@@ -100,8 +101,9 @@ export function MessageComposer({
     }
   }));
   return (
-    <Box
+    <Panel
       {...props}
+      density={density}
       role="group"
       aria-label={label}
       onDragOver={(e) => {
@@ -122,20 +124,7 @@ export function MessageComposer({
           onPasteFiles(Array.from(e.clipboardData.files));
         }
       }}
-      sx={styles(
-        {
-          p: density === 'comfortable' ? 3 : 2,
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          minWidth: 0,
-          ...(accentColor && {
-            borderInlineStart: '3px solid',
-            borderInlineStartColor: identityColor(theme, accentColor)
-          })
-        },
-        sx
-      )}
+      sx={styles(identityStripe(theme, accentColor), sx)}
     >
       <Stack density={density}>
         {attachments}
@@ -180,6 +169,6 @@ export function MessageComposer({
         </Stack>
         {disabled && disabledReason && <Box id={reasonId}>{disabledReason}</Box>}
       </Stack>
-    </Box>
+    </Panel>
   );
 }

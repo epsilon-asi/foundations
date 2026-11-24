@@ -58,3 +58,30 @@ it('navigates enabled grouped options, filters keywords and reports local close 
   fireEvent.keyDown(input, { key: 'Escape' });
   expect(close).toHaveBeenCalledWith('escapeKeyDown');
 });
+
+it('uses the combobox selection model for Home and End and skips disabled results', () => {
+  const select = vi.fn(),
+    close = vi.fn();
+  renderWithUi(
+    <CommandPalette
+      open
+      onSelect={select}
+      onClose={close}
+      items={[
+        { id: 'one', title: 'First' },
+        { id: 'two', title: 'Last enabled' },
+        { id: 'three', title: 'Disabled', disabled: true }
+      ]}
+    />
+  );
+  const input = screen.getByRole('combobox');
+  fireEvent.keyDown(input, { key: 'End' });
+  expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Last enabled' }).id);
+  fireEvent.keyDown(input, { key: 'Home' });
+  expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'First' }).id);
+  fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+  expect(select).not.toHaveBeenCalled();
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(select).toHaveBeenCalledWith(expect.objectContaining({ id: 'one' }));
+});

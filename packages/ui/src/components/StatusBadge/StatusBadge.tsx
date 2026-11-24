@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { Box, Chip, Tooltip, type ChipProps } from '@mui/material';
-import { alpha, darken, lighten, getContrastRatio, useTheme } from '@mui/material/styles';
+import { alpha, darken, lighten, useTheme } from '@mui/material/styles';
+
+import { contrastInk } from '../../theme/category';
 
 export type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
 export interface StatusBadgeProps extends Omit<ChipProps, 'label' | 'color' | 'icon' | 'variant' | 'onDelete' | 'onClick' | 'clickable' | 'component' | 'children' | 'ref'> {
@@ -9,21 +11,21 @@ export interface StatusBadgeProps extends Omit<ChipProps, 'label' | 'color' | 'i
   variant?: 'soft' | 'outlined' | 'solid';
   display?: 'badge' | 'dot';
   indicator?: boolean;
+  icon?: React.ReactElement;
   pulse?: boolean;
   tooltip?: React.ReactNode;
 }
 
 /** Presentation only: applications map their own domain states to labels and tones. */
 export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(function StatusBadge(
-  { label, tone = 'neutral', variant = 'soft', display = 'badge', indicator = true, pulse = false,
+  { label, tone = 'neutral', variant = 'soft', display = 'badge', icon, indicator = true, pulse = false,
     tooltip, size = 'small', sx, ...props }, ref
 ) {
   const theme = useTheme();
   const palette = tone === 'neutral' ? null : theme.palette[tone];
   const main = palette?.main ?? theme.palette.text.secondary;
   const foreground = palette ? theme.palette.mode === 'dark' ? lighten(palette.light, 0.15) : darken(palette.dark, 0.15) : theme.palette.text.primary;
-  const solidText = getContrastRatio(main, theme.palette.common.white) >= getContrastRatio(main, theme.palette.common.black)
-    ? theme.palette.common.white : theme.palette.common.black;
+  const solidText = contrastInk(main, theme.palette.common);
   const dot = <Box component="span" aria-hidden="true" sx={{ display: 'inline-block', flexShrink: 0, width: 7, height: 7,
     borderRadius: '50%', bgcolor: 'currentColor',
     ...(pulse ? { animation: 'ui-status-pulse 1.8s ease-in-out infinite',
@@ -34,7 +36,7 @@ export const StatusBadge = React.forwardRef<HTMLSpanElement, StatusBadgeProps>(f
       height: size === 'small' ? 20 : 28, color: main, borderRadius: '50%',
       '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } },
       ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}>{dot}</Box>
-    : <Chip component="span" ref={ref} label={label} size={size} icon={indicator ? dot : undefined}
+    : <Chip component="span" ref={ref} label={label} size={size} icon={icon ?? (indicator ? dot : undefined)}
       variant={variant === 'outlined' ? 'outlined' : 'filled'} {...props}
       sx={[{ maxWidth: '100%', height: 'auto', minHeight: size === 'small' ? 24 : 32, py: 0.25,
         color: variant === 'solid' ? solidText : foreground,

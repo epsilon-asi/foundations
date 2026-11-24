@@ -1,9 +1,12 @@
 import * as React from 'react';
 import MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
-import { Box } from '@mui/material';
+import { Checkbox, Link, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { CodeBlock, InlineCode, type CodeBlockProps } from '../CodeBlock';
-import { ScrollArea } from '../ScrollArea';
+import { CompactTable } from '../../internal/CompactTable';
+import { Stack } from '../Stack';
+import { Text } from '../Text';
+import { Divider } from '../Divider';
 import type { LinkRenderer } from '../../internal/links';
 import { styles, type SurfaceProps } from '../../internal/presentation';
 
@@ -86,22 +89,46 @@ function nodes(tokens: Token[], options: Options) {
       };
       return (
         <React.Fragment key={key}>
-          {options.renderLink ? options.renderLink(props) : <a {...props} />}
+          {options.renderLink ? options.renderLink(props) : <Link color="inherit" {...props} />}
         </React.Fragment>
       );
     }
     if (token.tag === 'table')
       return (
-        <ScrollArea key={key} axis="x" tabIndex={0} aria-label="Markdown table">
-          <table>{children}</table>
-        </ScrollArea>
+        <CompactTable key={key} aria-label="Markdown table" density={options.density} axis="x" focusable>
+          {children}
+        </CompactTable>
       );
-    const tag =
-      token.type === 'heading_open'
-        ? 'h' + Math.max(1, Math.min(6, Number(token.tag[1]) + (options.headingLevelOffset ?? 0)))
-        : token.tag;
+    if (token.tag === 'td' || token.tag === 'th') {
+      const align = token.attrGet('style')?.replace('text-align:', '');
+      return (
+        <TableCell
+          key={key}
+          align={align === 'left' || align === 'center' || align === 'right' ? align : undefined}
+        >
+          {children}
+        </TableCell>
+      );
+    }
+    if (token.tag === 'thead') return <TableHead key={key}>{children}</TableHead>;
+    if (token.tag === 'tbody') return <TableBody key={key}>{children}</TableBody>;
+    if (token.tag === 'tr') return <TableRow key={key}>{children}</TableRow>;
+    if (token.tag === 'p')
+      return (
+        <Text key={key} as="p" variant="bodySmall">
+          {children}
+        </Text>
+      );
+    if (token.type === 'heading_open') {
+      const level = Math.max(1, Math.min(6, Number(token.tag[1]) + (options.headingLevelOffset ?? 0)));
+      return (
+        <Text key={key} as={`h${level}` as React.ElementType} variant="subtitle" sx={{ fontWeight: 700 }}>
+          {children}
+        </Text>
+      );
+    }
     const attrs = token.tag === 'ol' ? { start: Number(token.attrGet('start') ?? 1) } : {};
-    return React.createElement(tag, { key, ...attrs }, children);
+    return React.createElement(token.tag, { key, ...attrs }, children);
   }
   for (const [key, t] of tokens.entries()) {
     if (t.nesting === 1) {
@@ -123,12 +150,13 @@ function nodes(tokens: Token[], options: Options) {
           /^\[([ xX])\]\s/.test(first.content)
         ) {
           append(
-            <input
+            <Checkbox
               key={'task' + key}
-              type="checkbox"
+              size="small"
+              sx={{ p: 0, verticalAlign: 'text-bottom' }}
               disabled
               checked={first.content[1] !== ' '}
-              aria-label="Task"
+              slotProps={{ input: { 'aria-label': 'Task' } }}
             />
           );
           inline = [
@@ -149,7 +177,7 @@ function nodes(tokens: Token[], options: Options) {
         append(<br key={key} />);
         break;
       case 'hr':
-        append(<hr key={key} />);
+        append(<Divider key={key} />);
         break;
       case 'code_inline':
         append(<InlineCode key={key}>{t.content}</InlineCode>);
@@ -248,23 +276,16 @@ export function Markdown({
     previous.current = { source: content, blocks };
   }, [content, blocks]);
   return (
-    <Box
+    <Stack
       {...props}
+      density={density}
       sx={styles(
         {
-          display: 'grid',
-          gap: density === 'comfortable' ? 3 : 2,
-          minWidth: 0,
-          gridTemplateColumns: 'minmax(0, 1fr)',
           typography: 'body2',
           overflowWrap: 'anywhere',
-          '& :is(p,blockquote,ul,ol,h1,h2,h3,h4,h5,h6,hr)': { m: 0 },
-          '& :is(h1,h2,h3,h4,h5,h6)': { typography: 'subtitle1', fontWeight: 700 },
+          '& :is(blockquote,ul,ol)': { m: 0 },
           '& :is(ul,ol,blockquote)': { paddingInlineStart: (t) => t.spacing(4) },
-          '& blockquote': { borderInlineStart: '2px solid', borderColor: 'divider' },
-          '& :is(td,th)': { px: 2, py: 1, border: 1, borderColor: 'divider' },
-          '& table': { borderCollapse: 'collapse' },
-          '& a': { color: 'inherit', textDecoration: 'underline' }
+          '& blockquote': { borderInlineStart: '2px solid', borderColor: 'divider' }
         },
         sx
       )}
@@ -278,6 +299,6 @@ export function Markdown({
           }
         />
       ))}
-    </Box>
+    </Stack>
   );
 }

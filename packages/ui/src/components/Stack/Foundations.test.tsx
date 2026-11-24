@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { UiProvider } from '../../theme';
 import { renderWithUi } from '../../test/renderWithUi';
 import { Stack } from './Stack';
 import { Box } from '../Box';
@@ -25,6 +26,28 @@ it('uses flex gap around visible children, forwards refs and gives labelled sepa
   );
   expect(ref.current).toHaveStyle({ display: 'flex', gap: 'calc(2 * var(--ui-spacing))' });
   expect(screen.getByRole('separator', { name: 'Next' })).toBeVisible();
+});
+it('inherits MUI layout and chip theme overrides and retains numeric children beside dividers', () => {
+  const list = React.createRef<HTMLElement>();
+  renderWithUi(
+    <UiProvider
+      themeOptions={{
+        components: {
+          MuiStack: { styleOverrides: { root: { outlineOffset: 7 } } },
+          MuiChip: { styleOverrides: { root: { letterSpacing: '3px' } } }
+        }
+      }}
+    >
+      <Stack as="section" ref={list} direction="row" gap={1} divider="|">
+        {0}
+        {false}
+        <Tag label="Draft" onClick={() => {}} />
+      </Stack>
+    </UiProvider>
+  );
+  expect(list.current).toHaveTextContent('0|Draft');
+  expect(list.current).toHaveStyle({ outlineOffset: '7px' });
+  expect(screen.getByRole('button', { name: 'Draft' })).toHaveStyle({ letterSpacing: '3px' });
 });
 it('keeps the full clamped text accessible and reveals the tooltip on keyboard focus', async () => {
   const { container } = renderWithUi(

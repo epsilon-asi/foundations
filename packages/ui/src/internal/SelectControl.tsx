@@ -1,10 +1,11 @@
 import * as React from 'react';
 import {
   Autocomplete, Box, Chip, CircularProgress, TextField, Typography, createFilterOptions,
-  type AutocompleteChangeReason, type AutocompleteCloseReason, type AutocompleteInputChangeReason,
+  type PopperProps, type AutocompleteChangeReason, type AutocompleteCloseReason, type AutocompleteInputChangeReason,
   type IconButtonProps as MuiIconButtonProps
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { SearchField } from '../components/SearchField';
 import { IconButton } from '../components/IconButton';
 import { ListSubheader } from '../components/List';
 import { CheckGlyph, ChevronGlyph } from './icons';
@@ -72,6 +73,9 @@ const IndicatorButton = React.forwardRef<HTMLButtonElement, MuiIconButtonProps>(
 const optionKey = (value: SelectValue) => `${typeof value}:${value}`;
 
 interface ControlProps<Value extends SelectValue> extends SelectCommonProps<Value> {
+  /** Show the search field and results together inside a caller-owned surface. */
+  inlineResults?: boolean;
+  density?: 'compact' | 'comfortable';
   multiple: boolean;
   values: readonly Value[];
   onValuesChange: (values: Value[], event: React.SyntheticEvent, reason: SelectChangeReason) => void;
@@ -80,9 +84,13 @@ interface ControlProps<Value extends SelectValue> extends SelectCommonProps<Valu
   ref?: React.Ref<HTMLDivElement>;
 }
 
+function InlineResults({ open, children, className }: PopperProps) {
+  return open ? <div className={className}>{typeof children === 'function' ? children({ placement: 'bottom' }) : children}</div> : null;
+}
+
 /** Shared combobox behaviour. Public wrappers expose single- and multi-value types separately. */
 export function SelectControl<Value extends SelectValue>({
-  ref, options, values, onValuesChange, multiple, label, helperText, error = false, required = false,
+  ref, options, values, onValuesChange, multiple, inlineResults = false, density, label, helperText, error = false, required = false,
   disabled = false, readOnly = false, fullWidth = true, size = 'small', placeholder, searchable = true,
   clearable = true, clearText = 'Clear selection', openText = 'Open options', closeText = 'Close options',
   loading = false, loadingText = 'Loading options…', noOptionsText = 'No matching options', name, inputRef,
@@ -129,6 +137,7 @@ export function SelectControl<Value extends SelectValue>({
     <Autocomplete<SelectOption<Value>, boolean, boolean, false>
       {...props} ref={ref} id={inputId} options={sorted} value={multiple ? selected : selected[0] ?? null}
       multiple={multiple} disabled={disabled} readOnly={readOnly} fullWidth={fullWidth} size={size}
+      autoHighlight={inlineResults} forcePopupIcon={inlineResults ? false : 'auto'}
       open={open} onOpen={handleOpen} onClose={handleClose} openOnFocus={false}
       inputValue={inputValue} onInputChange={(event, query, reason) => onInputChange?.(query, event, reason)}
       disablePortal={disablePortal} disableCloseOnSelect={!closeOnSelect} disableClearable={!clearable}
@@ -149,6 +158,11 @@ export function SelectControl<Value extends SelectValue>({
       }}
       onKeyDown={(event) => {
         onKeyDown?.(event);
+        if (event.nativeEvent.isComposing || event.keyCode === 229) {
+          (event as React.KeyboardEvent & { defaultMuiPrevented?: boolean }).defaultMuiPrevented = true;
+          if (event.key === 'Escape') event.stopPropagation();
+          return;
+        }
         if (event.defaultPrevented) { (event as React.KeyboardEvent & { defaultMuiPrevented?: boolean }).defaultMuiPrevented = true; return; }
         if (!searchable && !open && !disabled && !readOnly && (event.key === ' ' || event.key === 'Enter')) {
           event.preventDefault(); handleOpen(event);
@@ -162,11 +176,11 @@ export function SelectControl<Value extends SelectValue>({
           aria-label={`Selected: ${option.label}`} sx={{ maxWidth: '100%', height: 'auto', minHeight: size === 'small' ? 24 : 32,
             '& .MuiChip-label': { whiteSpace: 'normal', overflowWrap: 'anywhere' }, '& .MuiChip-deleteIcon': { flexShrink: 0 } }} />;
       }) : undefined}
-      slots={{ popupIndicator: IndicatorButton, clearIndicator: IndicatorButton }}
+      slots={{ ...(inlineResults && { popper: InlineResults }), popupIndicator: IndicatorButton, clearIndicator: IndicatorButton }}
       slotProps={{
         popper: { sx: { maxWidth: 'calc(100vw - 16px)' } },
-        paper: { sx: { my: 0.75, border: 1, borderColor: 'divider', borderRadius: 1.5, overflowWrap: 'anywhere' } },
-        listbox: { sx: { p: 0.5, maxHeight: 'min(320px, 45dvh)', '& .MuiAutocomplete-option': {
+        paper: { ...(inlineResults && { elevation: 0 }), sx: { my: 0.75, border: 1, borderColor: 'divider', borderRadius: 1.5, overflowWrap: 'anywhere' } },
+        listbox: { ...(inlineResults && { 'aria-label': label, 'aria-labelledby': undefined }), sx: { p: 0.5, maxHeight: 'min(320px, 45dvh)', '& .MuiAutocomplete-option': {
           borderRadius: 1, alignItems: 'flex-start', py: 1.25, px: 1.25, minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere',
           '&[aria-selected="true"]': { fontWeight: 600 }
         } } }
@@ -178,11 +192,11 @@ export function SelectControl<Value extends SelectValue>({
       renderOption={({ key: _key, ...optionProps }, option, state) => <Box component="li" {...optionProps} key={optionKey(option.value)}
         aria-label={option.label} aria-description={option.disabledReason}
         onClick={option.disabled ? (event) => { event.preventDefault(); event.stopPropagation(); } : optionProps.onClick}>
-        <Box aria-hidden sx={{ width: 20, height: 20, flexShrink: 0, mr: 1.25, mt: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        {!inlineResults && <Box aria-hidden sx={{ width: 20, height: 20, flexShrink: 0, mr: 1.25, mt: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'center',
           ...(multiple ? { border: '1px solid', borderColor: state.selected ? 'primary.main' : 'divider', borderRadius: 0.5,
             bgcolor: state.selected ? 'primary.main' : 'transparent', color: 'primary.contrastText' } : { color: 'primary.main' }) }}>
           {state.selected ? <CheckGlyph sx={{ fontSize: 18 }} /> : null}
-        </Box>
+        </Box>}
         <Box sx={{ flex: 1, minWidth: 0 }}>{renderOptionContent ? renderOptionContent(option, state) :
           <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', columnGap: 1.25, rowGap: 0.5, minWidth: 0 }}>
             {option.icon != null ? <Box component="span" aria-hidden sx={{ display: 'flex', flexShrink: 0, mt: 0.25, '& > svg': { fontSize: 22 } }}>{option.icon}</Box> : null}
@@ -195,7 +209,11 @@ export function SelectControl<Value extends SelectValue>({
           </Box>}
         </Box>
       </Box>}
-      renderInput={(params) => <TextField id={params.id} fullWidth={params.fullWidth} disabled={params.disabled} size={size}
+      renderInput={(params) => inlineResults ? (
+        <SearchField aria-label={label} id={params.id} autoFocus clearable={false} clearOnEscape={false}
+          density={density} value={inputValue} placeholder={placeholder} InputProps={params.InputProps}
+          inputProps={params.inputProps} />
+      ) : <TextField id={params.id} fullWidth={params.fullWidth} disabled={params.disabled} size={size}
         label={label} helperText={helperText} error={error} required={required} placeholder={placeholder}
         inputRef={inputRef} slotProps={{ inputLabel: params.InputLabelProps, formHelperText: { id: helperId, component: 'span' },
           input: { ...params.InputProps, startAdornment: <>{params.InputProps.startAdornment}{!multiple && selectedIcon != null ?

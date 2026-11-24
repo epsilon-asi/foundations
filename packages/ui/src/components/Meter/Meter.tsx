@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { LinearProgress } from '@mui/material';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
 import type { StatusBadgeTone } from '../StatusBadge';
@@ -43,7 +43,10 @@ export function Meter({
       wrap
     >
       <Text variant="caption">{label}</Text>
-      <Box
+      <LinearProgress
+        variant="determinate"
+        value={n}
+        color={state === 'neutral' ? 'inherit' : state}
         role="meter"
         aria-label={label}
         aria-valuenow={n}
@@ -54,19 +57,10 @@ export function Meter({
           height: size === 'xs' ? 4 : 6,
           flex: layout === 'inline' ? '1 1 48px' : undefined,
           minWidth: 24,
-          bgcolor: 'action.selected',
-          borderRadius: 1,
-          overflow: 'hidden'
+          color: state === 'neutral' ? 'text.secondary' : undefined,
+          borderRadius: 1
         }}
-      >
-        <Box
-          sx={{
-            width: n + '%',
-            height: '100%',
-            bgcolor: state === 'neutral' ? 'text.secondary' : state + '.main'
-          }}
-        />
-      </Box>
+      />
       {(showValue || state === 'warning' || state === 'error') && (
         <Text variant="caption">{showValue ? description : state}</Text>
       )}

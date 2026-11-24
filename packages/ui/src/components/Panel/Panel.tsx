@@ -6,6 +6,7 @@ export interface PanelProps extends Omit<PaperProps, 'title'> {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   headerAction?: React.ReactNode;
+  headerDivider?: boolean;
   footer?: React.ReactNode;
   density?: 'compact' | 'comfortable';
   headingLevel?: 'h2' | 'h3' | 'h4';
@@ -14,7 +15,7 @@ export interface PanelProps extends Omit<PaperProps, 'title'> {
 }
 
 export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(function Panel(
-  { title, subtitle, headerAction, footer, density = 'compact', headingLevel = 'h2', children, headerSx, contentSx,
+  { title, subtitle, headerAction, headerDivider = true, footer, density = 'compact', headingLevel = 'h2', children, headerSx, contentSx,
     sx, variant = 'outlined', ...props }, ref
 ) {
   const padding = density === 'compact' ? 2 : 3;
@@ -31,7 +32,7 @@ export const Panel = React.forwardRef<HTMLDivElement, PanelProps>(function Panel
         </Box>
         {headerAction != null ? <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minWidth: 0 }}>{headerAction}</Box> : null}
       </Box>
-      <Divider />
+      {headerDivider && <Divider />}
     </> : null}
     <Box sx={[{ p: padding, minWidth: 0, minHeight: 0 }, ...(Array.isArray(contentSx) ? contentSx : contentSx ? [contentSx] : [])]}>{children}</Box>
     {footer != null ? <><Divider /><Box sx={{ p: padding, display: 'flex', flexWrap: 'wrap', gap: 1 }}>{footer}</Box></> : null}

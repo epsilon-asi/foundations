@@ -1,14 +1,15 @@
 import * as React from 'react';
-import { Box } from '@mui/material';
+import { Box, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { parsePatch, structuredPatch, diffWordsWithSpace, type StructuredPatch } from 'diff';
-import { ScrollArea } from '../ScrollArea';
+import { themeMonospace } from '../../theme/category';
+import { CompactTable } from '../../internal/CompactTable';
 import { CopyButton } from '../CopyButton';
 import { ActionButton } from '../ActionButton';
 import { Text } from '../Text';
 import { Stack } from '../Stack';
 import { StatusBadge } from '../StatusBadge';
 import { ErrorState } from '../ErrorState';
-import { useHighlight, codeColors } from '../CodeBlock/CodeBlock';
+import { useHighlighter, codeColors } from '../CodeBlock/highlight';
 import { styles, type SurfaceProps } from '../../internal/presentation';
 type Source =
   | { patch: string; oldValue?: never; newValue?: never; filename?: never }
@@ -102,18 +103,17 @@ function rows(file: StructuredPatch, context: number, split: boolean) {
     summary: plus + ' addition' + (plus === 1 ? '' : 's') + ', ' + minus + ' deletion' + (minus === 1 ? '' : 's')
   };
 }
-function Content({
+const Content = React.memo(function Content({
   line,
   other,
   words,
-  language
+  highlightCode
 }: {
   line: Line;
   other?: Line;
   words?: boolean;
-  language?: string;
+  highlightCode: ReturnType<typeof useHighlighter>;
 }) {
-  const highlighted = useHighlight(line.text, language);
   if (words && other && line.kind !== ' ') {
     const parts = diffWordsWithSpace(
       line.kind === '-' ? line.text : other.text,
@@ -133,8 +133,8 @@ function Content({
         </>
       );
   }
-  return <>{highlighted[0]}</>;
-}
+  return <>{highlightCode(line.text)[0]}</>;
+});
 function FileDiff({
   file,
   context,
@@ -154,6 +154,7 @@ function FileDiff({
   DiffViewProps,
   'showLineNumbers' | 'wordDiff' | 'language' | 'maxLines' | 'fileHeader' | 'density' | 'maxHeight'
 >) {
+  const highlightCode = useHighlighter(language);
   const model = React.useMemo(() => rows(file, context, split), [file, context, split]);
   const [full, setFull] = React.useState(false),
     [expanded, setExpanded] = React.useState<Set<number>>(() => new Set());
@@ -163,7 +164,7 @@ function FileDiff({
   const status = deleted ? 'Deleted' : added ? 'Added' : file.isRename ? 'Renamed' : 'Modified';
   const hidden = model.count > maxLines && !full;
   const cell = (line: Line | undefined, side: 'old' | 'next', other?: Line) => (
-    <td data-kind={line?.kind}>
+    <TableCell data-kind={line?.kind}>
       {line && (
         <>
           {showLineNumbers && (
@@ -172,21 +173,23 @@ function FileDiff({
             </span>
           )}
           <b aria-hidden>{line.kind} </b>
-          <Content line={line} other={other} words={wordDiff} language={language} />
+          <Content line={line} other={other} words={wordDiff} highlightCode={highlightCode} />
         </>
       )}
-    </td>
+    </TableCell>
   );
   const render = (row: Row, id: string) =>
     split ? (
-      <tr key={id}>
+      <TableRow key={id}>
         {cell(row.left, 'old', row.peer ?? row.right)}
         {cell(row.right, 'next', row.peer ?? row.left)}
-      </tr>
+      </TableRow>
     ) : (
       <React.Fragment key={id}>
-        {row.left && <tr>{cell(row.left, 'old', row.peer ?? row.right)}</tr>}
-        {row.right && row.right !== row.left && <tr>{cell(row.right, 'next', row.peer ?? row.left)}</tr>}
+        {row.left && <TableRow>{cell(row.left, 'old', row.peer ?? row.right)}</TableRow>}
+        {row.right && row.right !== row.left && (
+          <TableRow>{cell(row.right, 'next', row.peer ?? row.left)}</TableRow>
+        )}
       </React.Fragment>
     );
   return (
@@ -202,71 +205,66 @@ function FileDiff({
       {hidden ? (
         <ActionButton onClick={() => setFull(true)}>Show full diff</ActionButton>
       ) : (
-        <ScrollArea axis="both" aria-label={'Changes in ' + path} maxHeight={maxHeight} tabIndex={0}>
-          <Box
-            component="table"
-            aria-label={path + ', ' + model.summary}
-            sx={(t) => ({
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontFamily: t.identity?.monospaceFamily ?? 'monospace',
-              fontSize: '0.8125rem',
-              ...codeColors,
-              ...t.applyStyles('dark', {
-                '& [data-token="keyword"], & [data-token="number"], & [data-token="string"]': {
-                  color: 'primary.light'
-                }
-              }),
-              '& td,& th': {
-                px: density === 'comfortable' ? 3 : 2,
-                py: 0.5,
-                textAlign: 'start',
-                verticalAlign: 'top',
-                whiteSpace: 'pre-wrap',
-                overflowWrap: 'anywhere'
-              },
-              '& [data-kind="+"]': { bgcolor: 'action.selected' },
-              '& [data-kind="-"]': { bgcolor: 'action.hover' },
-              '& .line-number': { color: 'text.secondary', paddingInlineEnd: t.spacing(2), userSelect: 'none' }
-            })}
-          >
-            <thead>
-              <tr>
-                {split ? (
-                  <>
-                    <th>Before</th>
-                    <th>After</th>
-                  </>
-                ) : (
-                  <th>Changes</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {model.rows.map((row, i) =>
-                row.heading ? (
-                  <tr key={i}>
-                    <td colSpan={split ? 2 : 1}>{row.heading}</td>
-                  </tr>
-                ) : row.context ? (
-                  expanded.has(i) ? (
-                    row.context.map((l, j) => render({ left: l, right: l }, i + '-' + j))
-                  ) : (
-                    <tr key={i}>
-                      <td colSpan={split ? 2 : 1}>
-                        <ActionButton onClick={() => setExpanded(new Set([...expanded, i]))}>
-                          Show {row.context.length} unchanged lines
-                        </ActionButton>
-                      </td>
-                    </tr>
-                  )
-                ) : (
-                  render(row, String(i))
-                )
+        <CompactTable
+          regionLabel={'Changes in ' + path}
+          maxHeight={maxHeight}
+          density={density}
+          focusable
+          aria-label={path + ', ' + model.summary}
+          sx={(t) => ({
+            fontFamily: themeMonospace(t),
+            fontSize: '0.8125rem',
+            ...codeColors(t),
+            '& .MuiTableCell-root': {
+              font: 'inherit',
+              borderBottom: 0,
+              py: 0.5,
+              textAlign: 'start',
+              verticalAlign: 'top',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere'
+            },
+            '& [data-kind="+"]': { bgcolor: 'action.selected' },
+            '& [data-kind="-"]': { bgcolor: 'action.hover' },
+            '& .line-number': { color: 'text.secondary', paddingInlineEnd: t.spacing(2), userSelect: 'none' }
+          })}
+        >
+          <TableHead>
+            <TableRow>
+              {split ? (
+                <>
+                  <TableCell>Before</TableCell>
+                  <TableCell>After</TableCell>
+                </>
+              ) : (
+                <TableCell>Changes</TableCell>
               )}
-            </tbody>
-          </Box>
-        </ScrollArea>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {model.rows.map((row, i) =>
+              row.heading ? (
+                <TableRow key={i}>
+                  <TableCell colSpan={split ? 2 : 1}>{row.heading}</TableCell>
+                </TableRow>
+              ) : row.context ? (
+                expanded.has(i) ? (
+                  row.context.map((l, j) => render({ left: l, right: l }, i + '-' + j))
+                ) : (
+                  <TableRow key={i}>
+                    <TableCell colSpan={split ? 2 : 1}>
+                      <ActionButton onClick={() => setExpanded(new Set([...expanded, i]))}>
+                        Show {row.context.length} unchanged lines
+                      </ActionButton>
+                    </TableCell>
+                  </TableRow>
+                )
+              ) : (
+                render(row, String(i))
+              )
+            )}
+          </TableBody>
+        </CompactTable>
       )}
     </Stack>
   );

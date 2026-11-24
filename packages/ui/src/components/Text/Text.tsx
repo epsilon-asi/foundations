@@ -3,7 +3,7 @@ import { Typography, type TypographyProps } from '@mui/material';
 import { useForkRef } from '@mui/material/utils';
 import { Tooltip } from '../Tooltip';
 import { styles } from '../../internal/presentation';
-import { monospaceFamily } from '../../theme/category';
+import { themeMonospace } from '../../theme/category';
 export interface TextProps extends Omit<TypographyProps, 'variant' | 'color' | 'ref'> {
   variant?: 'body' | 'bodySmall' | 'caption' | 'label' | 'code' | 'title' | 'subtitle';
   tone?: 'default' | 'secondary' | 'muted' | 'success' | 'warning' | 'error' | 'info';
@@ -51,6 +51,7 @@ export function Text({
     <Typography
       {...props}
       ref={merged}
+      noWrap={single || props.noWrap}
       component={as}
       variant={variants[variant]}
       tabIndex={
@@ -70,15 +71,16 @@ export function Text({
               : tone === 'muted' || tone === 'secondary'
                 ? 'text.secondary'
                 : (t) => t.palette[tone][t.palette.mode === 'dark' ? 'light' : 'dark'],
-          ...(variant === 'code' && { fontFamily: (t) => t.identity?.monospaceFamily ?? monospaceFamily }),
+          ...(variant === 'code' && { fontFamily: themeMonospace }),
           ...(weight && { fontWeight: weight === 'medium' ? 500 : 400 }),
-          ...(truncate && {
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            ...(single
-              ? { display: 'block', whiteSpace: 'nowrap' }
-              : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: truncate })
-          })
+          ...(single && { display: 'block' }),
+          ...(truncate &&
+            !single && {
+              display: '-webkit-box',
+              overflow: 'hidden',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: truncate
+            })
         },
         sx
       )}

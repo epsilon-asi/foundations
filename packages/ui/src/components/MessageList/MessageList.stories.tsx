@@ -36,7 +36,7 @@ export const LongContent: Story = { args: { items: sampleMessages } };
 export const Narrow: Story = { decorators: [narrowConversation], args: { items: sampleMessages } };
 export const Dark: Story = { decorators: [withDarkUi] };
 
-function GrowingHistory() {
+function GrowingHistory({ followOutput = 'auto' }: { followOutput?: 'auto' | 'always' }) {
   const transcript = React.useRef<MessageListHandle>(null);
   const [items, setItems] = React.useState(sampleMessages.slice(100, 180));
   const grow = () =>
@@ -59,12 +59,19 @@ function GrowingHistory() {
       <MessageList
         aria-label="History"
         ref={transcript}
+        followOutput={followOutput}
         items={items}
         getItemKey={getMessageKey}
         sx={{ height: 240 }}
         renderItem={(item, state) => (
           <Text as="div" data-entry={item.id} data-highlighted={state.highlighted}>
             {item.text}
+            {state.index === items.length - 1 && (
+              <details>
+                <summary>Additional detail</summary>
+                {'An additional line. '.repeat(150)}
+              </details>
+            )}
           </Text>
         )}
       />
@@ -92,6 +99,41 @@ export const StreamingAndPrepending: Story = {
     await waitFor(() => expect(Math.abs(target()!.getBoundingClientRect().top - y)).toBeLessThan(3));
     await userEvent.click(await canvas.findByRole('button', { name: 'Jump to latest' }));
     await waitFor(() => expect(remaining()).toBeLessThanOrEqual(2));
+    await checkStoryLayout({ canvasElement });
+  }
+};
+
+export const FollowResizedContent: Story = {
+  render: () => <GrowingHistory />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const log = await canvas.findByRole('log', { busy: false });
+    const remaining = () => log.scrollHeight - log.scrollTop - log.clientHeight;
+    await waitFor(async () => {
+      const summary = canvas.getByText('Additional detail');
+      if (!summary.closest('details')?.open) await userEvent.click(summary);
+      expect(log.querySelector('details')).toHaveAttribute('open');
+    });
+    await waitFor(() => expect(remaining()).toBeLessThanOrEqual(2));
+    log.focus();
+    await userEvent.keyboard('{Home}');
+    await waitFor(() => expect(log.scrollTop).toBeLessThanOrEqual(2));
+    await userEvent.click(canvas.getByRole('button', { name: 'Append text' }));
+    await waitFor(() => expect(log.scrollTop).toBeLessThanOrEqual(2));
+    await checkStoryLayout({ canvasElement });
+  }
+};
+export const AlwaysFollowGrowth: Story = {
+  render: () => <GrowingHistory followOutput="always" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const log = await canvas.findByRole('log', { busy: false });
+    await canvas.findByText('Additional detail');
+    log.focus();
+    await userEvent.keyboard('{Home}');
+    await canvas.findByRole('button', { name: 'Jump to latest' });
+    await userEvent.click(canvas.getByRole('button', { name: 'Append text' }));
+    await waitFor(() => expect(log.scrollHeight - log.clientHeight - log.scrollTop).toBeLessThanOrEqual(2));
     await checkStoryLayout({ canvasElement });
   }
 };

@@ -8,16 +8,18 @@ export const Keycap = React.forwardRef<HTMLElement, BoxProps>(function Keycap({ 
     overflowWrap: 'anywhere', maxWidth: '100%' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}>{children}</Box>;
 });
 export interface ShortcutHintProps extends Omit<BoxProps, 'children'> {
-  keys: readonly string[];
-  /** Spoken form, e.g. "Command plus Shift plus S". No shortcut is registered. */
-  label: string;
+  /** A display string such as "Ctrl+K", or individually specified key labels. */
+  keys: string | readonly string[];
+  /** Accessible name. Defaults to the displayed combination. */
+  label?: string;
   separator?: React.ReactNode;
 }
 export const ShortcutHint = React.forwardRef<HTMLSpanElement, ShortcutHintProps>(function ShortcutHint(
   { keys, label, separator = '+', sx, ...props }, ref
 ) {
-  return <Box component="span" ref={ref} {...props} role="img" aria-label={label} sx={[{ display: 'inline-flex', flexWrap: 'wrap',
+  const parts = typeof keys === 'string' ? keys.split('+') : keys;
+  return <Box component="span" ref={ref} {...props} role="img" aria-label={label ?? parts.join('+')} sx={[{ display: 'inline-flex', flexWrap: 'wrap',
     alignItems: 'center', gap: 0.75, maxWidth: '100%' }, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}>
-    {keys.map((key, index) => <React.Fragment key={`${key}-${index}`}>{index ? <Box component="span" aria-hidden="true" sx={{ color: 'text.secondary' }}>{separator}</Box> : null}<Keycap aria-hidden="true">{key}</Keycap></React.Fragment>)}
+    {parts.map((key, index) => <React.Fragment key={`${key}-${index}`}>{index ? <Box component="span" aria-hidden="true" sx={{ color: 'text.secondary' }}>{separator}</Box> : null}<Keycap aria-hidden="true">{key}</Keycap></React.Fragment>)}
   </Box>;
 });

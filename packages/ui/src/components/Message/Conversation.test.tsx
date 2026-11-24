@@ -74,6 +74,21 @@ it('links disclosures, reports controlled requests and keeps child actions indep
     screen.getByRole('region', { name: 'Review' })
   );
 });
+it('restores focus through the shared disclosure when a caller collapses an activity', () => {
+  const { rerender } = renderWithUi(
+    <ActivityItem title="Details" expanded keepMounted>
+      <button>Inspect</button>
+    </ActivityItem>
+  );
+  act(() => screen.getByRole('button', { name: 'Inspect' }).focus());
+  rerender(
+    <ActivityItem title="Details" expanded={false} keepMounted>
+      <button>Inspect</button>
+    </ActivityItem>
+  );
+  expect(screen.getByRole('button', { name: 'Details' })).toHaveFocus();
+  expect(screen.queryByRole('button', { name: 'Inspect' })).toBeNull();
+});
 it('puts the primary action first, collects a required reason and guards pending decisions', async () => {
   let reject!: (e: Error) => void;
   const decide = vi.fn(

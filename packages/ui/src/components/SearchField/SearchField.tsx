@@ -6,6 +6,8 @@ import { ProgressIndicator } from '../ProgressIndicator';
 import { useControllableValue } from '../../internal/useControllableValue';
 export interface SearchFieldProps extends TextFieldProps {
   'aria-label': string;
+  /** Let an enclosing combobox or dialog handle Escape when false. */
+  clearOnEscape?: boolean;
   onSearch?: (value: string) => void;
   debounceMs?: number;
   onDebouncedChange?: (value: string) => void;
@@ -24,6 +26,7 @@ export function SearchField({
   shortcut,
   resultsLabel,
   clearable = true,
+  clearOnEscape = true,
   onKeyDown,
   inputProps,
   endAdornment,
@@ -58,10 +61,14 @@ export function SearchField({
         onChange={change}
         clearable={clearable}
         endAdornment={
-          <>
-            {endAdornment}
-            {shortcut && <ShortcutHint label={shortcut} keys={shortcut.split('+')} />}
-          </>
+          shortcut ? (
+            <>
+              {endAdornment}
+              <ShortcutHint keys={shortcut} />
+            </>
+          ) : (
+            endAdornment
+          )
         }
         onEnter={(next, event) => {
           props.onEnter?.(next, event);
@@ -69,7 +76,14 @@ export function SearchField({
         }}
         onKeyDown={(e) => {
           onKeyDown?.(e);
-          if (!e.defaultPrevented && e.key === 'Escape' && text && !props.readOnly && !e.nativeEvent.isComposing) {
+          if (
+            clearOnEscape &&
+            !e.defaultPrevented &&
+            e.key === 'Escape' &&
+            text &&
+            !props.readOnly &&
+            !e.nativeEvent.isComposing
+          ) {
             e.preventDefault();
             e.stopPropagation();
             change('', e, 'clear');

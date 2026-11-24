@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useTheme } from '@mui/material';
-import { getContrastRatio } from '@mui/material/styles';
-import { identityColor, type IdentityColor } from '../theme/category';
+import { contrastInk, identityColor, type IdentityColor } from '../theme/category';
 
 /** Resolve browser CSS colors (including variables and alpha) over the actual surface. */
 export function useIdentityPaint(color: IdentityColor | undefined, variant: 'soft' | 'outlined' | 'solid') {
@@ -27,7 +26,7 @@ export function useIdentityPaint(color: IdentityColor | undefined, variant: 'sof
     ctx.fillRect(0, 0, 1, 1);
     const rgb = ctx.getImageData(0, 0, 1, 1).data;
     const actual = 'rgb(' + [rgb[0], rgb[1], rgb[2]].join(',') + ')';
-    setInk(getContrastRatio(actual, '#fff') > getContrastRatio(actual, '#000') ? '#fff' : '#000');
+    setInk(contrastInk(actual, theme.palette.common));
   }, [surface, base, background, theme]);
   return { sample, base, background, ink };
 }

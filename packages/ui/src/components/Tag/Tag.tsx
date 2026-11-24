@@ -1,14 +1,17 @@
 import type * as React from 'react';
-import { Box, ButtonBase } from '@mui/material';
+import { Box, Chip, type ChipProps } from '@mui/material';
 import { useIdentityPaint } from '../../internal/useIdentityPaint';
 import type { IdentityColor } from '../../theme/category';
 import { styles, type SurfaceProps } from '../../internal/presentation';
+import type { StatusBadgeProps } from '../StatusBadge';
 import { Tooltip } from '../Tooltip';
 import { Text } from '../Text';
+import { IconButton } from '../IconButton';
+import { CloseIcon } from '../../internal/CloseIcon';
 export interface TagProps extends Omit<SurfaceProps, 'onClick' | 'children' | 'ref'> {
   label: string;
   color?: IdentityColor;
-  variant?: 'soft' | 'outlined' | 'solid';
+  variant?: StatusBadgeProps['variant'];
   size?: 'xs' | 'sm';
   icon?: React.ReactNode;
   maxWidth?: number | string;
@@ -35,14 +38,31 @@ export function Tag({
   ...props
 }: TagProps) {
   const { sample, base, background, ink } = useIdentityPaint(color, variant);
-  const content = (
-    <>
-      {icon}
-      <Text truncate variant="caption" sx={{ color: 'inherit' }}>
+  const height = size === 'xs' ? 18 : density === 'comfortable' ? 30 : 28;
+  const chipProps = {
+    size: 'small',
+    variant: variant === 'outlined' ? 'outlined' : 'filled',
+    icon: icon != null ? <span>{icon}</span> : undefined,
+    label: (
+      <Text truncate variant="caption" sx={{ color: 'inherit', fontWeight: 'inherit' }}>
         {label}
       </Text>
-    </>
-  );
+    ),
+    sx: {
+      maxWidth: '100%',
+      minWidth: 0,
+      height,
+      color: 'inherit',
+      // The independently focusable remove action occupies the end of the chip.
+      ...(onRemove && { paddingInlineEnd: (theme) => theme.spacing(size === 'xs' ? 4.5 : 7) }),
+      bgcolor: 'background.paper',
+      backgroundImage: 'linear-gradient(' + background + ', ' + background + ')',
+      borderColor: variant === 'outlined' ? base : undefined,
+      '& .MuiChip-label': { minWidth: 0, px: size === 'xs' ? 1 : 2 },
+      '& .MuiChip-icon': { color: 'inherit' },
+      '&.Mui-focusVisible': { outline: '2px solid currentColor', outlineOffset: -2 }
+    }
+  } satisfies ChipProps;
   return (
     <Tooltip title={tooltip ?? ''} describeChild>
       <Box
@@ -54,30 +74,38 @@ export function Tag({
             position: 'relative',
             display: 'inline-flex',
             verticalAlign: 'middle',
-            alignItems: 'center',
-            gap: 1,
-            maxWidth,
             minWidth: 0,
-            height: size === 'xs' ? 18 : density === 'comfortable' ? 30 : 28,
-            px: size === 'xs' ? 1 : 2,
-            border: 1,
-            borderColor: variant === 'outlined' ? base : 'transparent',
-            borderRadius: 1,
-            backgroundColor: 'background.paper',
-            backgroundImage: 'linear-gradient(' + background + ', ' + background + ')',
-            color: ink,
-            '& button': { color: 'inherit', gap: 1, minWidth: 0 },
-            '& button:focus-visible': { outline: '2px solid currentColor' }
+            maxWidth,
+            color: ink
           },
           sx
         )}
       >
         <span ref={sample} hidden style={{ backgroundColor: background }} />
-        {onClick ? <ButtonBase onClick={onClick}>{content}</ButtonBase> : content}
+        {onClick ? (
+          <Chip {...chipProps} component="button" type="button" onClick={onClick} />
+        ) : (
+          <Chip {...chipProps} component="span" />
+        )}
         {onRemove && (
-          <ButtonBase aria-label={removeLabel ?? 'Remove ' + label} onClick={onRemove}>
-            ×
-          </ButtonBase>
+          <IconButton
+            aria-label={removeLabel ?? 'Remove ' + label}
+            onClick={onRemove}
+            outlined={false}
+            variant="round"
+            sx={{
+              position: 'absolute',
+              insetInlineEnd: 0,
+              top: 0,
+              height,
+              width: height,
+              p: 0,
+              color: 'inherit',
+              '& svg': { fontSize: size === 'xs' ? 12 : 16 }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
         )}
       </Box>
     </Tooltip>

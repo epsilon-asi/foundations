@@ -5,10 +5,11 @@ import {
   type TextFieldProps as MuiTextFieldProps
 } from '@mui/material';
 import { useForkRef } from '@mui/material/utils';
+import { CloseIcon } from '../../internal/CloseIcon';
 import { IconButton } from '../IconButton';
 import { useControllableValue } from '../../internal/useControllableValue';
 import { styles, type Density } from '../../internal/presentation';
-import { monospaceFamily } from '../../theme/category';
+import { themeMonospace } from '../../theme/category';
 
 export type TextChangeReason = 'input' | 'clear';
 export interface TextFieldProps extends Omit<
@@ -62,6 +63,7 @@ export function FieldControl({
   onEnter,
   disabled,
   inputRef,
+  InputProps,
   inputProps,
   onKeyDown,
   density = 'compact',
@@ -135,29 +137,36 @@ export function FieldControl({
       }
       slotProps={{
         input: {
-          readOnly,
-          startAdornment: startAdornment != null && (
-            <InputAdornment position="start">{startAdornment}</InputAdornment>
-          ),
-          endAdornment: (endAdornment != null || clearable) && (
-            <InputAdornment position="end">
-              {clearable && !!text && !readOnly && (
-                <IconButton
-                  aria-label={clearLabel}
-                  outlined={false}
-                  disabled={disabled}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={(e) => {
-                    change('', e, 'clear');
-                    local.current?.focus();
-                  }}
-                >
-                  ×
-                </IconButton>
-              )}
-              {endAdornment}
-            </InputAdornment>
-          )
+          ...InputProps,
+          readOnly: readOnly ?? InputProps?.readOnly,
+          startAdornment:
+            startAdornment == null ? (
+              InputProps?.startAdornment
+            ) : (
+              <InputAdornment position="start">{startAdornment}</InputAdornment>
+            ),
+          endAdornment:
+            endAdornment == null && !clearable ? (
+              InputProps?.endAdornment
+            ) : (
+              <InputAdornment position="end">
+                {clearable && !!text && !readOnly && (
+                  <IconButton
+                    aria-label={clearLabel}
+                    outlined={false}
+                    disabled={disabled}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      change('', e, 'clear');
+                      local.current?.focus();
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
+                {endAdornment}
+              </InputAdornment>
+            )
         },
         htmlInput: {
           ...inputProps,
@@ -176,7 +185,7 @@ export function FieldControl({
           minWidth: 0,
           '& .MuiInputBase-root': {
             minHeight: density === 'compact' ? 28 : 36,
-            ...(monospace && { fontFamily: (t) => t.identity?.monospaceFamily ?? monospaceFamily })
+            ...(monospace && { fontFamily: themeMonospace })
           },
           '& textarea:not([aria-hidden])': { resize },
           '& .MuiFormHelperText-root': { mx: 0, overflowWrap: 'anywhere' }

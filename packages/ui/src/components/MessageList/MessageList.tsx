@@ -67,8 +67,7 @@ export function MessageList<Item>({
 }: MessageListProps<Item>) {
   const list = React.useRef<VirtuosoHandle>(null),
     viewport = React.useRef<HTMLElement | null>(null);
-  const [bottom, setBottom] = React.useState(true),
-    pinned = React.useRef(true);
+  const [bottom, setBottom] = React.useState(true);
   const navigation = React.useRef<{ key: string; align: 'start' | 'center' | 'end' }>(undefined);
   const keys = React.useMemo(() => items.map(getItemKey), [items, getItemKey]);
   const currentKeys = React.useRef(keys);
@@ -81,6 +80,10 @@ export function MessageList<Item>({
     const index = currentKeys.current.indexOf(target.key);
     if (index >= 0) list.current.scrollToIndex({ index, align: target.align });
   }, []);
+  const navigateTo = (key: string, align: 'start' | 'center' | 'end') => {
+    navigation.current = { key, align };
+    navigate();
+  };
   const attachList = React.useCallback(
     (handle: VirtuosoHandle | null) => {
       list.current = handle;
@@ -88,28 +91,33 @@ export function MessageList<Item>({
     },
     [navigate]
   );
-  const frame = React.useRef(0),
-    userScroll = React.useRef(false);
-  const followHeight = React.useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    if (followOutput)
-      frame.current = requestAnimationFrame(() => {
-        const el = viewport.current;
-        if (el && (followOutput === 'always' || pinned.current)) {
-          el.scrollTop = el.scrollHeight;
-        }
-      });
-  }, [followOutput]);
-  React.useEffect(() => () => cancelAnimationFrame(frame.current), []);
-  const measureLast = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!node || typeof ResizeObserver === 'undefined') return;
-      const observer = new ResizeObserver(followHeight);
-      observer.observe(node);
-      return () => observer.disconnect();
-    },
-    [followHeight]
-  );
+  // Appending items is handled by followOutput. On a resize without an append,
+  // use the previous measured height to tell a pinned reader from one reading history.
+  const lastHeight = React.useRef(0);
+  const followResize = (height: number) => {
+    const previous = lastHeight.current;
+    lastHeight.current = height;
+    const el = viewport.current;
+    // Measurements can arrive while the initial scroll or a keyed jump is pending.
+    // Preserve the latest explicit destination through those virtualizer retries.
+    if (navigation.current && height !== previous) {
+      navigate();
+      return;
+    }
+    if (!el || !previous || height <= previous || !followOutput) return;
+    if (previous - el.clientHeight - el.scrollTop <= 2) {
+      list.current?.scrollToIndex({ index: 'LAST', align: 'end' });
+    }
+  };
+  React.useLayoutEffect(() => {
+    if (followOutput === 'always') {
+      navigation.current = undefined;
+      list.current?.scrollToIndex({ index: 'LAST', align: 'end' });
+    }
+  }, [items, followOutput]);
+  const releaseNavigation = () => {
+    navigation.current = undefined;
+  };
   const [highlight, setHighlight] = React.useState<string>(),
     timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   React.useEffect(() => () => clearTimeout(timer.current), []);
@@ -131,8 +139,6 @@ export function MessageList<Item>({
   }, [first, navigate]);
   const scrollToBottom = (options?: { smooth?: boolean }) => {
     navigation.current = undefined;
-    userScroll.current = false;
-    pinned.current = true;
     list.current?.scrollToIndex({
       index: 'LAST',
       align: 'end',
@@ -146,10 +152,7 @@ export function MessageList<Item>({
     scrollToItem(key, options) {
       const index = keys.indexOf(key);
       if (index < 0) return;
-      userScroll.current = false;
-      pinned.current = index === keys.length - 1 && options?.align === 'end';
-      navigation.current = { key, align: options?.align ?? 'start' };
-      navigate();
+      navigateTo(key, options?.align ?? 'start');
       if (options?.highlight) {
         setHighlight(key);
         clearTimeout(timer.current);
@@ -179,56 +182,36 @@ export function MessageList<Item>({
             context={context}
             firstItemIndex={first}
             defaultItemHeight={estimateItemHeight}
-            initialTopMostItemIndex={0}
+            initialTopMostItemIndex={followOutput ? { index: 'LAST', align: 'end' } : 0}
             computeItemKey={(_, item) => getItemKey(item)}
-            followOutput={false}
+            followOutput={
+              followOutput === false
+                ? false
+                : (atEnd) => (followOutput === 'always' || (atEnd && !navigation.current) ? 'auto' : false)
+            }
             scrollerRef={(el) => {
               viewport.current = el instanceof HTMLElement ? el : null;
             }}
-            onWheelCapture={(event) => {
-              navigation.current = undefined;
-              userScroll.current = true;
-              if (event.deltaY < 0) pinned.current = false;
-            }}
-            onTouchMoveCapture={() => {
-              navigation.current = undefined;
-              userScroll.current = true;
-              pinned.current = false;
-            }}
-            onPointerDownCapture={(event) => {
-              if (event.target === event.currentTarget) {
-                navigation.current = undefined;
-                userScroll.current = true;
-              }
-            }}
-            isScrolling={(scrolling) => {
-              if (!scrolling) userScroll.current = false;
-            }}
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              if (!(el instanceof HTMLElement)) return;
-              if (userScroll.current) pinned.current = atBottom(el);
-              else if (!navigation.current && atBottom(el)) pinned.current = true;
-            }}
+            onWheelCapture={releaseNavigation}
+            onTouchMoveCapture={releaseNavigation}
+            onPointerDownCapture={releaseNavigation}
             atBottomStateChange={setBottom}
+            totalListHeightChanged={followResize}
             startReached={() => {
               if (!loadingOlder) onReachTop?.();
             }}
-            totalListHeightChanged={followHeight}
             onKeyDown={(e) => {
               onKeyDown?.(e);
               if (e.defaultPrevented || e.target !== e.currentTarget) return;
               const el = viewport.current;
               if (!el) return;
               if (['Home', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) {
-                navigation.current = undefined;
-                userScroll.current = true;
-                pinned.current = false;
+                releaseNavigation();
               }
               if (e.key === 'End') scrollToBottom();
-              else if (e.key === 'Home') el.scrollTop = 0;
+              else if (e.key === 'Home') navigateTo(keys[0], 'start');
               else if (e.key === 'PageUp' || e.key === 'PageDown')
-                el.scrollTop += (e.key === 'PageUp' ? -1 : 1) * el.clientHeight;
+                list.current?.scrollBy({ top: (e.key === 'PageUp' ? -1 : 1) * el.clientHeight });
               else return;
               e.preventDefault();
             }}
@@ -236,7 +219,6 @@ export function MessageList<Item>({
               const marked = highlight !== undefined && getItemKey(item) === highlight;
               return (
                 <Box
-                  ref={index - first === items.length - 1 ? measureLast : undefined}
                   sx={{
                     pb: index - first === items.length - 1 ? 0 : (gap ?? (density === 'comfortable' ? 3 : 2)),
                     bgcolor: marked ? 'action.selected' : undefined

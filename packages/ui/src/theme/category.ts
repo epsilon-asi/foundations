@@ -1,4 +1,4 @@
-import type { Theme } from '@mui/material/styles';
+import { getContrastRatio, type Theme } from '@mui/material/styles';
 import type { StatusBadgeTone } from '../components/StatusBadge';
 export const categoricalPalette = {
   plum: ['#794c81', '#dba8e4'],
@@ -42,4 +42,16 @@ export function identityColor(theme: Theme, color: IdentityColor = 'neutral') {
   if (color === 'info' || color === 'success' || color === 'warning' || color === 'error')
     return theme.palette[color as Exclude<StatusBadgeTone, 'neutral'>].main;
   return color;
+}
+
+export function themeMonospace(theme: Theme) {
+  return theme.identity?.monospaceFamily ?? monospaceFamily;
+}
+
+export function identityStripe(theme: Theme, color?: IdentityColor) {
+  return color ? { borderInlineStart: '3px solid', borderInlineStartColor: identityColor(theme, color) } : {};
+}
+
+export function contrastInk(background: string, { black, white }: Theme['palette']['common']) {
+  return getContrastRatio(background, white) >= getContrastRatio(background, black) ? white : black;
 }

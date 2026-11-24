@@ -8,8 +8,8 @@ import { ShortcutHint } from '../Keycap';
 import { StatusBadge } from '../StatusBadge';
 import { DateDisplay, type DateValue } from '../DateDisplay';
 import { Text } from '../Text';
+import { Alert } from '../Alert';
 import { useSubmission } from '../../internal/useSubmission';
-import { reducedMotion, styles } from '../../internal/presentation';
 export interface DecisionAction {
   id: string;
   label: string;
@@ -89,7 +89,7 @@ export function DecisionCard({
       title={title}
       headingLevel={headingLevel}
       aria-busy={busy || pending !== undefined || undefined}
-      sx={styles(reducedMotion, sx)}
+      sx={sx}
       headerAction={<StatusBadge tone={tone === 'danger' ? 'error' : tone} label={tone} />}
     >
       <Stack density={density}>
@@ -143,18 +143,14 @@ export function DecisionCard({
                   }}
                 >
                   {a.label}
-                  {a.shortcut && <ShortcutHint keys={a.shortcut.split('+')} label={a.shortcut} />}
+                  {a.shortcut && <ShortcutHint keys={a.shortcut} />}
                 </ActionButton>
                 {a.description && <Text variant="caption">{a.description}</Text>}
               </Stack>
             ))}
           </Stack>
         )}
-        {error && (
-          <Text role="alert" tone="error">
-            {error}
-          </Text>
-        )}
+        {error && <Alert severity="error">{error}</Alert>}
       </Stack>
     </Panel>
   );

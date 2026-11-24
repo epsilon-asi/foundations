@@ -7,6 +7,7 @@ import { TextField } from '../TextField';
 import { ActionButton } from '../ActionButton';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
+import { Alert } from '../Alert';
 import { DateDisplay, type DateValue } from '../DateDisplay';
 import { useSubmission } from '../../internal/useSubmission';
 export interface Question {
@@ -157,11 +158,7 @@ export function QuestionCard({
             )}
           </Stack>
         )}
-        {error && (
-          <Text role="alert" tone="error">
-            {error}
-          </Text>
-        )}
+        {error && <Alert severity="error">{error}</Alert>}
       </Stack>
     </Panel>
   );

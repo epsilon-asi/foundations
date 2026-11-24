@@ -4,7 +4,7 @@ import { ScrollArea, type ScrollAreaHandle } from '../ScrollArea';
 import { Stack } from '../Stack';
 import { CopyButton } from '../CopyButton';
 import { Text } from '../Text';
-import { monospaceFamily } from '../../theme/category';
+import { themeMonospace } from '../../theme/category';
 import { appendLog, emptyLog, type LogLine, type LogState } from './lines';
 import { type SurfaceProps } from '../../internal/presentation';
 type Source = { text?: string; chunks?: never } | { text?: never; chunks: readonly string[] };
@@ -156,7 +156,7 @@ export function OutputLog({
               whiteSpace: wrap ? 'pre-wrap' : 'pre',
               overflowWrap: 'anywhere',
               tabSize: 2,
-              fontFamily: (t) => t.identity?.monospaceFamily ?? monospaceFamily,
+              fontFamily: themeMonospace,
               fontSize: '0.8125rem'
             }}
           >

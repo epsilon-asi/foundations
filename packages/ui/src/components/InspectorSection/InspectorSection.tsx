@@ -40,7 +40,7 @@ export const InspectorSection = React.forwardRef<HTMLDivElement, InspectorSectio
         borderRadius: 0.5, '&.Mui-disabled': { opacity: 0.5 },
         '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}>
       <SvgIcon fontSize="small" sx={(theme) => ({ flexShrink: 0, transform: open ? 'rotate(90deg)' : theme.direction === 'rtl' ? 'rotate(180deg)' : 'none' })}><path d="m9 5 7 7-7 7Z" /></SvgIcon>
-      <Box component="span" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>{title}</Box>
+      <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{title}</Box>
     </ButtonBase> : title}>
     <Box id={`${id}-content`} hidden={!open} role={collapsible ? 'region' : undefined}
       aria-labelledby={collapsible ? `${id}-toggle` : undefined}

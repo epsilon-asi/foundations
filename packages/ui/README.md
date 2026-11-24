@@ -416,7 +416,7 @@ sized app layout; the app owns breakpoint decisions and panel positioning.
 `Panel` provides an optional heading/subtitle, separate `headerAction`, content,
 and `footer`, with compact/comfortable density. Use `headingLevel` for the page's
 heading hierarchy, `headerSx` to customize header layout, and `contentSx` for body padding or scrolling. A headerless panel
-works as a simple surface.
+works as a simple surface. Set `headerDivider={false}` for a continuous surface between the header and body.
 
 `InspectorSection` adds a native disclosure button. It supports controlled
 `expanded`/`onExpandedChange` or uncontrolled `defaultExpanded`, optional
@@ -1258,7 +1258,10 @@ callers choose serialization rather than the wrappers converting values.
 
 ## Conversation and content components
 
-The base package exports the components and their props. Import the content renderers
+The base package exports the components and their props. MUI theme overrides apply
+to the underlying primitives. For example, `MuiStack` styles reach the conversation
+layouts, `MuiChip` styles reach category tags, and `MuiTableCell` styles reach
+data tables, Markdown tables and diffs. Import the content renderers
 from their subpaths for synchronous first paint. The base exports of `Markdown` and
 `DiffView` load the same renderers on first use. Bundle the emitted chunks as local
 application assets. The transcript virtualizer and built-in code grammars also load locally on demand.
@@ -1287,7 +1290,7 @@ import { DiffView } from '@epsilon-asi/ui/diff';
 ### Box, Stack and Divider
 
 `Box` accepts the theme's `sx` styles and an `as` element. `Stack` lays out children
-with CSS gap. It defaults to a column with two spacing units between children.
+with MUI flex-gap spacing. It defaults to a column with two spacing units between children.
 Use `direction`, `align`, `justify`, `inline`, and `wrap` for other arrangements.
 A supplied `divider` goes between visible children. `Divider` supports either
 orientation, an inset rule, and a centered label. A label gives it separator semantics.
@@ -1333,7 +1336,7 @@ from two to eight rows by default. Set `resize="vertical"` to allow manual resiz
 
 `SearchField` requires an accessible landmark name. Enter calls `onSearch`.
 `onDebouncedChange` receives the latest settled value. Escape clears a populated
-field and a subsequent Escape bubbles. `shortcut` displays a key hint and
+field and a subsequent Escape bubbles. Use `clearOnEscape={false}` when a surrounding control owns Escape. `shortcut` displays a key hint and
 `resultsLabel` announces a short result count.
 
 ### MessageComposer
@@ -1414,7 +1417,7 @@ to expose a retry action and `highlighted` to mark a navigation target.
 actions. Children enable a disclosure button with a named content region. Without
 children the row is static. Enter or Space toggles a focused disclosure.
 `expanded`, `defaultExpanded` and `onExpandedChange` follow the inspector
-convention. Closed content unmounts unless `keepMounted` is set.
+convention. If a controlled row closes while focus is inside, `InspectorSection` returns focus to the disclosure. Closed content unmounts unless `keepMounted` is set.
 `ActivityGroup` uses the same row and disclosure to group related steps.
 
 ### DecisionCard and QuestionCard
@@ -1450,13 +1453,13 @@ with a textual threshold state. Use `ProgressIndicator` for task completion.
 
 ### StreamingIndicator, Skeleton and CommandPalette
 
-`StreamingIndicator` displays three animated dots with a required spoken label.
+`StreamingIndicator` uses a small MUI circular progress indicator with a required spoken label.
 `Skeleton` renders text lines, rectangles or circles. Place busy semantics on the
 parent of the hidden placeholders. Both animations stop under reduced motion.
 
-`CommandPalette` combines a modal dialog, local search field and grouped results.
+`CommandPalette` uses `ModalDialog` and the same MUI autocomplete control as `SingleSelect` and `MultiSelect`. The search field and grouped results appear together inside the dialog.
 Items can supply a subtitle, keywords, disabled state and display-only shortcut.
-Arrows move the active option while focus stays in the combobox. Enter invokes
+Arrows move the active option while focus stays in the combobox. Home and End move to the first and last enabled results. Enter invokes
 `onSelect` and reports `itemClick`. Escape reports `escapeKeyDown`. The caller
 closes the dialog and the dialog restores focus. Query and filtering can both
 be caller-owned. All shortcuts are scoped to the focused control.
