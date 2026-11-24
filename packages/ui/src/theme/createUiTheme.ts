@@ -1,6 +1,8 @@
+import { identityTheme } from './category';
 import { alpha, createTheme, type ThemeOptions } from '@mui/material/styles';
 
 export const uiThemeOptions: ThemeOptions = {
+  identity: identityTheme,
   spacing: 4,
   cssVariables: {
     cssVarPrefix: 'ui'

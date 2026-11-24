@@ -1,6 +1,6 @@
 {
   "name": "@epsilon-asi/ui",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "A modern React 19 + MUI 7 component library starter with TypeScript, Storybook, tests, and publish-ready packaging.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
@@ -19,7 +19,22 @@
       "import": "./dist/theme.js",
       "require": "./dist/theme.cjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js",
+      "require": "./dist/markdown.cjs"
+    },
+    "./code": {
+      "types": "./dist/code.d.ts",
+      "import": "./dist/code.js",
+      "require": "./dist/code.cjs"
+    },
+    "./diff": {
+      "types": "./dist/diff.d.ts",
+      "import": "./dist/diff.js",
+      "require": "./dist/diff.cjs"
+    }
   },
   "files": [
     "dist",
@@ -72,6 +87,7 @@
     "@storybook/react-vite": "^10.0.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
+    "@types/markdown-it": "^14.2.0",
     "@types/node": "^25.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -95,5 +111,10 @@
     "typescript",
     "component-library",
     "design-system"
-  ]
+  ],
+  "dependencies": {
+    "diff": "9.0.0",
+    "markdown-it": "^14.3.3",
+    "react-virtuoso": "4.18.24"
+  }
 }

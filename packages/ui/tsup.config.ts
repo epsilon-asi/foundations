@@ -3,6 +3,9 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    markdown: 'src/components/Markdown/index.ts',
+    code: 'src/components/CodeBlock/index.ts',
+    diff: 'src/components/DiffView/index.ts',
     theme: 'src/theme/index.ts'
   },
   format: ['esm', 'cjs'],
@@ -10,7 +13,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  splitting: false,
+  splitting: true,
   minify: false,
   target: 'es2022',
   outDir: 'dist',

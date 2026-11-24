@@ -1255,3 +1255,208 @@ time zones, explicitly extend Day.js with its `utc` and `timezone` plugins befor
 passing `timezone`. The provider does not install global plugins. Date-only
 values, wall-clock times, and date-time instants have different storage needs;
 callers choose serialization rather than the wrappers converting values.
+
+## Conversation and content components
+
+The base package exports the components and their props. Import the content renderers
+from their subpaths for synchronous first paint. The base exports of `Markdown` and
+`DiffView` load the same renderers on first use. Bundle the emitted chunks as local
+application assets. The transcript virtualizer and built-in code grammars also load locally on demand.
+
+```tsx
+import { Message, MessageComposer, MessageList, Stack } from '@epsilon-asi/ui';
+import { Markdown } from '@epsilon-asi/ui/markdown';
+import { CodeBlock, InlineCode } from '@epsilon-asi/ui/code';
+import { DiffView } from '@epsilon-asi/ui/diff';
+
+<Stack>
+  <MessageList
+    aria-label="Conversation"
+    items={messages}
+    getItemKey={item => item.id}
+    renderItem={(item, { highlighted }) => (
+      <Message role={item.role} author={item.author} timestamp={item.at} highlighted={highlighted}>
+        <Markdown content={item.body} streaming={item.streaming} />
+      </Message>
+    )}
+  />
+  <MessageComposer aria-label="Write a message" onSubmit={send} busy={working} onStop={stop} />
+</Stack>;
+```
+
+### Box, Stack and Divider
+
+`Box` accepts the theme's `sx` styles and an `as` element. `Stack` lays out children
+with CSS gap. It defaults to a column with two spacing units between children.
+Use `direction`, `align`, `justify`, `inline`, and `wrap` for other arrangements.
+A supplied `divider` goes between visible children. `Divider` supports either
+orientation, an inset rule, and a centered label. A label gives it separator semantics.
+Place spacing between neighboring surfaces on their parent.
+
+### Text and Tooltip
+
+`Text` accepts `body`, `bodySmall`, `caption`, `label`, `code`, `title`, and
+`subtitle`. Use `as` to set the semantic element independently of the size.
+Set `truncate` for a single line or pass a line count. The full content stays in
+the accessibility tree. Measured overflow enables a tooltip. `Tooltip` opens on
+hover or keyboard focus, dismisses on Escape, and supports disabled controls.
+Use `describeChild` for supplementary information alongside an existing name.
+
+### ScrollArea
+
+Supply `aria-label`, an `axis`, and a height constraint for vertical content.
+Overflow makes the region keyboard-focusable. `onReachStart` and `onReachEnd`
+report edge crossings. The ref exposes `scrollToTop()`, `scrollToBottom({ smooth })`,
+and `isAtBottom()`. Smooth requests honor reduced motion.
+
+### Tag and Avatar
+
+`Tag` displays a category label in soft, outlined, or solid form. Use `size="xs"`
+for an 18px label. Activation and removal have separate buttons. Supply a
+`removeLabel` when a row needs a more specific accessible name.
+`Avatar` uses a local image, an icon, or initials from the first and last name
+parts. Its default color comes from `categoricalColor(name)`.
+
+Both accept a status tone, a named `CategoricalColor`, or a CSS color. The twelve
+light/dark pairs live in `categoricalPalette`. Theme overrides are available under
+`identity.categorical` and `identity.monospaceFamily`. Keys map deterministically
+across sessions. Labels carry the category name independently of its color.
+
+### TextField, TextArea and SearchField
+
+`TextField` and `TextArea` accept `value` or `defaultValue` and report
+`onChange(value, event, reason)`. Reasons are `input` and `clear`. The
+`inputRef` reaches the native control. Inspector row IDs and descriptions attach
+to that control. String errors supply announced helper text. Adornments, a clear
+button, character counts, and a monospace font are optional. `TextArea` grows
+from two to eight rows by default. Set `resize="vertical"` to allow manual resizing.
+
+`SearchField` requires an accessible landmark name. Enter calls `onSearch`.
+`onDebouncedChange` receives the latest settled value. Escape clears a populated
+field and a subsequent Escape bubbles. `shortcut` displays a key hint and
+`resultsLabel` announces a short result count.
+
+### MessageComposer
+
+Supply `aria-label` and `onSubmit`. The composer preserves surrounding whitespace
+in submitted drafts and rejects a whitespace-only draft. The uncontrolled input
+clears after submission. A controlled caller updates its own value. Enter submits
+by default. With `submitOn="mod+enter"`, use Control or Command with Enter.
+Shift+Enter and composition input remain available for editing.
+
+`busy` keeps the draft editable and exposes Stop when `onStop` is supplied. Pass
+local file handlers to accept pasted or dropped files. The ref supports `focus()`,
+`clear()`, and `insertText(text)` at the current selection. Use the attachments,
+status, and action slots for caller-owned content.
+
+### Markdown, CodeBlock and InlineCode
+
+`Markdown` renders blocks, links, GFM tables, tasks and strikethrough with React
+elements. HTML is literal text. Images require an explicit `renderImage`. Links
+and image destinations pass through the protocol allowlist, which defaults to
+HTTP, HTTPS and mailto. Local navigation belongs in `renderLink` or `onLinkClick`.
+Use `headingLevelOffset` to place content in the surrounding heading hierarchy.
+Wide tables scroll within named keyboard regions.
+
+Use `streaming` for append-only updates. The final block stays open for new input.
+Reference definitions can change earlier links, so adding a definition triggers
+a fresh parse. Completed blocks with unchanged tokens retain their rendered
+content. Fences use `CodeBlock` and inline spans use `InlineCode`.
+
+`CodeBlock` accepts source text and an optional language, title, line numbers,
+highlighted lines and action slots. Copy returns the original source. Wrap can be
+controlled with `wrap` and `onWrapChange` or initialized with `defaultWrap`.
+`collapsedLines` clips the initial line count behind a disclosure. Tab reaches
+the named code region. Syntax tokens carry text and one of four semantic kinds.
+The local grammars cover JavaScript, TypeScript, JSON, shell and Python. Unknown
+languages and actively streaming blocks use the same monospace layout. Supply
+`highlight` to extend language coverage.
+
+### DiffView and OutputLog
+
+`DiffView` accepts a unified patch or an old/new text pair. Its file header
+includes status, counts, path, and a copy action. A split comparison switches to
+one column below 640px of component width. Signs identify additions and
+deletions. `contextLines` folds available unchanged lines. A patch can only
+expand lines present in its input. `wordDiff` marks changes within paired lines.
+`maxLines` gates large tables behind an explicit action. Malformed hunks appear
+as literal text in an error notice.
+
+`OutputLog` accepts a string or an immutable sequence of appended chunks.
+The decoder carries unfinished lines and terminal escape sequences across chunks.
+Standard and bright foreground colors are supported. Other terminal controls
+are discarded. `maxLines` retains the newest lines with a count of dropped
+history. Copy returns the visible, decoded transcript. Scrolling up pauses
+following. The named log defaults to `aria-live="off"`.
+
+### MessageList and Message
+
+`MessageList` virtualizes measured row heights. Give each entry a unique, stable
+string key and size the viewport with `sx`. Its default height is 360px.
+`followOutput="auto"` follows incoming output while pinned. `"always"` follows
+on update and `false` leaves navigation to the reader. Loading older entries at
+the start preserves the current position. `onReachTop` signals demand for history.
+The caller owns loading, data, and the optional unseen count.
+
+PageUp, PageDown, Home and End navigate a focused transcript. Jump to latest
+returns to its end. The ref exposes bottom scrolling, a bottom check, and
+`scrollToItem(key, { align, highlight })` for opening a result in context.
+An unknown key is ignored.
+
+`Message` gives each entry article semantics, an author and time, and slots for
+its body, actions and footer. User entries align to the logical end. Notices use
+a centered caption. Actions appear on hover and keyboard focus. Supply `onRetry`
+to expose a retry action and `highlighted` to mark a navigation target.
+
+### ActivityItem and ActivityGroup
+
+`ActivityItem` displays a title, optional metadata, status and independent
+actions. Children enable a disclosure button with a named content region. Without
+children the row is static. Enter or Space toggles a focused disclosure.
+`expanded`, `defaultExpanded` and `onExpandedChange` follow the inspector
+convention. Closed content unmounts unless `keepMounted` is set.
+`ActivityGroup` uses the same row and disclosure to group related steps.
+
+### DecisionCard and QuestionCard
+
+`DecisionCard` maps an ordered collection of actions to buttons. The first
+primary action gets the primary style and the first tab stop. Actions can show
+descriptions, key hints, and a reason field. `onDecision(id, { reason })` can
+return a promise. Pending work disables further choices. A rejection displays
+its message and enables retry. Supplying `resolution` replaces the buttons with
+a summary and disclosure for the original detail.
+
+`QuestionCard` uses radio groups for single choices and labelled checkboxes
+for multiple choices. An optional Other field contributes its text to the answer.
+Submission validates each question and reports an answer map keyed by question
+ID. Selected option labels are the values. Use unique option labels within each
+question. `resolution` displays the recorded answers and optional time read-only.
+
+### HighlightedText, DataTable and Meter
+
+`HighlightedText` marks literal query strings or explicit UTF-16 ranges with
+exclusive ends. Ranges take precedence and overlaps merge. `snippet.maxLength`
+limits source text around the first match. Ellipses identify the omitted sides.
+
+`DataTable` takes column renderers, rows, and stable keys. Sorting buttons report
+a column ID and direction. The caller orders rows and owns the selected keys.
+Enter or Space activates a focused row. Selection controls and row actions operate
+independently. The labelled scroll region contains wide columns. Supply
+`stickyHeader`, `loading` or `emptyState` for the corresponding presentation.
+
+`Meter` exposes a measured percentage and accessible value text. Values clamp to
+0–100. Automatic tones use 75 and 90 as the default warning and danger thresholds,
+with a textual threshold state. Use `ProgressIndicator` for task completion.
+
+### StreamingIndicator, Skeleton and CommandPalette
+
+`StreamingIndicator` displays three animated dots with a required spoken label.
+`Skeleton` renders text lines, rectangles or circles. Place busy semantics on the
+parent of the hidden placeholders. Both animations stop under reduced motion.
+
+`CommandPalette` combines a modal dialog, local search field and grouped results.
+Items can supply a subtitle, keywords, disabled state and display-only shortcut.
+Arrows move the active option while focus stays in the combobox. Enter invokes
+`onSelect` and reports `itemClick`. Escape reports `escapeKeyDown`. The caller
+closes the dialog and the dialog restores focus. Query and filtering can both
+be caller-owned. All shortcuts are scoped to the focused control.
